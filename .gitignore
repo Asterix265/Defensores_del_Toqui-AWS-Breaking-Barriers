@@ -28,3 +28,10 @@ Thumbs.db
 
 # Índice local del grafo
 .codebase-memory/
+
+# Monorepo Node
+cdk.out/
+*.tsbuildinfo
+.pnpm-store/
+apps/api/src/generated/
+dev-dist/

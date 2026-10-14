@@ -1,0 +1,51 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  verificar:
+    runs-on: ubuntu-latest
+    env:
+      CDK_DISABLE_CLI_TELEMETRY: 'true'
+      PRISMA_HIDE_UPDATE_MESSAGE: '1'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+
+      - name: Activar pnpm con Corepack
+        run: corepack enable
+
+      - name: Instalar dependencias
+        run: pnpm install --frozen-lockfile
+
+      - name: Preparar paquetes generados
+        run: pnpm --filter @toqui/shared build && pnpm --filter @toqui/api prisma:generate
+
+      - name: Lint y formato
+        run: pnpm lint && pnpm format:check
+
+      - name: Tipos
+        run: pnpm typecheck
+
+      - name: Pruebas
+        run: pnpm test
+
+      - name: Build
+        run: pnpm build
+
+      - name: Contrato sin diferencias
+        run: |
+          pnpm contract
+          git diff --exit-code -- apps/api/openapi.json apps/web/src/api/generated
+
+      - name: Síntesis de infraestructura
+        run: pnpm infra:synth

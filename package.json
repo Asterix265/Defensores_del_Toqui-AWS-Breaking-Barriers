@@ -1,0 +1,34 @@
+{
+  "name": "defensores-del-toqui",
+  "private": true,
+  "description": "Monorepo del equipo Defensores del Toqui — AWS Breaking Barriers Chile 2026, desafío E-1",
+  "packageManager": "pnpm@11.13.0",
+  "engines": {
+    "node": ">=24 <25"
+  },
+  "scripts": {
+    "setup": "pnpm install && pnpm --filter @toqui/shared build && pnpm --filter @toqui/api prisma:generate",
+    "dev": "pnpm --filter @toqui/shared build && pnpm --parallel --filter @toqui/api --filter @toqui/web dev",
+    "db:up": "docker compose up -d --wait",
+    "db:down": "docker compose down",
+    "db:migrate": "pnpm --filter @toqui/api prisma:migrate",
+    "contract": "pnpm --filter @toqui/shared build && pnpm --filter @toqui/api openapi && pnpm --filter @toqui/web contract",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "typecheck": "pnpm -r typecheck",
+    "test": "pnpm -r test",
+    "build": "pnpm -r build",
+    "infra:synth": "pnpm --filter @toqui/infra synth"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.12.0",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "globals": "^17.13.0",
+    "prettier": "^3.9.10",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.71.2"
+  }
+}

@@ -1,0 +1,24 @@
+{
+  "name": "@toqui/infra",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Infraestructura AWS CDK (TypeScript). Este cambio solo sintetiza; no despliega.",
+  "type": "module",
+  "scripts": {
+    "synth": "cdk synth --quiet",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "build": "tsc --noEmit"
+  },
+  "dependencies": {
+    "aws-cdk-lib": "^2.273.0",
+    "constructs": "^10.8.1"
+  },
+  "devDependencies": {
+    "@types/node": "^24.19.2",
+    "aws-cdk": "^2.1145.0",
+    "tsx": "^4.23.15",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

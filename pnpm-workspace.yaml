@@ -1,0 +1,18 @@
+packages:
+  - apps/*
+  - packages/*
+  - infra
+
+allowBuilds:
+  esbuild: true
+  '@swc/core': true
+  '@scarf/scarf': false
+  '@parcel/watcher': true
+  '@prisma/engines': true
+  prisma: true
+  unrs-resolver: true
+
+catalog:
+  typescript: ~6.0.3
+  zod: ^4.6.7
+  vitest: ^5.0.4

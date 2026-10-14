@@ -36,7 +36,7 @@ corepack enable
 cp .env.example apps/api/.env      # en PowerShell: Copy-Item .env.example apps/api/.env
 pnpm setup                          # instala dependencias, compila shared y genera Prisma
 pnpm db:up                          # Postgres en localhost:5432
-pnpm db:migrate                     # aplica migraciones
+pnpm db:deploy                      # aplica las migraciones versionadas
 pnpm dev                            # web en http://localhost:5173 y API en http://localhost:3000
 ```
 
@@ -46,7 +46,8 @@ La web muestra el estado de la API; Swagger está en http://localhost:3000/docs.
 | --- | --- |
 | `pnpm dev` | Web y API en modo desarrollo |
 | `pnpm db:up` / `pnpm db:down` | Inicia o detiene Postgres local |
-| `pnpm db:migrate` | Crea y aplica migraciones de Prisma (desarrollo) |
+| `pnpm db:deploy` | Aplica las migraciones existentes sin crear nuevas (primera vez y tras cada `git pull`) |
+| `pnpm db:migrate` | Solo al modificar `schema.prisma`: crea una migración nueva y la aplica (`prisma migrate dev`) |
 | `pnpm contract` | Exporta `apps/api/openapi.json` y regenera el cliente web en `apps/web/src/api/generated` |
 | `pnpm lint` / `pnpm format` | ESLint y Prettier |
 | `pnpm typecheck` / `pnpm test` / `pnpm build` | Tipos, pruebas y build de todos los paquetes |

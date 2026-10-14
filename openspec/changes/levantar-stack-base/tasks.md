@@ -28,8 +28,8 @@
 
 ## 6. Calidad y documentación
 
-- [x] 6.1 Scripts raíz `setup`, `dev`, `db:up`, `db:down`, `db:migrate`, `contract`, `lint`, `typecheck`, `test`, `build`, `infra:synth`, sin dependencia del shell
+- [x] 6.1 Scripts raíz `setup`, `dev`, `db:up`, `db:down`, `db:deploy`, `db:migrate`, `contract`, `lint`, `typecheck`, `test`, `build`, `infra:synth`, sin dependencia del shell
 - [x] 6.2 Workflow de GitHub Actions con install congelado, lint, typecheck, test, build, `cdk synth` y verificación de contrato sin diferencias
-- [x] 6.3 Ejecutar el flujo completo en limpio (setup → db:up → db:migrate → dev → contract → test → build → synth) y registrar el resultado
+- [x] 6.3 Ejecutar el flujo completo en limpio (setup → db:up → db:deploy → dev → contract → test → build → synth) y registrar el resultado
 - [x] 6.4 Actualizar el README con requisitos (Node 24, Corepack, Docker) y los comandos verificados, y ajustar `definir-mvp-e1/tasks.md` para quitar lo ya cubierto
 - [x] 6.5 Validar con `openspec validate levantar-stack-base --strict --no-interactive`

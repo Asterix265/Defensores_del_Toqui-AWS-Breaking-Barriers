@@ -1,0 +1,12 @@
+pnpm-lock.yaml
+dist
+cdk.out
+coverage
+dev-dist
+openapi.json
+apps/web/src/api/generated
+apps/api/src/generated
+openspec
+.claude
+.codex
+*.md

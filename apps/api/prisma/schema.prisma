@@ -1,0 +1,20 @@
+// Esquema Prisma de la API. El modelo de dominio llega con el cambio definir-mvp-e1.
+
+generator client {
+  provider            = "prisma-client"
+  output              = "../src/generated/prisma"
+  moduleFormat        = "cjs"
+  importFileExtension = "js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+/// Tabla técnica mínima para validar la cadena de migraciones. Reemplazable por el dominio.
+model Salud {
+  id       Int      @id @default(autoincrement())
+  creadoEn DateTime @default(now()) @map("creado_en")
+
+  @@map("_salud")
+}

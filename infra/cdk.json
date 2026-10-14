@@ -1,0 +1,5 @@
+{
+  "app": "tsx bin/app.ts",
+  "watch": { "include": ["bin/**", "lib/**"] },
+  "context": {}
+}

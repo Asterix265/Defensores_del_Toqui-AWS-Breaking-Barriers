@@ -1,0 +1,12 @@
+**/node_modules
+**/dist
+**/dev-dist
+**/cdk.out
+**/coverage
+**/.env
+**/.env.*
+.git
+openspec
+docs
+.claude
+.codex

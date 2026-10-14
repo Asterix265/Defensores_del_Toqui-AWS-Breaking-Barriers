@@ -1,0 +1,30 @@
+# Credenciales y configuración local
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+.aws/
+.claude/settings.local.json
+
+# Dependencias, cachés y salidas generadas
+node_modules/
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+dist/
+build/
+coverage/
+*.log
+.DS_Store
+Thumbs.db
+
+# Datos de trabajo y originales externos
+/Desafio/
+/data/raw/
+/data/private/
+
+# Índice local del grafo
+.codebase-memory/

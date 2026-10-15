@@ -20,7 +20,14 @@
     "typecheck": "pnpm -r typecheck",
     "test": "pnpm -r test",
     "build": "pnpm -r build",
-    "infra:synth": "pnpm --filter @toqui/infra synth"
+    "infra:synth": "pnpm --filter @toqui/infra synth",
+    "aws:bootstrap": "pnpm --filter @toqui/infra aws:bootstrap",
+    "aws:deploy": "pnpm --filter @toqui/infra aws:deploy",
+    "aws:diff": "pnpm --filter @toqui/infra aws:diff",
+    "aws:destroy": "pnpm --filter @toqui/infra aws:destroy",
+    "aws:users": "pnpm --filter @toqui/infra aws:users",
+    "aws:env": "pnpm --filter @toqui/infra aws:env",
+    "aws:smoke": "pnpm --filter @toqui/infra aws:smoke"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

@@ -8,6 +8,7 @@ import { buildOpenApiDocument } from './openapi-document';
 
 // Prisma se conecta de forma diferida: esta URL solo satisface la validación de configuración.
 process.env['DATABASE_URL'] ??= 'postgresql://openapi:openapi@localhost:5432/openapi';
+process.env['AUTH_MODO'] = 'dev';
 
 async function exportOpenApi(): Promise<void> {
   const app = await NestFactory.create(AppModule, { logger: false });

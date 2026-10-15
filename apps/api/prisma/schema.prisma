@@ -1,4 +1,5 @@
-// Esquema Prisma de la API. El modelo de dominio llega con el cambio definir-mvp-e1.
+// Esquema Prisma compartido por la Lambda API y la Lambda de proceso.
+// Arquitectura v1: la API crea observaciones y guarda revisiones; el proceso completa la propuesta.
 
 generator client {
   provider            = "prisma-client"
@@ -11,10 +12,163 @@ datasource db {
   provider = "postgresql"
 }
 
-/// Tabla técnica mínima para validar la cadena de migraciones. Reemplazable por el dominio.
+/// Tabla técnica mínima para validar la cadena de migraciones.
 model Salud {
   id       Int      @id @default(autoincrement())
   creadoEn DateTime @default(now()) @map("creado_en")
 
   @@map("_salud")
+}
+
+/// Grupos de Cognito. El rol vigente siempre viene del token; aquí se copia para el panel.
+enum Rol {
+  registrador
+  supervisor
+
+  @@map("rol")
+}
+
+enum TipoCaptura {
+  texto
+  audio
+  foto
+
+  @@map("tipo_captura")
+}
+
+/// pendiente → procesando → propuesta → confirmada | corregida → validada; error si el proceso falla.
+enum EstadoObservacion {
+  pendiente
+  procesando
+  propuesta
+  confirmada
+  corregida
+  validada
+  error
+
+  @@map("estado_observacion")
+}
+
+enum OrigenRevision {
+  registrador
+  supervisor
+
+  @@map("origen_revision")
+}
+
+/// Persona autenticada con Cognito. Se crea en su primera petición a la API.
+model Usuario {
+  /// `sub` del token de Cognito.
+  id            String   @id
+  rol           Rol
+  nombre        String?
+  telefono      String?
+  creadoEn      DateTime @default(now()) @map("creado_en")
+  actualizadoEn DateTime @updatedAt @map("actualizado_en")
+
+  observaciones Observacion[] @relation("ObservacionAutor")
+  validaciones  Observacion[] @relation("ObservacionValidador")
+  revisiones    Revision[]
+  ejemplos      Ejemplo[]
+
+  @@map("usuarios")
+}
+
+/// Lista fija de criterios de clasificación (botones de corrección).
+model Criterio {
+  /// Identificador estable legible, por ejemplo `socioemocional`.
+  id          String  @id
+  nombre      String
+  descripcion String?
+  orden       Int
+  activo      Boolean @default(true)
+
+  propuestas Observacion[] @relation("CriterioPropuesto")
+  vigentes   Observacion[] @relation("CriterioVigente")
+  revisiones Revision[]
+  ejemplos   Ejemplo[]
+
+  @@map("criterios")
+}
+
+model Observacion {
+  id                  String            @id @default(uuid()) @db.Uuid
+  usuarioId           String            @map("usuario_id")
+  tipo                TipoCaptura
+  /// Texto escrito por la persona (solo `tipo = texto`).
+  texto               String?
+  /// Clave S3 del original subido (audio o foto).
+  archivoClave        String?           @map("archivo_clave")
+  archivoTipo         String?           @map("archivo_tipo")
+  /// Texto obtenido por Transcribe o Textract (lo escribe la Lambda de proceso).
+  textoExtraido       String?           @map("texto_extraido")
+  estado              EstadoObservacion @default(pendiente)
+  /// Propuesta de la IA (la escribe la Lambda de proceso).
+  criterioPropuestoId String?           @map("criterio_propuesto_id")
+  confianza           Float?
+  /// Las dos opciones más probables cuando la confianza es baja; vacío si no hay duda.
+  opciones            String[]          @default([])
+  /// Clave S3 del audio de Polly que lee la propuesta.
+  audioPropuestaClave String?           @map("audio_propuesta_clave")
+  /// Criterio vigente: la propuesta, o la última revisión o validación.
+  criterioId          String?           @map("criterio_id")
+  errorDetalle        String?           @map("error_detalle")
+  /// Día de registro en la zona horaria de la operación (America/Santiago).
+  fecha               DateTime          @db.Date
+  validadoPorId       String?           @map("validado_por_id")
+  validadoEn          DateTime?         @map("validado_en")
+  creadoEn            DateTime          @default(now()) @map("creado_en")
+  actualizadoEn       DateTime          @updatedAt @map("actualizado_en")
+
+  usuario           Usuario   @relation("ObservacionAutor", fields: [usuarioId], references: [id])
+  validadoPor       Usuario?  @relation("ObservacionValidador", fields: [validadoPorId], references: [id])
+  criterioPropuesto Criterio? @relation("CriterioPropuesto", fields: [criterioPropuestoId], references: [id])
+  criterio          Criterio? @relation("CriterioVigente", fields: [criterioId], references: [id])
+  revisiones        Revision[]
+  ejemplos          Ejemplo[]
+
+  @@index([usuarioId, fecha])
+  @@index([fecha, estado])
+  @@index([criterioId])
+  @@map("observaciones")
+}
+
+/// Historial de confirmaciones, correcciones y validaciones (solo se agregan filas).
+model Revision {
+  id                   String         @id @default(uuid()) @db.Uuid
+  observacionId        String         @map("observacion_id") @db.Uuid
+  usuarioId            String         @map("usuario_id")
+  origen               OrigenRevision
+  criterioId           String         @map("criterio_id")
+  /// true si el criterio elegido coincide con la propuesta de la IA.
+  coincideConPropuesta Boolean        @map("coincide_con_propuesta")
+  creadoEn             DateTime       @default(now()) @map("creado_en")
+
+  observacion Observacion @relation(fields: [observacionId], references: [id])
+  usuario     Usuario     @relation(fields: [usuarioId], references: [id])
+  criterio    Criterio    @relation(fields: [criterioId], references: [id])
+
+  @@index([observacionId])
+  @@map("revisiones")
+}
+
+/// Memoria de ejemplos para el aprendizaje: el último criterio decidido por cada origen.
+/// La Lambda de proceso busca ejemplos parecidos usando el vector de la observación.
+model Ejemplo {
+  id            String         @id @default(uuid()) @db.Uuid
+  observacionId String         @map("observacion_id") @db.Uuid
+  origen        OrigenRevision
+  usuarioId     String         @map("usuario_id")
+  criterioId    String         @map("criterio_id")
+  /// Los del supervisor pesan más.
+  peso          Float
+  creadoEn      DateTime       @default(now()) @map("creado_en")
+  actualizadoEn DateTime       @updatedAt @map("actualizado_en")
+
+  observacion Observacion @relation(fields: [observacionId], references: [id])
+  usuario     Usuario     @relation(fields: [usuarioId], references: [id])
+  criterio    Criterio    @relation(fields: [criterioId], references: [id])
+
+  @@unique([observacionId, origen])
+  @@map("ejemplos")
 }

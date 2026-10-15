@@ -11,6 +11,21 @@ permissions:
 jobs:
   verificar:
     runs-on: ubuntu-latest
+    # Las pruebas e2e de la API crean y migran su propia base `toqui_test` en este Postgres.
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: toqui
+          POSTGRES_PASSWORD: toqui_local
+          POSTGRES_DB: toqui
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U toqui -d toqui"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     env:
       CDK_DISABLE_CLI_TELEMETRY: 'true'
       PRISMA_HIDE_UPDATE_MESSAGE: '1'

@@ -12,7 +12,7 @@ La línea base declarada en la presentación es de **4 horas semanales** de docu
 
 ## Estado actual
 
-La base técnica del monorepo está lista (cambio OpenSpec `levantar-stack-base`): web, API, pipeline, paquete compartido e infraestructura compilan, tienen pruebas de humo y se comunican en local. **Todavía no hay funcionalidades del desafío**: modelo de dominio, carga del dataset, autenticación, IA y despliegue en AWS pertenecen al cambio `definir-mvp-e1`, que está propuesto y pendiente de implementación. No hay recursos desplegados en AWS.
+La base técnica del monorepo está lista (cambio OpenSpec `levantar-stack-base`). La arquitectura vigente es la v1 de clasificación de observaciones (Lambda API + SQS + Lambda de proceso). La **Lambda API** está implementada y probada en local (cambio `implementar-lambda-api`, ver [API de observaciones](#api-de-observaciones)); faltan la Lambda de proceso (IA), la web y la infraestructura. No hay recursos desplegados en AWS.
 
 ## Stack
 
@@ -40,6 +40,8 @@ pnpm db:deploy                      # aplica las migraciones versionadas
 pnpm dev                            # web en http://localhost:5173 y API en http://localhost:3000
 ```
 
+Si ya tenías `apps/api/.env` de antes de la API de observaciones, agrégale `AUTH_MODO=dev` (o vuelve a copiar `.env.example`): sin esa línea la API exige Cognito y no arranca en local.
+
 La web muestra el estado de la API; Swagger está en http://localhost:3000/docs. Se usan los puertos por defecto (web 5173, API 3000, Postgres 5432): si otro servicio local ya los ocupa, hay que detenerlo antes de levantar el proyecto.
 
 | Comando | Qué hace |
@@ -58,6 +60,28 @@ Imagen de la API (desde la raíz): `docker build -f apps/api/Dockerfile -t toqui
 Al cambiar un esquema de `packages/shared` o un endpoint, ejecutar `pnpm contract` y versionar el resultado: la CI falla si el contrato generado queda desactualizado. La CI (`.github/workflows/ci.yml`) ejecuta lint, formato, tipos, pruebas, build, contrato y síntesis en cada pull request.
 
 Verificado el 14-10-2026 en macOS con Node 24.22.0 y pnpm 11.13.0, en una copia limpia del repositorio. Falta confirmar en Windows y Linux, y la primera ejecución de la CI en GitHub.
+
+## API de observaciones
+
+La Lambda API (`apps/api`, entrada `src/lambda.ts`) solo valida, autoriza, firma URLs de S3 y encola en SQS; todo el procesamiento ocurre en la Lambda de proceso. El contrato completo está en Swagger (`http://localhost:3000/docs`) y en `apps/api/openapi.json`.
+
+| Ruta | Rol | Qué hace |
+| --- | --- | --- |
+| `GET /me`, `GET /criterios` | ambos | Usuario y rol; lista fija de criterios |
+| `POST /subidas` | registrador | POST firmado de S3 (5 min, tipo y tamaño ≤ 10 MB) en `subidas/<sub>/` |
+| `POST /observaciones` | registrador | Crea la observación pendiente (texto o archivo subido) y la encola |
+| `GET /observaciones/:id` | ambos | Estado y propuesta (criterio, confianza, 2 opciones, audio de Polly) |
+| `POST /observaciones/:id/revision` | registrador | Confirma o corrige; 409 si ya fue validada |
+| `GET /mi-dia?fecha=` | registrador | Sus observaciones del día |
+| `GET /panel/observaciones`, `GET /panel/resumen` | supervisor | Lista filtrada y paginada; totales del día |
+| `POST /observaciones/:id/validacion` | supervisor | Valida o corrige y cierra la observación |
+| `GET /observaciones/:id/archivo` | ambos | URL temporal del original (registrador: solo los suyos) |
+
+- El rol sale del grupo de Cognito del token (`registrador` o `supervisor`); otro rol recibe 403. Las observaciones ajenas responden 404.
+- En local, `AUTH_MODO=dev` acepta `Authorization: Bearer dev:registrador:ana` (o `dev:supervisor:...`). La configuración rechaza ese modo en producción.
+- Sin `S3_BUCKET` las subidas responden 503; sin `SQS_QUEUE_URL` las observaciones quedan pendientes. Ver `.env.example`.
+- La tabla `criterios` no tiene datos: la lista fija aún no está definida.
+- `pnpm test` incluye pruebas e2e que crean la base `toqui_test` en el Postgres local (`pnpm db:up` antes).
 
 ## Materiales del desafío
 
@@ -125,7 +149,7 @@ Se excluyeron las skills de otras bases de datos, de los servicios en la nube de
 
 ## Próximos pasos
 
-1. Implementar `definir-mvp-e1`: modelo de dominio, carga del dataset, flujo de captura y confirmación, y trayectoria.
+1. Lambda de proceso (Transcribe/Textract, Titan + pgvector, Nova, Polly), infraestructura CDK de la API y la web; definir la lista de criterios.
 2. Resolver cómo representar la rúbrica institucional frente a la ruta sintética del dataset.
 3. Configurar IAM, acceso a modelos de Bedrock y despliegue en AWS, documentando permisos, costos y limpieza.
 4. Medir tiempo de documentación y trazabilidad con datos sintéticos; reportar resultados reales de la demo.

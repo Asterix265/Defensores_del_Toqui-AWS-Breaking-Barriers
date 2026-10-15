@@ -1,19 +1,31 @@
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { fireEvent, screen, within } from '@testing-library/react';
 import { HttpResponse, http } from 'msw';
-import { conProveedores, servidor } from './prueba-api';
+import {
+  capturasCreadas,
+  EJEMPLO_AUDIO,
+  EJEMPLO_FOTO,
+  conProveedores,
+  instalarMicrofono,
+  reiniciarApi,
+  servidor,
+} from './prueba-api';
 import { RegistroApp } from './RegistroApp';
 
 beforeAll(() => servidor.listen({ onUnhandledFrame: 'error' }));
-afterEach(() => servidor.resetHandlers());
+afterEach(() => {
+  servidor.resetHandlers();
+  reiniciarApi();
+});
 afterAll(() => servidor.close());
 
 const boton = (nombre: string | RegExp) => screen.getByRole('button', { name: nombre });
 
 async function ingresado() {
   localStorage.setItem('toqui.registro.correo', 'mercedes@integra.cl');
-  conProveedores(<RegistroApp />);
+  const vista = conProveedores(<RegistroApp />);
   await screen.findByRole('heading', { name: 'Hola, Mercedes' });
+  return vista;
 }
 
 async function escribirNota(texto: string) {
@@ -24,8 +36,17 @@ async function escribirNota(texto: string) {
   fireEvent.click(boton('Listo'));
 }
 
+async function elegirYProcesar(nombre: string) {
+  fireEvent.click(boton(nombre));
+  fireEvent.click(boton(`Seguir con ${nombre}`));
+  await screen.findByRole('heading', { name: '¿Está bien?' });
+}
+
 describe('RegistroApp', () => {
-  beforeEach(() => localStorage.clear());
+  beforeEach(() => {
+    localStorage.clear();
+    instalarMicrofono();
+  });
 
   it('ingresa con correo y código, carga el jardín desde la API y recuerda la sesión', async () => {
     const { unmount } = conProveedores(<RegistroApp />);
@@ -57,36 +78,93 @@ describe('RegistroApp', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('No se pudo conectar con la API');
   });
 
-  it('propone nivel y manifestación con cita, y la nota confirmada aparece en Mis notas', async () => {
-    await ingresado();
+  it('guarda una nota escrita en la API y sigue en Mis notas al recargar', async () => {
+    const { unmount } = await ingresado();
     await escribirNota('Apiló tres bloques y aplaudió.');
 
     expect(screen.getByText('Nota lista')).toBeInTheDocument();
-    expect(boton('Elige un niño o niña')).toBeDisabled();
     // Solo la sala propia (la primera, Sala A): Vicente es de la Sala B.
     expect(screen.queryByRole('button', { name: 'Vicente P.' })).not.toBeInTheDocument();
-    fireEvent.click(boton('Benjamín S.'));
-    fireEvent.click(boton('Seguir con Benjamín S.'));
+    await elegirYProcesar('Benjamín S.');
 
-    // 20 meses → nivel 7; «apiló» y «bloques» → Motor fino.
+    // El borrador de la API: aviso de lo simulado, el texto escrito, nivel 7 y Motor fino.
+    expect(screen.getByText('Procesamiento simulado: aún no implementado')).toBeInTheDocument();
+    expect(screen.getByText('Tu nota')).toBeInTheDocument();
     expect(screen.getByRole('status', { name: 'Nivel estimado' })).toHaveTextContent('Nivel 7');
     expect(screen.getByText(/estimación pedagógica, no un diagnóstico/)).toBeInTheDocument();
     const propuesta = screen.getByRole('region', { name: 'Prueba MF 7' });
     expect(within(propuesta).getByText('«Apiló tres bloques y aplaudió.»')).toBeInTheDocument();
     fireEvent.click(boton('Está bien'));
 
-    expect(screen.getByText('Nota guardada para Benjamín S.')).toBeInTheDocument();
-    fireEvent.click(boton('Mis notas'));
-    const hoy = screen.getByRole('region', { name: 'Hoy' });
+    expect(await screen.findByText('Nota guardada para Benjamín S.')).toBeInTheDocument();
+    // Una sola captura por nota, aunque StrictMode ejecute dos veces los efectos.
+    expect(capturasCreadas()).toHaveLength(1);
+    expect(await screen.findByText('Hoy guardaste 1 nota')).toBeInTheDocument();
+
+    unmount();
+    conProveedores(<RegistroApp />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Mis notas' }));
+    const hoy = await screen.findByRole('region', { name: 'Hoy' });
     expect(within(hoy).getByText('Apiló tres bloques y aplaudió.')).toBeInTheDocument();
     expect(within(hoy).getByText('Motor fino')).toBeInTheDocument();
+    expect(within(hoy).getByText('Guardada')).toBeInTheDocument();
+  });
+
+  it('graba un audio, lo sube a S3 y avisa que la transcripción no está implementada', async () => {
+    await ingresado();
+    fireEvent.click(boton('Grabar'));
+    fireEvent.click(await screen.findByRole('button', { name: 'Terminar grabación' }));
+    expect(await screen.findByText('Audio listo')).toBeInTheDocument();
+    await elegirYProcesar('Tomás A.');
+
+    const aviso = screen.getByRole('alert');
+    expect(aviso).toHaveTextContent('Procesamiento simulado: aún no implementado');
+    expect(aviso).toHaveTextContent(/Se recibió: Audio \(audio\/webm, 5 B\), guardado en S3/);
+    expect(aviso).toHaveTextContent('Transcripción del audio: no implementado.');
+    expect(aviso).toHaveTextContent('Nivel y manifestaciones: simulado.');
+    expect(screen.getByLabelText('Audio grabado')).toBeInTheDocument();
+    expect(screen.getByText('Texto de ejemplo (no es tu audio)')).toBeInTheDocument();
+    expect(screen.getByText(EJEMPLO_AUDIO)).toBeInTheDocument();
+    fireEvent.click(boton('Está bien'));
+
+    expect(await screen.findByText('Nota guardada para Tomás A.')).toBeInTheDocument();
+    expect(capturasCreadas()).toHaveLength(1);
+  });
+
+  it('explica si no hay permiso de micrófono y permite volver', async () => {
+    instalarMicrofono({ permitir: false });
+    await ingresado();
+    fireEvent.click(boton(/Audio/));
+
+    expect(await screen.findByText(/no dio permiso para usar el micrófono/)).toBeInTheDocument();
+    fireEvent.click(boton('Cancelar'));
+    expect(screen.getByRole('heading', { name: 'Hola, Mercedes' })).toBeInTheDocument();
+  });
+
+  it('sube una foto, avisa que la lectura no está implementada y permite descartarla', async () => {
+    await ingresado();
+    fireEvent.click(boton(/Foto/));
+    fireEvent.change(screen.getByLabelText('Cámara'), {
+      target: { files: [new File(['foto'], 'postit.jpg', { type: 'image/jpeg' })] },
+    });
+    expect(await screen.findByText('Foto lista')).toBeInTheDocument();
+    await elegirYProcesar('Tomás A.');
+
+    expect(screen.getByRole('alert')).toHaveTextContent('Lectura de la foto: no implementado.');
+    expect(screen.getByRole('img', { name: 'Foto postit.jpg' })).toBeInTheDocument();
+    expect(screen.getByText('Texto de ejemplo (no es tu foto)')).toBeInTheDocument();
+    expect(screen.getByText(EJEMPLO_FOTO)).toBeInTheDocument();
+    fireEvent.click(boton('Borrar nota'));
+
+    expect(await screen.findByRole('heading', { name: 'Hola, Mercedes' })).toBeInTheDocument();
+    fireEvent.click(boton('Mis notas'));
+    expect(await screen.findByText(/Aún no tienes notas/)).toBeInTheDocument();
   });
 
   it('sin evidencia suficiente pide elegir manifestaciones del nivel', async () => {
     await ingresado();
     await escribirNota('Hoy llegó temprano al jardín.');
-    fireEvent.click(boton('Tomás A.'));
-    fireEvent.click(boton('Seguir con Tomás A.'));
+    await elegirYProcesar('Tomás A.');
 
     expect(screen.getByText(/No encontramos evidencia suficiente/)).toBeInTheDocument();
     expect(boton('Está bien')).toBeDisabled();
@@ -102,26 +180,22 @@ describe('RegistroApp', () => {
     fireEvent.click(within(catalogo).getByRole('button', { name: /Prueba SE 8/ }));
     fireEvent.click(boton('Quitar «Prueba SE 8»'));
     expect(boton('Está bien')).toBeDisabled();
-
-    fireEvent.click(boton('Borrar nota'));
-    expect(screen.getByRole('heading', { name: 'Hola, Mercedes' })).toBeInTheDocument();
-    expect(screen.queryByText(/Nota guardada/)).not.toBeInTheDocument();
   });
 
-  it('permite quitar la propuesta y agregar otra del catálogo en una nota de foto', async () => {
+  it('muestra el error de la API si no puede crear la nota y permite reintentar', async () => {
+    servidor.use(
+      http.post('*/capturas', () =>
+        HttpResponse.json({ message: 'Niño o niña no encontrado' }, { status: 404 }),
+      ),
+    );
     await ingresado();
-    fireEvent.click(boton(/Foto/));
-    fireEvent.click(boton('Tomar foto'));
-    expect(screen.getByText('Foto lista')).toBeInTheDocument();
-    fireEvent.click(boton('Tomás A.'));
-    fireEvent.click(boton('Seguir con Tomás A.'));
+    await escribirNota('Apiló tres bloques y aplaudió.');
+    fireEvent.click(boton('Benjamín S.'));
+    fireEvent.click(boton('Seguir con Benjamín S.'));
 
-    expect(screen.getByText('Esto leímos en tu post-it')).toBeInTheDocument();
-    fireEvent.click(boton(/Quitar «Prueba MF 7»/));
-    fireEvent.click(boton('Agregar manifestación'));
-    fireEvent.click(boton(/Prueba MG 7/));
-    fireEvent.click(boton('Está bien'));
-
-    expect(screen.getByText('Nota guardada para Tomás A.')).toBeInTheDocument();
+    expect(await screen.findByText('Niño o niña no encontrado')).toBeInTheDocument();
+    servidor.resetHandlers();
+    fireEvent.click(boton('Reintentar'));
+    expect(await screen.findByRole('heading', { name: '¿Está bien?' })).toBeInTheDocument();
   });
 });

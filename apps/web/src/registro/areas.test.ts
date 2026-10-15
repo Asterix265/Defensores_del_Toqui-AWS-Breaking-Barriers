@@ -14,7 +14,7 @@ function registro(dominios: Dominio[], diasAtras: number): Registro {
     detalle: null,
     dominios,
     formato: 'texto',
-    autor: null,
+    origen: 'dataset',
   };
 }
 

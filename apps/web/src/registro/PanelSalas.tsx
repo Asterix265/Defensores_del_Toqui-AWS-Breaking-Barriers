@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import Box from '@mui/material/Box';
 import type { Manifestacion, NivelRuta } from './api';
-import type { Nino, Nota } from './datos';
+import type { Nino } from './datos';
 import { NuevaNotaEscritorio } from './NuevaNotaEscritorio';
 import { CabeceraPanel, type Seccion } from './panel/CabeceraPanel';
 import { FichaEscritorio } from './panel/FichaEscritorio';
@@ -18,19 +18,17 @@ export function PanelSalas({
   salas,
   salaPropia,
   catalogo,
-  notas,
   ahora,
   nombre,
-  onGuardar,
+  onGuardada,
 }: {
   ninos: Nino[];
   salas: string[];
   salaPropia: string;
   catalogo: { niveles: NivelRuta[]; manifestaciones: Manifestacion[] };
-  notas: Nota[];
   ahora: Date;
   nombre: string;
-  onGuardar: (nota: Nota) => void;
+  onGuardada: (nino: Nino) => void;
 }) {
   const [seccion, setSeccion] = useState<Seccion>('notas');
   const [sala, setSala] = useState<string | null>(null);
@@ -48,8 +46,8 @@ export function PanelSalas({
   if (seccion === 'notas') {
     contenido = (
       <NotasSalas
+        ninos={ninos}
         salas={salas}
-        notas={notas}
         ahora={ahora}
         sala={sala}
         onSala={setSala}
@@ -61,7 +59,6 @@ export function PanelSalas({
       <FichaEscritorio
         nino={ficha}
         salaPropia={salaPropia}
-        notas={notas}
         ahora={ahora}
         onVolver={() => setNinoAbierto(null)}
         onNuevaNota={() => setNueva({ ninoId: ficha.id })}
@@ -73,7 +70,6 @@ export function PanelSalas({
         ninos={ninos}
         salas={salas}
         salaPropia={salaPropia}
-        notas={notas}
         ahora={ahora}
         sala={sala}
         onSala={setSala}
@@ -94,12 +90,10 @@ export function PanelSalas({
           ninos={ninos}
           catalogo={catalogo}
           ninoId={nueva.ninoId}
-          semilla={notas.length}
-          educadora={nombre}
           onCerrar={() => setNueva(null)}
-          onGuardar={(nota) => {
+          onGuardada={(nino) => {
             setNueva(null);
-            onGuardar(nota);
+            onGuardada(nino);
           }}
         />
       )}

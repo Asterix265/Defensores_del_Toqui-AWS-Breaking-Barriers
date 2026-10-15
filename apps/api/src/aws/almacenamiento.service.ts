@@ -1,5 +1,11 @@
 import { Inject, Injectable, ServiceUnavailableException } from '@nestjs/common';
-import { GetObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import {
+  GetObjectCommand,
+  HeadObjectCommand,
+  NotFound,
+  PutObjectCommand,
+  S3Client,
+} from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { TIPOS_ARCHIVO, type TipoArchivo } from '@toqui/shared';
 import { ENV } from '../config/config.module';
@@ -61,6 +67,19 @@ export class AlmacenamientoService {
         expiraEn: this.expiracion(),
       },
     };
+  }
+
+  /** Tipo y tamaño del objeto, o null si aún no existe en el bucket. */
+  async inspeccionar(clave: string): Promise<{ tipo: string; bytes: number } | null> {
+    try {
+      const objeto = await this.s3.send(
+        new HeadObjectCommand({ Bucket: this.bucket(), Key: clave }),
+      );
+      return { tipo: objeto.ContentType ?? '', bytes: objeto.ContentLength ?? 0 };
+    } catch (error) {
+      if (error instanceof NotFound) return null;
+      throw error;
+    }
   }
 
   /** Guarda el texto escrito como objeto, para que el pipeline lo procese igual que un archivo. */

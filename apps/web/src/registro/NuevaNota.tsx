@@ -1,23 +1,33 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useEffectEvent, useMemo, useRef, useState } from 'react';
 import { keyframes } from '@emotion/react';
+import Alert from '@mui/material/Alert';
+import AlertTitle from '@mui/material/AlertTitle';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import ButtonBase from '@mui/material/ButtonBase';
+import CircularProgress from '@mui/material/CircularProgress';
 import IconButton from '@mui/material/IconButton';
 import InputBase from '@mui/material/InputBase';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
+import AddRounded from '@mui/icons-material/AddRounded';
 import ArrowForwardRounded from '@mui/icons-material/ArrowForwardRounded';
 import CheckCircleRounded from '@mui/icons-material/CheckCircleRounded';
 import CheckRounded from '@mui/icons-material/CheckRounded';
 import CloseRounded from '@mui/icons-material/CloseRounded';
 import DeleteRounded from '@mui/icons-material/DeleteRounded';
-import EditRounded from '@mui/icons-material/EditRounded';
-import AddRounded from '@mui/icons-material/AddRounded';
-import AttachFileRounded from '@mui/icons-material/AttachFileRounded';
-import RemoveRounded from '@mui/icons-material/RemoveRounded';
 import MicRounded from '@mui/icons-material/MicRounded';
+import PhotoCameraRounded from '@mui/icons-material/PhotoCameraRounded';
+import PhotoLibraryRounded from '@mui/icons-material/PhotoLibraryRounded';
+import RemoveRounded from '@mui/icons-material/RemoveRounded';
 import { etiquetaSala, type Manifestacion, type NivelRuta } from './api';
+import {
+  formatoBytes,
+  iniciarGrabacion,
+  motivoMicrofono,
+  prepararFoto,
+  type Grabacion,
+} from './captura';
 import {
   AvisoVerde,
   CabeceraConCerrar,
@@ -27,20 +37,21 @@ import {
   Pantalla,
 } from './componentes';
 import { formatoDuracion } from './formato';
+import { DOMINIOS, type Formato, type ManifestacionCitada, type Nino } from './datos';
 import {
-  DOMINIOS,
-  nuevoId,
-  simularLectura,
-  type Formato,
-  type ManifestacionCitada,
-  type Nino,
-  type Nota,
-} from './datos';
-import { nivelEsperado, proponer } from './propuesta';
+  nivelEsperado,
+  registrarCaptura,
+  useConfirmar,
+  useDescartar,
+  type CapturaDetalle,
+  type Entrada,
+  type EtapaRegistro,
+  type Procesamiento,
+} from './registrar';
 import { SubirArchivo } from './SubirArchivo';
 import { colores } from './tema';
 
-type Etapa = 'grabando' | 'camara' | 'subir' | 'escribiendo' | 'nino' | 'revision';
+type Etapa = 'grabando' | 'camara' | 'subir' | 'escribiendo' | 'nino' | 'procesando' | 'revision';
 
 const ETAPA_INICIAL: Record<Formato, Etapa> = {
   audio: 'grabando',
@@ -64,73 +75,48 @@ const SUBTITULO_REVISION: Record<Formato, string> = {
 const MAXIMO_MANIFESTACIONES = 5;
 
 /**
- * Flujo «acción primero» (diseño 1b): capturar, elegir al niño o niña y confirmar.
- * La transcripción del audio, la lectura del post-it y la propuesta de nivel y manifestaciones
- * están simuladas (`propuesta.ts`), pero usan el catálogo y los niveles reales de la API.
- * En PC (`escritorio`) la foto y el audio se suben como archivo y se elige entre todas las salas.
+ * Flujo «acción primero» (diseño 1b): capturar, elegir al niño o niña, procesar y confirmar.
+ * El audio se graba con el micrófono y la foto se toma con la cámara (o se elige); al elegir al
+ * niño o niña se crea la captura en la API, el archivo se sube a S3 y la revisión muestra el
+ * borrador que devuelve la API, con el aviso de lo que aún está simulado.
+ * En PC (`escritorio`) la foto y el audio también se pueden subir como archivo.
  * Con `ninoFijo` (desde la ficha del niño o niña) la nota ya tiene dueño y se salta la elección.
  */
 export function NuevaNota({
   formato,
-  semilla,
-  educadora,
   escritorio = false,
   ninos,
   ninoFijo,
   catalogo,
-  onGuardar,
+  onGuardada,
   onCancelar,
 }: {
   formato: Formato;
-  /** Rota las lecturas simuladas para que no se repita siempre la misma. */
-  semilla: number;
-  educadora: string;
   escritorio?: boolean;
   /** Niños y niñas que se ofrecen en «¿De quién es?». */
   ninos: Nino[];
   /** Niño o niña ya elegido: la nota se le asocia sin pasar por «¿De quién es?». */
   ninoFijo?: Nino;
   catalogo: { niveles: NivelRuta[]; manifestaciones: Manifestacion[] };
-  onGuardar: (nota: Nota) => void;
+  /** La nota quedó confirmada en la API. */
+  onGuardada: (nino: Nino) => void;
   onCancelar: () => void;
 }) {
   const [etapa, setEtapa] = useState<Etapa>(
     escritorio && formato !== 'texto' ? 'subir' : ETAPA_INICIAL[formato],
   );
-  const [archivo, setArchivo] = useState<string>();
+  const [entrada, setEntrada] = useState<Entrada | null>(null);
   const [duracion, setDuracion] = useState<number>();
-  const [texto, setTexto] = useState('');
-  const [sugerencia, setSugerencia] = useState<Nota['sugerencia']>({
-    nivel: null,
-    manifestaciones: [],
-  });
-  const [nivel, setNivel] = useState(1);
-  const [manifestaciones, setManifestaciones] = useState<ManifestacionCitada[]>([]);
+  const [nombreArchivo, setNombreArchivo] = useState<string>();
   const [ninoId, setNinoId] = useState<string | null>(ninoFijo?.id ?? null);
+  const [captura, setCaptura] = useState<CapturaDetalle | null>(null);
+  const vistaPrevia = useVistaPrevia(entrada);
 
   const nino = ninoFijo ?? ninos.find((n) => n.id === ninoId);
 
-  /** Pide la propuesta (simulada) para el niño o niña y el texto, y pasa a la revisión. */
-  const revisar = (para: Nino, textoLeido: string) => {
-    const propuesta = proponer(
-      textoLeido,
-      para.edadMeses,
-      catalogo.niveles,
-      catalogo.manifestaciones,
-    );
-    setSugerencia({
-      nivel: propuesta.nivel,
-      manifestaciones: propuesta.manifestaciones.map((m) => m.manifestacion.id),
-    });
-    setNivel(propuesta.nivel ?? nivelEsperado(para.edadMeses, catalogo.niveles));
-    setManifestaciones(propuesta.manifestaciones);
-    setEtapa('revision');
-  };
-
-  const capturar = (textoLeido: string) => {
-    setTexto(textoLeido);
-    if (ninoFijo) revisar(ninoFijo, textoLeido);
-    else setEtapa('nino');
+  const capturar = (nueva: Entrada) => {
+    setEntrada(nueva);
+    setEtapa(ninoFijo ? 'procesando' : 'nino');
   };
 
   switch (etapa) {
@@ -138,15 +124,21 @@ export function NuevaNota({
       return (
         <Grabando
           onCancelar={onCancelar}
-          onTerminar={(segundos) => {
+          onTerminar={(audio, segundos) => {
             setDuracion(segundos);
-            capturar(simularLectura('audio', semilla));
+            capturar({ formato: 'audio', archivo: audio });
           }}
         />
       );
     case 'camara':
       return (
-        <Camara onCancelar={onCancelar} onTomar={() => capturar(simularLectura('foto', semilla))} />
+        <Camara
+          onCancelar={onCancelar}
+          onTomar={(foto) => {
+            setNombreArchivo(foto.name);
+            capturar({ formato: 'foto', archivo: foto });
+          }}
+        />
       );
     case 'subir':
       if (formato === 'texto') return null;
@@ -155,14 +147,19 @@ export function NuevaNota({
           tipo={formato}
           onCancelar={onCancelar}
           onGrabar={formato === 'audio' ? () => setEtapa('grabando') : undefined}
-          onListo={(nombreArchivo) => {
-            setArchivo(nombreArchivo);
-            capturar(simularLectura(formato, semilla));
+          onListo={(archivo) => {
+            setNombreArchivo(archivo.name);
+            capturar({ formato, archivo });
           }}
         />
       );
     case 'escribiendo':
-      return <Escribiendo onCancelar={onCancelar} onListo={capturar} />;
+      return (
+        <Escribiendo
+          onCancelar={onCancelar}
+          onListo={(texto) => capturar({ formato: 'texto', texto })}
+        />
+      );
     case 'nino':
       return (
         <ElegirNino
@@ -171,51 +168,55 @@ export function NuevaNota({
           agrupar={escritorio}
           seleccionado={ninoId}
           onSeleccionar={setNinoId}
-          onSeguir={() => nino && revisar(nino, texto)}
+          onSeguir={() => setEtapa('procesando')}
+          onCancelar={onCancelar}
+        />
+      );
+    case 'procesando':
+      if (!nino || !entrada) return null;
+      return (
+        <Procesando
+          nino={nino}
+          entrada={entrada}
+          onListo={(detalle) => {
+            setCaptura(detalle);
+            setEtapa('revision');
+          }}
           onCancelar={onCancelar}
         />
       );
     case 'revision':
-      if (!nino) return null;
+      if (!nino || !captura) return null;
       return (
         <Revision
           formato={formato}
-          ninoNombre={nino.nombre}
-          avatar={<NinoAvatar nino={nino} tamano={formato === 'foto' ? 32 : 40} />}
+          nino={nino}
+          captura={captura}
           duracion={duracion}
-          archivo={archivo}
-          texto={texto}
-          onTexto={setTexto}
-          nivel={nivel}
-          onNivel={(n) => {
-            setNivel(n);
-            // La API exige que todas las manifestaciones sean del nivel confirmado.
-            setManifestaciones((previas) => previas.filter((m) => m.manifestacion.nivel === n));
-          }}
-          niveles={catalogo.niveles}
-          manifestaciones={manifestaciones}
-          onManifestaciones={setManifestaciones}
-          catalogo={catalogo.manifestaciones}
-          evidenciaInsuficiente={sugerencia.nivel === null}
-          onBorrar={onCancelar}
-          onConfirmar={() => {
-            if (manifestaciones.length === 0) return;
-            onGuardar({
-              id: nuevoId(),
-              nino,
-              educadora,
-              formato,
-              creada: new Date(),
-              duracion,
-              texto: texto.trim(),
-              nivel,
-              manifestaciones,
-              sugerencia,
-            });
-          }}
+          nombreArchivo={nombreArchivo}
+          vistaPrevia={vistaPrevia}
+          catalogo={catalogo}
+          onGuardada={() => onGuardada(nino)}
+          onBorrada={onCancelar}
         />
       );
   }
+}
+
+/** URL local del audio o la foto para mostrarlo sin volver a pedirlo a S3. */
+function useVistaPrevia(entrada: Entrada | null): string | undefined {
+  const url = useMemo(
+    () =>
+      entrada && entrada.formato !== 'texto' ? URL.createObjectURL(entrada.archivo) : undefined,
+    [entrada],
+  );
+  useEffect(
+    () => () => {
+      if (url) URL.revokeObjectURL(url);
+    },
+    [url],
+  );
+  return url;
 }
 
 const onda = keyframes`
@@ -225,76 +226,116 @@ const onda = keyframes`
 
 const BARRAS = [20, 38, 56, 30, 48, 24, 42, 18];
 
+/** Graba con el micrófono del dispositivo. Si no hay permiso, lo explica y permite volver. */
 function Grabando({
   onTerminar,
   onCancelar,
 }: {
-  onTerminar: (segundos: number) => void;
+  onTerminar: (audio: Blob, segundos: number) => void;
   onCancelar: () => void;
 }) {
   const [segundos, setSegundos] = useState(0);
+  const [estado, setEstado] = useState<'pidiendo' | 'grabando' | 'terminando'>('pidiendo');
+  const [error, setError] = useState<string | null>(null);
+  const grabacion = useRef<Grabacion | null>(null);
 
   useEffect(() => {
+    let vigente = true;
+    iniciarGrabacion()
+      .then((g) => {
+        if (!vigente) return g.cancelar();
+        grabacion.current = g;
+        setEstado('grabando');
+      })
+      .catch((e: unknown) => vigente && setError(motivoMicrofono(e)));
+    return () => {
+      vigente = false;
+      grabacion.current?.cancelar();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (estado !== 'grabando') return;
     const intervalo = setInterval(() => setSegundos((s) => s + 1), 1000);
     return () => clearInterval(intervalo);
-  }, []);
+  }, [estado]);
+
+  const terminar = async () => {
+    const g = grabacion.current;
+    if (!g) return;
+    setEstado('terminando');
+    grabacion.current = null;
+    onTerminar(await g.detener(), Math.max(segundos, 1));
+  };
 
   return (
     <Pantalla>
       <Encabezado titulo="Nota de audio" />
-      <Stack sx={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 2.75 }}>
-        <Box
-          sx={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 1,
-            fontWeight: 800,
-            color: 'primary.dark',
-          }}
-        >
-          <Box sx={{ width: 12, height: 12, borderRadius: '50%', bgcolor: 'primary.main' }} />
-          Grabando
-        </Box>
-        <Box
-          role="timer"
-          aria-label="Tiempo grabado"
-          sx={{ fontSize: 56, fontWeight: 800, fontVariantNumeric: 'tabular-nums' }}
-        >
-          {formatoDuracion(segundos)}
-        </Box>
-        <Box aria-hidden sx={{ display: 'flex', alignItems: 'center', gap: 0.75, height: 60 }}>
-          {BARRAS.map((alto, i) => (
-            <Box
-              key={i}
-              sx={{
-                width: 7,
-                height: alto,
-                borderRadius: '9px',
-                bgcolor: i % 3 === 0 ? '#e4a0a6' : 'primary.main',
-                animation: `${onda} ${0.8 + (i % 4) * 0.15}s ease-in-out infinite`,
-                '@media (prefers-reduced-motion: reduce)': { animation: 'none' },
-              }}
-            />
-          ))}
-        </Box>
-        <ButtonBase
-          aria-label="Terminar grabación"
-          onClick={() => onTerminar(Math.max(segundos, 1))}
-          sx={{
-            width: 120,
-            height: 120,
-            borderRadius: '50%',
-            bgcolor: 'primary.main',
-            boxShadow: `0 0 0 14px ${colores.rojoSuave}, 0 10px 30px -4px rgba(214,40,57,.4)`,
-          }}
-        >
-          <Box sx={{ width: 38, height: 38, borderRadius: '8px', bgcolor: '#fff' }} />
-        </ButtonBase>
-        <Typography sx={{ fontSize: 18, fontWeight: 700 }}>Presiona para terminar</Typography>
-        <Typography variant="caption" color="text.secondary">
-          Demo: la grabación es simulada, no se usa el micrófono.
-        </Typography>
-      </Stack>
+      {error ? (
+        <Stack sx={{ flex: 1, px: 2.5, pt: 3, gap: 2 }}>
+          <Alert severity="error" sx={{ borderRadius: '14px', fontSize: 16 }}>
+            <AlertTitle>No se puede grabar</AlertTitle>
+            {error} Puedes escribir la nota o tomar una foto.
+          </Alert>
+        </Stack>
+      ) : (
+        <Stack sx={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 2.75 }}>
+          <Box
+            role="status"
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 1,
+              fontWeight: 800,
+              color: 'primary.dark',
+            }}
+          >
+            <Box sx={{ width: 12, height: 12, borderRadius: '50%', bgcolor: 'primary.main' }} />
+            {estado === 'pidiendo' ? 'Pidiendo el micrófono…' : 'Grabando'}
+          </Box>
+          <Box
+            role="timer"
+            aria-label="Tiempo grabado"
+            sx={{ fontSize: 56, fontWeight: 800, fontVariantNumeric: 'tabular-nums' }}
+          >
+            {formatoDuracion(segundos)}
+          </Box>
+          <Box aria-hidden sx={{ display: 'flex', alignItems: 'center', gap: 0.75, height: 60 }}>
+            {BARRAS.map((alto, i) => (
+              <Box
+                key={i}
+                sx={{
+                  width: 7,
+                  height: alto,
+                  borderRadius: '9px',
+                  bgcolor: i % 3 === 0 ? '#e4a0a6' : 'primary.main',
+                  animation:
+                    estado === 'grabando'
+                      ? `${onda} ${0.8 + (i % 4) * 0.15}s ease-in-out infinite`
+                      : 'none',
+                  '@media (prefers-reduced-motion: reduce)': { animation: 'none' },
+                }}
+              />
+            ))}
+          </Box>
+          <ButtonBase
+            aria-label="Terminar grabación"
+            disabled={estado !== 'grabando'}
+            onClick={() => void terminar()}
+            sx={{
+              width: 120,
+              height: 120,
+              borderRadius: '50%',
+              bgcolor: 'primary.main',
+              opacity: estado === 'grabando' ? 1 : 0.5,
+              boxShadow: `0 0 0 14px ${colores.rojoSuave}, 0 10px 30px -4px rgba(214,40,57,.4)`,
+            }}
+          >
+            <Box sx={{ width: 38, height: 38, borderRadius: '8px', bgcolor: '#fff' }} />
+          </ButtonBase>
+          <Typography sx={{ fontSize: 18, fontWeight: 700 }}>Presiona para terminar</Typography>
+        </Stack>
+      )}
       <Box sx={{ display: 'flex', justifyContent: 'center', px: 2.5, pb: 4 }}>
         <Button
           variant="outlined"
@@ -318,72 +359,92 @@ function Grabando({
   );
 }
 
-function Camara({ onTomar, onCancelar }: { onTomar: () => void; onCancelar: () => void }) {
+/**
+ * Foto del post-it: abre la cámara del celular (o el selector de archivos en un PC) y prepara la
+ * imagen como JPEG o PNG de hasta 10 MB.
+ */
+function Camara({
+  onTomar,
+  onCancelar,
+}: {
+  onTomar: (foto: File) => void;
+  onCancelar: () => void;
+}) {
+  const camara = useRef<HTMLInputElement>(null);
+  const galeria = useRef<HTMLInputElement>(null);
+  const [preparando, setPreparando] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const elegir = async (archivo: File | undefined) => {
+    if (!archivo) return;
+    setError(null);
+    setPreparando(true);
+    try {
+      onTomar(await prepararFoto(archivo));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'No se pudo usar esa foto.');
+      setPreparando(false);
+    }
+  };
+
   return (
-    <Pantalla oscura>
-      <Box
-        sx={{
-          px: 1.5,
-          pt: 1,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-        }}
-      >
-        <IconButton aria-label="Cancelar" onClick={onCancelar} sx={{ color: '#fff' }}>
-          <CloseRounded sx={{ fontSize: 30 }} />
-        </IconButton>
-        <Typography component="h1" sx={{ fontSize: 17, fontWeight: 700 }}>
-          Foto del post-it
+    <Pantalla>
+      <CabeceraConCerrar titulo="Foto del post-it" onCancelar={onCancelar} />
+      <Stack sx={{ flex: 1, px: 2.5, pt: 3, gap: 2, alignItems: 'center' }}>
+        <Typography sx={{ fontSize: 17, fontWeight: 600, textAlign: 'center' }}>
+          Toma una foto del post-it o de tu nota en papel, con buena luz.
         </Typography>
-        <Box sx={{ width: 46 }} />
-      </Box>
-      <Box
-        sx={{
-          flex: 1,
-          minHeight: 280,
-          mx: 2.5,
-          my: 1.5,
-          borderRadius: '20px',
-          background: 'repeating-linear-gradient(135deg,#2e2118 0 10px,#35271d 10px 20px)',
-          display: 'grid',
-          placeItems: 'center',
-        }}
-      >
-        <Box
-          sx={{
-            width: 200,
-            height: 200,
-            border: `3px dashed ${colores.amarillo}`,
-            borderRadius: '16px',
-            display: 'grid',
-            placeItems: 'center',
-            textAlign: 'center',
-            font: '600 12px ui-monospace, Menlo, monospace',
-            color: '#e4c36f',
-          }}
-        >
-          cámara simulada
-          <br />
-          (post-it)
-        </Box>
-      </Box>
-      <Typography sx={{ textAlign: 'center', fontSize: 17, fontWeight: 700, px: 2.5 }}>
-        Pon el post-it dentro del cuadro
-      </Typography>
-      <Box sx={{ display: 'flex', justifyContent: 'center', pt: 2.5, pb: 4 }}>
         <ButtonBase
           aria-label="Tomar foto"
-          onClick={onTomar}
+          disabled={preparando}
+          onClick={() => camara.current?.click()}
           sx={{
-            width: 84,
-            height: 84,
+            width: 140,
+            height: 140,
             borderRadius: '50%',
-            bgcolor: '#fff',
-            boxShadow: '0 0 0 6px rgba(255,255,255,.3)',
+            bgcolor: 'primary.main',
+            color: '#fff',
+            boxShadow: `0 0 0 14px ${colores.rojoSuave}`,
           }}
+        >
+          {preparando ? (
+            <CircularProgress aria-hidden sx={{ color: '#fff' }} />
+          ) : (
+            <PhotoCameraRounded sx={{ fontSize: 56 }} />
+          )}
+        </ButtonBase>
+        <Button
+          variant="text"
+          startIcon={<PhotoLibraryRounded />}
+          disabled={preparando}
+          onClick={() => galeria.current?.click()}
+          sx={{ color: 'primary.dark' }}
+        >
+          Elegir una foto guardada
+        </Button>
+        {error && (
+          <Alert severity="error" sx={{ borderRadius: '14px', alignSelf: 'stretch' }}>
+            {error}
+          </Alert>
+        )}
+        <input
+          ref={camara}
+          type="file"
+          accept="image/*"
+          capture="environment"
+          aria-label="Cámara"
+          hidden
+          onChange={(e) => void elegir(e.target.files?.[0])}
         />
-      </Box>
+        <input
+          ref={galeria}
+          type="file"
+          accept="image/*"
+          aria-label="Foto guardada"
+          hidden
+          onChange={(e) => void elegir(e.target.files?.[0])}
+        />
+      </Stack>
     </Pantalla>
   );
 }
@@ -547,49 +608,190 @@ function GrillaNinos({
   );
 }
 
+const TEXTO_ETAPA: Record<EtapaRegistro, string> = {
+  creando: 'Creando la nota…',
+  subiendo: 'Subiendo el archivo a S3…',
+  procesando: 'Procesando la nota…',
+};
+
+/** Crea la captura en la API, sube el archivo y espera el borrador. */
+function Procesando({
+  nino,
+  entrada,
+  onListo,
+  onCancelar,
+}: {
+  nino: Nino;
+  entrada: Entrada;
+  onListo: (captura: CapturaDetalle) => void;
+  onCancelar: () => void;
+}) {
+  const [etapa, setEtapa] = useState<EtapaRegistro>('creando');
+  const [error, setError] = useState<string | null>(null);
+  const [intento, setIntento] = useState(0);
+  const alListo = useEffectEvent(onListo);
+  // Una sola captura por intento: en desarrollo, StrictMode ejecuta dos veces el efecto y sin
+  // esto la API recibiría dos POST /capturas (dos notas gemelas).
+  const registro = useRef<{ intento: number; promesa: Promise<CapturaDetalle> } | null>(null);
+
+  useEffect(() => {
+    let vigente = true;
+    if (registro.current?.intento !== intento) {
+      registro.current = { intento, promesa: registrarCaptura(nino, entrada, setEtapa) };
+    }
+    registro.current.promesa
+      .then((captura) => vigente && alListo(captura))
+      .catch(
+        (e: unknown) =>
+          vigente && setError(e instanceof Error ? e.message : 'No se pudo guardar la nota.'),
+      );
+    return () => {
+      vigente = false;
+    };
+  }, [nino, entrada, intento]);
+
+  return (
+    <Pantalla>
+      <Encabezado titulo={`Nota de ${nino.nombre}`} />
+      <Stack sx={{ flex: 1, px: 2.5, pt: 4, gap: 2.5, alignItems: 'center' }}>
+        {error ? (
+          <Alert severity="error" sx={{ borderRadius: '14px', alignSelf: 'stretch', fontSize: 16 }}>
+            <AlertTitle>No se pudo guardar la nota</AlertTitle>
+            {error}
+          </Alert>
+        ) : (
+          <>
+            <CircularProgress aria-hidden />
+            <Typography role="status" sx={{ fontSize: 18, fontWeight: 700 }}>
+              {TEXTO_ETAPA[etapa]}
+            </Typography>
+          </>
+        )}
+      </Stack>
+      <Stack sx={{ px: 2, pb: 3.5, gap: 0.75 }}>
+        {error && (
+          <Button
+            variant="contained"
+            fullWidth
+            onClick={() => {
+              setError(null);
+              setIntento((i) => i + 1);
+            }}
+          >
+            Reintentar
+          </Button>
+        )}
+        <Button variant="text" onClick={onCancelar} sx={{ color: 'text.secondary' }}>
+          Cancelar
+        </Button>
+      </Stack>
+    </Pantalla>
+  );
+}
+
+const NOMBRE_PASO: Record<Procesamiento['pasos'][number]['paso'], string> = {
+  transcripcion: 'Transcripción del audio',
+  lectura_imagen: 'Lectura de la foto',
+  extraccion: 'Nivel y manifestaciones',
+};
+
+const ESTADO_PASO: Record<Procesamiento['pasos'][number]['estado'], string> = {
+  no_implementado: 'no implementado',
+  simulado: 'simulado',
+  completado: 'listo',
+};
+
+const NOMBRE_FORMATO: Record<Formato, string> = { audio: 'Audio', foto: 'Foto', texto: 'Texto' };
+
+/** Aviso visible de lo que se procesó y de qué pasos aún no son reales. */
+function AvisoProcesamiento({ procesamiento }: { procesamiento: Procesamiento }) {
+  const { entrada } = procesamiento;
+  return (
+    <Alert
+      severity={procesamiento.simulado ? 'warning' : 'info'}
+      sx={{ mx: 2, mt: 2, borderRadius: '14px' }}
+    >
+      <AlertTitle sx={{ fontWeight: 800 }}>
+        {procesamiento.simulado
+          ? 'Procesamiento simulado: aún no implementado'
+          : 'Procesamiento completado'}
+      </AlertTitle>
+      <Typography variant="body2" sx={{ fontWeight: 600 }}>
+        Se recibió: {NOMBRE_FORMATO[entrada.formato]}
+        {entrada.tipoArchivo ? ` (${entrada.tipoArchivo}, ${formatoBytes(entrada.bytes)})` : ''}
+        {entrada.claveS3 ? `, guardado en S3 (${entrada.claveS3}).` : '.'}
+      </Typography>
+      <Box component="ul" sx={{ m: 0, mt: 0.75, pl: 2.5 }}>
+        {procesamiento.pasos.map((p) => (
+          <Typography component="li" variant="body2" key={p.paso}>
+            <b>
+              {NOMBRE_PASO[p.paso]}: {ESTADO_PASO[p.estado]}.
+            </b>{' '}
+            {p.detalle}
+          </Typography>
+        ))}
+      </Box>
+    </Alert>
+  );
+}
+
+/**
+ * Revisión del borrador de la API: la educadora confirma o corrige el nivel y las
+ * manifestaciones, o descarta la nota. La decisión se guarda en la API.
+ */
 function Revision({
   formato,
-  ninoNombre,
-  avatar,
+  nino,
+  captura,
   duracion,
-  archivo,
-  texto,
-  onTexto,
-  nivel,
-  onNivel,
-  niveles,
-  manifestaciones,
-  onManifestaciones,
+  nombreArchivo,
+  vistaPrevia,
   catalogo,
-  evidenciaInsuficiente,
-  onConfirmar,
-  onBorrar,
+  onGuardada,
+  onBorrada,
 }: {
   formato: Formato;
-  ninoNombre: string;
-  avatar: ReactNode;
+  nino: Nino;
+  captura: CapturaDetalle;
   duracion?: number;
-  archivo?: string;
-  texto: string;
-  onTexto: (texto: string) => void;
-  nivel: number;
-  onNivel: (nivel: number) => void;
-  niveles: NivelRuta[];
-  manifestaciones: ManifestacionCitada[];
-  onManifestaciones: (manifestaciones: ManifestacionCitada[]) => void;
-  catalogo: Manifestacion[];
-  /** La propuesta no encontró evidencia: la educadora elige las manifestaciones. */
-  evidenciaInsuficiente: boolean;
-  onConfirmar: () => void;
-  onBorrar: () => void;
+  nombreArchivo?: string;
+  vistaPrevia?: string;
+  catalogo: { niveles: NivelRuta[]; manifestaciones: Manifestacion[] };
+  onGuardada: () => void;
+  onBorrada: () => void;
 }) {
-  const [editando, setEditando] = useState(false);
-  const [agregando, setAgregando] = useState(evidenciaInsuficiente);
-  const listo = texto.trim() !== '' && manifestaciones.length > 0;
+  const { borrador } = captura;
+  const sinPropuesta = !borrador || borrador.evidenciaInsuficiente;
+  const [nivel, setNivel] = useState(
+    borrador?.nivelSugerido ?? nivelEsperado(nino.edadMeses, catalogo.niveles),
+  );
+  const [manifestaciones, setManifestaciones] = useState<ManifestacionCitada[]>(
+    () => (borrador?.manifestaciones ?? []) as ManifestacionCitada[],
+  );
+  const [agregando, setAgregando] = useState(sinPropuesta);
+  const confirmar = useConfirmar();
+  const descartar = useDescartar();
+  const ocupado = confirmar.isPending || descartar.isPending;
+  const listo = manifestaciones.length > 0 && !ocupado;
+  const error = confirmar.error ?? descartar.error;
+  const deEjemplo = formato !== 'texto';
+
+  const cambiarNivel = (n: number) => {
+    setNivel(n);
+    // La API exige que todas las manifestaciones sean del nivel confirmado.
+    setManifestaciones((previas) => previas.filter((m) => m.manifestacion.nivel === n));
+  };
 
   return (
     <Pantalla>
       <Encabezado titulo="¿Está bien?" subtitulo={SUBTITULO_REVISION[formato]} />
+      {borrador?.procesamiento && <AvisoProcesamiento procesamiento={borrador.procesamiento} />}
+      {captura.estado === 'error' && (
+        <Alert severity="error" sx={{ mx: 2, mt: 2, borderRadius: '14px' }}>
+          No se pudo procesar la nota{captura.errorDetalle ? `: ${captura.errorDetalle}` : ''}.
+          Elige tú lo que observaste.
+        </Alert>
+      )}
       <Stack
         sx={{
           mx: 2,
@@ -603,27 +805,9 @@ function Revision({
         }}
       >
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-          {formato === 'foto' && (
-            <Box
-              aria-hidden
-              sx={{
-                width: 64,
-                height: 64,
-                flexShrink: 0,
-                borderRadius: '10px',
-                background: `repeating-linear-gradient(135deg,${colores.amarilloSuave} 0 6px,${colores.amarillo} 6px 12px)`,
-                display: 'grid',
-                placeItems: 'center',
-                font: '600 9px ui-monospace, Menlo, monospace',
-                color: '#594400',
-              }}
-            >
-              post-it
-            </Box>
-          )}
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, flex: 1 }}>
-            {avatar}
-            <Typography sx={{ fontSize: 17, fontWeight: 700 }}>{ninoNombre}</Typography>
+            <NinoAvatar nino={nino} tamano={40} />
+            <Typography sx={{ fontSize: 17, fontWeight: 700 }}>{nino.nombre}</Typography>
           </Box>
           {formato === 'audio' && duracion !== undefined && (
             <Box
@@ -642,59 +826,55 @@ function Revision({
           )}
         </Box>
 
-        {archivo && (
+        {vistaPrevia && formato === 'audio' && (
           <Box
-            sx={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 0.75,
-              color: 'text.secondary',
-              fontSize: 14,
-              fontWeight: 600,
-              minWidth: 0,
-            }}
-          >
-            <AttachFileRounded sx={{ fontSize: 20 }} />
-            <Box component="span" sx={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
-              {archivo}
+            component="audio"
+            controls
+            src={vistaPrevia}
+            aria-label="Audio grabado"
+            sx={{ width: '100%' }}
+          />
+        )}
+        {vistaPrevia && formato === 'foto' && (
+          <Box
+            component="img"
+            src={vistaPrevia}
+            alt={nombreArchivo ? `Foto ${nombreArchivo}` : 'Foto tomada'}
+            sx={{ width: '100%', maxHeight: 240, objectFit: 'contain', borderRadius: '12px' }}
+          />
+        )}
+
+        {borrador && (
+          <Stack sx={{ gap: 0.75 }}>
+            <Typography variant="caption" color="text.secondary">
+              {deEjemplo
+                ? `Texto de ejemplo (no es ${formato === 'audio' ? 'tu audio' : 'tu foto'})`
+                : 'Tu nota'}
+            </Typography>
+            <Box
+              sx={{
+                p: 1.75,
+                bgcolor: colores.amarilloSuave,
+                borderRadius: '12px',
+                fontSize: 17,
+                lineHeight: '26px',
+                ...(deEjemplo && { border: `2px dashed ${colores.amarillo}` }),
+              }}
+            >
+              {borrador.textoFuente}
             </Box>
-          </Box>
+          </Stack>
         )}
-        {editando ? (
-          <CajaTexto valor={texto} onCambio={onTexto} autoFocus etiqueta="Corregir texto" />
-        ) : (
-          <Box
-            sx={{
-              p: 1.75,
-              bgcolor: colores.amarilloSuave,
-              borderRadius: '12px',
-              fontSize: 17,
-              lineHeight: '26px',
-            }}
-          >
-            {texto}
-          </Box>
-        )}
-        <Box>
-          <Button
-            variant="text"
-            startIcon={editando ? <CheckRounded /> : <EditRounded />}
-            onClick={() => setEditando(!editando)}
-            sx={{ color: 'primary.dark', fontSize: 15, minHeight: 40, px: 1, ml: -1 }}
-          >
-            {editando ? 'Listo' : 'Corregir texto'}
-          </Button>
-        </Box>
 
         <Box sx={{ height: '1px', bgcolor: 'divider' }} />
 
-        <ElegirNivel nivel={nivel} niveles={niveles} onNivel={onNivel} />
+        <ElegirNivel nivel={nivel} niveles={catalogo.niveles} onNivel={cambiarNivel} />
 
         <Stack sx={{ gap: 1 }}>
           <Typography variant="caption" color="text.secondary">
-            {evidenciaInsuficiente ? 'Elige lo que observaste' : 'Lo que observaste'}
+            {sinPropuesta ? 'Elige lo que observaste' : 'Lo que observaste'}
           </Typography>
-          {evidenciaInsuficiente && manifestaciones.length === 0 && (
+          {sinPropuesta && manifestaciones.length === 0 && (
             <Typography sx={{ fontSize: 15, color: colores.amarilloTinta, fontWeight: 600 }}>
               No encontramos evidencia suficiente en la nota. Agrega al menos una manifestación.
             </Typography>
@@ -730,7 +910,7 @@ function Revision({
               <IconButton
                 aria-label={`Quitar «${manifestacion.textoObservable}»`}
                 onClick={() =>
-                  onManifestaciones(
+                  setManifestaciones(
                     manifestaciones.filter((m) => m.manifestacion.id !== manifestacion.id),
                   )
                 }
@@ -741,14 +921,14 @@ function Revision({
           ))}
           {agregando ? (
             <AgregarManifestacion
-              opciones={catalogo.filter(
+              opciones={catalogo.manifestaciones.filter(
                 (m) =>
                   m.nivel === nivel &&
                   !manifestaciones.some((elegida) => elegida.manifestacion.id === m.id),
               )}
               lleno={manifestaciones.length >= MAXIMO_MANIFESTACIONES}
               onAgregar={(m) =>
-                onManifestaciones([...manifestaciones, { manifestacion: m, cita: null }])
+                setManifestaciones([...manifestaciones, { manifestacion: m, cita: null }])
               }
               onCerrar={() => setAgregando(false)}
             />
@@ -768,6 +948,11 @@ function Revision({
         </Stack>
       </Stack>
 
+      {error && (
+        <Alert severity="error" sx={{ mx: 2, mt: 2, borderRadius: '14px' }}>
+          {error.message}
+        </Alert>
+      )}
       <Stack sx={{ mt: 'auto', px: 2, pt: 2, pb: 3.5, gap: 0.75 }}>
         <Button
           variant="contained"
@@ -775,15 +960,18 @@ function Revision({
           fullWidth
           disabled={!listo}
           startIcon={<CheckRounded sx={{ fontSize: 28 }} />}
-          onClick={onConfirmar}
+          onClick={() =>
+            confirmar.mutate({ captura, nivel, manifestaciones }, { onSuccess: onGuardada })
+          }
           sx={{ fontSize: 20, boxShadow: listo ? '0 8px 20px -6px rgba(46,125,50,.45)' : 'none' }}
         >
-          Está bien
+          {confirmar.isPending ? 'Guardando…' : 'Está bien'}
         </Button>
         <Button
           variant="text"
           startIcon={<DeleteRounded />}
-          onClick={onBorrar}
+          disabled={ocupado}
+          onClick={() => descartar.mutate(captura, { onSuccess: onBorrada })}
           sx={{ color: 'text.secondary' }}
         >
           Borrar nota

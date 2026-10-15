@@ -9,7 +9,7 @@ import Button from '@mui/material/Button';
 import CircularProgress from '@mui/material/CircularProgress';
 import Typography from '@mui/material/Typography';
 import { useCatalogo, useNinos } from './api';
-import type { Formato, Nino, Nota } from './datos';
+import type { Formato, Nino } from './datos';
 import { FichaNino } from './FichaNino';
 import { Ingreso } from './Ingreso';
 import { Inicio } from './Inicio';
@@ -17,6 +17,7 @@ import { MiSala } from './MiSala';
 import { MisNotas } from './MisNotas';
 import { NuevaNota } from './NuevaNota';
 import { PanelSalas } from './PanelSalas';
+import { useNotas } from './registrar';
 import { colores } from './tema';
 
 const CLAVE_SESION = 'toqui.registro.correo';
@@ -72,9 +73,9 @@ function esHoy(fecha: Date, ahora: Date): boolean {
  * App «Registro Simple». En el celular, el flujo de la tía (diseño 1b + pantallas
  * comunes 1d); en pantallas anchas, el panel de notas de las salas (diseño 1e) con carga
  * de notas desde el PC.
- * Niños, niñas, catálogo, niveles y registros anteriores vienen de la API. El ingreso, el
- * procesamiento de la nota y la propuesta de la IA siguen simulados, y las notas nuevas viven
- * en memoria hasta que exista el guardado en la API.
+ * Niños, niñas, catálogo, niveles, registros y notas vienen de la API; las notas se guardan
+ * en ella y el audio y la foto se suben a S3. El ingreso sigue simulado, y la transcripción, la
+ * lectura de la foto y la IA aún no están implementadas en la API (la revisión lo avisa).
  */
 export function RegistroApp() {
   const [correo, setCorreo] = useState<string | null>(leerSesion);
@@ -183,18 +184,15 @@ function AppConDatos({
   const guardada = leerSala();
   const salaPropia = guardada && salas.includes(guardada) ? guardada : (salas[0] ?? '');
   const [vista, setVista] = useState<Vista>({ tipo: 'inicio' });
-  const [notas, setNotas] = useState<Nota[]>([]);
   const [aviso, setAviso] = useState<string | null>(null);
   // Sala que se consulta en «Mi sala». Queda fuera de `Vista`: Grabar de la barra no la hereda.
   const [salaVista, setSalaVista] = useState(salaPropia);
   const deMiSala = ninos.filter((n) => n.sala === salaPropia);
+  const confirmadas = useNotas(ninos, { mias: 'true', estado: 'confirmada' });
 
   const ahora = new Date();
   const nueva = (formato: Formato) => setVista({ tipo: 'nueva', formato });
-  const guardarNota = (nota: Nota) => {
-    setNotas((previas) => [nota, ...previas]);
-    setAviso(`Nota guardada para ${nota.nino.nombre}`);
-  };
+  const alGuardar = (nino: Nino) => setAviso(`Nota guardada para ${nino.nombre}`);
 
   const avisoGuardado = (
     <Snackbar
@@ -217,10 +215,9 @@ function AppConDatos({
           salas={salas}
           salaPropia={salaPropia}
           catalogo={catalogo}
-          notas={notas}
           ahora={ahora}
           nombre={nombre}
-          onGuardar={guardarNota}
+          onGuardada={alGuardar}
         />
         {avisoGuardado}
       </>
@@ -238,11 +235,9 @@ function AppConDatos({
         // Desde la ficha puede venir un niño o niña de otra sala.
         ninoFijo={ninos.find((n) => n.id === ninoId)}
         catalogo={catalogo}
-        semilla={notas.length}
-        educadora={nombre}
         onCancelar={volver}
-        onGuardar={(nota) => {
-          guardarNota(nota);
+        onGuardada={(nino) => {
+          alGuardar(nino);
           volver();
         }}
       />
@@ -254,7 +249,6 @@ function AppConDatos({
       pantalla = (
         <FichaNino
           nino={fichaDe}
-          notas={notas}
           ahora={ahora}
           onVolver={() => setVista({ tipo: 'sala' })}
           onGrabar={() => setVista({ tipo: 'nueva', formato: 'audio', ninoId: fichaDe.id })}
@@ -266,7 +260,6 @@ function AppConDatos({
           ninos={ninos}
           salas={salas}
           salaPropia={salaPropia}
-          notas={notas}
           ahora={ahora}
           sala={salaVista}
           onCambiarSala={setSalaVista}
@@ -274,12 +267,12 @@ function AppConDatos({
         />
       );
     } else if (vista.tipo === 'notas') {
-      pantalla = <MisNotas notas={notas} ahora={ahora} />;
+      pantalla = <MisNotas ninos={ninos} ahora={ahora} />;
     } else {
       pantalla = (
         <Inicio
           nombre={nombre}
-          notasHoy={notas.filter((n) => esHoy(n.creada, ahora)).length}
+          notasHoy={(confirmadas.data ?? []).filter((n) => esHoy(n.creada, ahora)).length}
           onElegir={nueva}
         />
       );

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import Dialog from '@mui/material/Dialog';
 import { CabeceraConCerrar, Pantalla } from './componentes';
 import type { Manifestacion, NivelRuta } from './api';
-import type { Formato, Nino, Nota } from './datos';
+import type { Formato, Nino } from './datos';
 import { BotonesFormato } from './Inicio';
 import { NuevaNota } from './NuevaNota';
 
@@ -20,17 +20,13 @@ export function NuevaNotaEscritorio({
   ninos,
   catalogo,
   ninoId,
-  semilla,
-  educadora,
-  onGuardar,
+  onGuardada,
   onCerrar,
 }: {
   ninos: Nino[];
   catalogo: { niveles: NivelRuta[]; manifestaciones: Manifestacion[] };
   ninoId?: string;
-  semilla: number;
-  educadora: string;
-  onGuardar: (nota: Nota) => void;
+  onGuardada: (nino: Nino) => void;
   onCerrar: () => void;
 }) {
   const [formato, setFormato] = useState<Formato | null>(null);
@@ -58,13 +54,11 @@ export function NuevaNotaEscritorio({
       {formato ? (
         <NuevaNota
           formato={formato}
-          semilla={semilla}
-          educadora={educadora}
           escritorio
           ninos={ninos}
           ninoFijo={ninos.find((n) => n.id === ninoId)}
           catalogo={catalogo}
-          onGuardar={onGuardar}
+          onGuardada={onGuardada}
           onCancelar={onCerrar}
         />
       ) : (

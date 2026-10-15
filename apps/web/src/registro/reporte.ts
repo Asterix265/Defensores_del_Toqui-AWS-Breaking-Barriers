@@ -1,5 +1,6 @@
 import { etiquetaSala } from './api';
-import { ETIQUETA_DOMINIO, dominiosDe, type Nota } from './datos';
+import { ETIQUETA_DOMINIO } from './datos';
+import type { NotaGuardada } from './registrar';
 
 const COLUMNAS = [
   'id_nota',
@@ -11,7 +12,6 @@ const COLUMNAS = [
   'formato',
   'nivel_estimado',
   'areas',
-  'manifestaciones',
   'nota',
 ];
 
@@ -20,22 +20,19 @@ function celda(valor: string): string {
 }
 
 /** Reporte CSV de las notas visibles en el panel. Solo contiene datos sintéticos de la demo. */
-export function notasACsv(notas: Nota[]): string {
+export function notasACsv(notas: NotaGuardada[]): string {
   const filas = notas.map((nota) => {
     return [
       nota.id,
       nota.creada.toISOString(),
       etiquetaSala(nota.nino.sala),
-      nota.educadora,
+      nota.autor,
       nota.nino.id,
       nota.nino.nombreCompleto,
       nota.formato,
-      String(nota.nivel),
-      dominiosDe(nota.manifestaciones)
-        .map((d) => ETIQUETA_DOMINIO[d])
-        .join(' | '),
-      nota.manifestaciones.map((m) => m.manifestacion.id).join(' | '),
-      nota.texto,
+      nota.nivel === null ? '' : String(nota.nivel),
+      nota.dominios.map((d) => ETIQUETA_DOMINIO[d]).join(' | '),
+      nota.texto ?? '',
     ];
   });
   return [COLUMNAS, ...filas].map((fila) => fila.map(celda).join(',')).join('\n');

@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.0.0
  */
 import type { BorradorEntranteDtoManifestacionesItem } from './borradorEntranteDtoManifestacionesItem';
+import type { Procesamiento } from './procesamiento';
 
 export interface BorradorEntranteDto {
   /** @minLength 1 */
@@ -18,4 +19,5 @@ export interface BorradorEntranteDto {
   proveedor: string;
   /** @minLength 1 */
   modelo?: string;
+  procesamiento?: Procesamiento;
 }

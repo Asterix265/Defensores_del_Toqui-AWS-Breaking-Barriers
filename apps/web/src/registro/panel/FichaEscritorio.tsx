@@ -4,7 +4,7 @@ import Typography from '@mui/material/Typography';
 import ChevronLeftRounded from '@mui/icons-material/ChevronLeftRounded';
 import { etiquetaSala } from '../api';
 import { NinoAvatar } from '../componentes';
-import type { Nino, Nota } from '../datos';
+import type { Nino } from '../datos';
 import { AreasNino, UltimasNotas } from '../FichaNino';
 import { BotonNuevaNota } from './TituloVista';
 
@@ -15,14 +15,12 @@ import { BotonNuevaNota } from './TituloVista';
 export function FichaEscritorio({
   nino,
   salaPropia,
-  notas,
   ahora,
   onVolver,
   onNuevaNota,
 }: {
   nino: Nino;
   salaPropia: string;
-  notas: Nota[];
   ahora: Date;
   onVolver: () => void;
   /** Abre «Nueva nota» ya asociada a este niño o niña. */
@@ -72,11 +70,10 @@ export function FichaEscritorio({
           gap: 4,
         }}
       >
-        <AreasNino nino={nino} notas={notas} ahora={ahora} />
+        <AreasNino nino={nino} ahora={ahora} />
         <UltimasNotas
           key={nino.id}
           nino={nino}
-          notas={notas}
           ahora={ahora}
           sinNotas={`Usa «Nueva nota para ${nino.nombre}» para registrar la primera.`}
         />

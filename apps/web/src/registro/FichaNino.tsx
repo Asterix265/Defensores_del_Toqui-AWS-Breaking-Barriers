@@ -10,8 +10,8 @@ import MicRounded from '@mui/icons-material/MicRounded';
 import { useObservaciones } from './api';
 import { DIAS_PERIODO, registrosDe, resumenAreas, type ResumenArea } from './areas';
 import { ChipArea, ICONO_DOMINIO, NinoAvatar, Pantalla } from './componentes';
-import { COLOR_DOMINIO, ETIQUETA_DOMINIO, type Nino, type Nota } from './datos';
-import { diaCorto, formatoCuando } from './formato';
+import { COLOR_DOMINIO, ETIQUETA_DOMINIO, type Nino } from './datos';
+import { diaCorto } from './formato';
 import { colores } from './tema';
 
 const NOTAS_VISIBLES = 3;
@@ -25,18 +25,16 @@ const titulo = {
 /**
  * Ficha del niño o niña (diseño B, «áreas primero»): registros por área en los últimos 30 días,
  * con las áreas sin registros primero como sugerencia de observación, y sus últimos registros.
- * Junta las observaciones de la API con las notas guardadas en esta sesión.
+ * Las observaciones vienen de la API: las del dataset y las confirmadas en la app.
  * No muestra niveles ni comparaciones con la edad: cuenta registros, no logros.
  */
 export function FichaNino({
   nino,
-  notas,
   ahora,
   onVolver,
   onGrabar,
 }: {
   nino: Nino;
-  notas: Nota[];
   ahora: Date;
   onVolver: () => void;
   /** Graba una nota ya asociada a este niño o niña. */
@@ -84,12 +82,11 @@ export function FichaNino({
       </Stack>
 
       <Box sx={{ px: 2, pt: 2.5 }}>
-        <AreasNino nino={nino} notas={notas} ahora={ahora} />
+        <AreasNino nino={nino} ahora={ahora} />
       </Box>
       <Box sx={{ px: 2, pt: 3, pb: 3 }}>
         <UltimasNotas
           nino={nino}
-          notas={notas}
           ahora={ahora}
           sinNotas="Presiona el micrófono para registrar la primera."
         />
@@ -102,9 +99,9 @@ export function FichaNino({
  * Áreas del niño o niña en los últimos 30 días: las sin notas apiladas primero (invitación a
  * observar) y las demás en grilla. La comparten la ficha del celular y la de escritorio.
  */
-export function AreasNino({ nino, notas, ahora }: { nino: Nino; notas: Nota[]; ahora: Date }) {
+export function AreasNino({ nino, ahora }: { nino: Nino; ahora: Date }) {
   const observaciones = useObservaciones(nino.id);
-  const resumen = resumenAreas(registrosDe(nino.id, observaciones.data ?? [], notas), ahora);
+  const resumen = resumenAreas(registrosDe(observaciones.data ?? []), ahora);
   const sinNotas = resumen.filter((r) => r.cantidad === 0);
   const conNotas = resumen.filter((r) => r.cantidad > 0);
   return (
@@ -119,7 +116,7 @@ export function AreasNino({ nino, notas, ahora }: { nino: Nino; notas: Nota[]; a
       )}
       {observaciones.isError && (
         <Typography role="alert" color="error" sx={{ px: 0.5 }}>
-          No se pudieron cargar los registros anteriores. Se muestran solo las notas de hoy.
+          No se pudieron cargar los registros. Revisa que la API esté levantada.
         </Typography>
       )}
       {!observaciones.isPending && sinNotas.map((r) => <AreaSinNotas key={r.area} resumen={r} />)}
@@ -134,19 +131,17 @@ export function AreasNino({ nino, notas, ahora }: { nino: Nino; notas: Nota[]; a
 /** Notas del niño o niña, de la más reciente a la más antigua: 3 visibles y «Ver las N». */
 export function UltimasNotas({
   nino,
-  notas,
   ahora,
   sinNotas,
 }: {
   nino: Nino;
-  notas: Nota[];
   ahora: Date;
   /** Cómo registrar la primera nota en este dispositivo. */
   sinNotas: string;
 }) {
   const [verTodas, setVerTodas] = useState(false);
   const observaciones = useObservaciones(nino.id);
-  const delNino = registrosDe(nino.id, observaciones.data ?? [], notas);
+  const delNino = registrosDe(observaciones.data ?? []);
   const visibles = verTodas ? delNino : delNino.slice(0, NOTAS_VISIBLES);
   return (
     <Stack sx={{ gap: 1.25 }}>
@@ -182,9 +177,8 @@ export function UltimasNotas({
               <ChipArea key={d} area={d} compacto />
             ))}
             <Typography variant="caption" color="text.secondary" sx={{ ml: 'auto' }}>
-              {registro.autor
-                ? `${formatoCuando(registro.creada, ahora)} · Tía ${registro.autor}`
-                : `${diaCorto(registro.creada, ahora)} · Registro del jardín`}
+              {diaCorto(registro.creada, ahora)} ·{' '}
+              {registro.origen === 'app' ? 'Registrada en la app' : 'Registro del jardín'}
             </Typography>
           </Box>
         </Stack>

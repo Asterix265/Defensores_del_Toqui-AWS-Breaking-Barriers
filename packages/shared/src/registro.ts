@@ -165,6 +165,35 @@ export const SubidaSchema = z
   })
   .meta({ id: 'Subida' });
 
+/**
+ * Qué se procesó y cómo: la entrada y el estado de cada paso del pipeline. Mientras falten
+ * Transcribe, la lectura de imágenes o Bedrock, esos pasos se declaran `no_implementado` o
+ * `simulado` para que la interfaz lo diga.
+ */
+export const ProcesamientoSchema = z
+  .object({
+    /** true si algún paso no es real (no implementado o simulado). */
+    simulado: z.boolean(),
+    entrada: z.object({
+      formato: FormatoCapturaSchema,
+      /** Tipo MIME del archivo; null para texto. */
+      tipoArchivo: z.string().nullable(),
+      /** Tamaño del archivo en S3 o del texto, en bytes. */
+      bytes: z.number().int().nonnegative(),
+      /** Clave del objeto en S3; null si no hay archivo. */
+      claveS3: z.string().nullable(),
+    }),
+    pasos: z.array(
+      z.object({
+        paso: z.enum(['transcripcion', 'lectura_imagen', 'extraccion']),
+        estado: z.enum(['no_implementado', 'simulado', 'completado']),
+        detalle: z.string(),
+      }),
+    ),
+  })
+  .meta({ id: 'Procesamiento' });
+export type Procesamiento = z.infer<typeof ProcesamientoSchema>;
+
 export const BorradorSchema = z
   .object({
     /** Texto normalizado del que salen las citas. */
@@ -174,6 +203,8 @@ export const BorradorSchema = z
     evidenciaInsuficiente: z.boolean(),
     manifestaciones: z.array(ManifestacionCitadaSchema),
     proveedor: z.string(),
+    /** null en borradores anteriores a este campo. */
+    procesamiento: ProcesamientoSchema.nullable(),
   })
   .meta({ id: 'Borrador' });
 export type Borrador = z.infer<typeof BorradorSchema>;
@@ -207,6 +238,8 @@ export const CapturaResumenSchema = z
     extracto: TextoNuloSchema,
     /** Dominios de lo confirmado o, si aún no se confirma, de lo sugerido. */
     dominios: z.array(DominioSchema),
+    /** Nivel confirmado por la educadora; null si aún no se confirma. */
+    nivel: NivelSchema.nullable(),
   })
   .meta({ id: 'CapturaResumen' });
 export type CapturaResumen = z.infer<typeof CapturaResumenSchema>;
@@ -291,6 +324,7 @@ export const BorradorEntranteSchema = z.object({
     .max(5),
   proveedor: z.string().min(1),
   modelo: z.string().min(1).optional(),
+  procesamiento: ProcesamientoSchema.optional(),
 });
 export type BorradorEntrante = z.infer<typeof BorradorEntranteSchema>;
 

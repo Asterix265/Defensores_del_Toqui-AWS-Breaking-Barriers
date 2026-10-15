@@ -5,7 +5,7 @@ import ChevronRightRounded from '@mui/icons-material/ChevronRightRounded';
 import { etiquetaSala, useObservacionesDe } from '../api';
 import { areasSinNotas, DIAS_PERIODO, registrosDe, resumenAreas } from '../areas';
 import { NinoAvatar } from '../componentes';
-import type { Nino, Nota } from '../datos';
+import type { Nino } from '../datos';
 import { colores } from '../tema';
 import { ChipsSala } from './FiltrosPanel';
 import { BotonNuevaNota, TituloVista } from './TituloVista';
@@ -18,7 +18,6 @@ export function SalaEscritorio({
   ninos,
   salas: todas,
   salaPropia,
-  notas,
   ahora,
   sala,
   onSala,
@@ -28,7 +27,6 @@ export function SalaEscritorio({
   ninos: Nino[];
   salas: string[];
   salaPropia: string;
-  notas: Nota[];
   ahora: Date;
   sala: string | null;
   onSala: (sala: string | null) => void;
@@ -42,9 +40,7 @@ export function SalaEscritorio({
   // Mientras carga no se muestra la cuenta, para no anunciar áreas «sin notas» por error.
   const sinNotasDe = (nino: Nino) => {
     const consulta = observaciones[visibles.indexOf(nino)];
-    return consulta?.isSuccess
-      ? areasSinNotas(resumenAreas(registrosDe(nino.id, consulta.data, notas), ahora))
-      : 0;
+    return consulta?.isSuccess ? areasSinNotas(resumenAreas(registrosDe(consulta.data), ahora)) : 0;
   };
 
   return (

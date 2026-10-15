@@ -4,7 +4,7 @@ import Box from '@mui/material/Box';
 import Snackbar from '@mui/material/Snackbar';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { useTheme } from '@mui/material/styles';
-import { BarraInferior } from './componentes';
+import { BarraInferior } from './BarraInferior';
 import { NINOS, NINOS_DE_MI_SALA, notasDeEjemplo, type Formato, type Nota } from './datos';
 import { Ingreso } from './Ingreso';
 import { Inicio } from './Inicio';

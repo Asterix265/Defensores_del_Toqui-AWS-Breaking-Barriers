@@ -22,8 +22,8 @@ import {
   Encabezado,
   NinoAvatar,
   Pantalla,
-  formatoDuracion,
 } from './componentes';
+import { formatoDuracion } from './formato';
 import {
   DOMINIOS,
   NINOS,

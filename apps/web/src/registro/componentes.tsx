@@ -1,7 +1,6 @@
 import type { ReactNode } from 'react';
 import Avatar from '@mui/material/Avatar';
 import Box from '@mui/material/Box';
-import ButtonBase from '@mui/material/ButtonBase';
 import Chip from '@mui/material/Chip';
 import IconButton from '@mui/material/IconButton';
 import Stack from '@mui/material/Stack';
@@ -11,11 +10,7 @@ import ChatBubbleRounded from '@mui/icons-material/ChatBubbleRounded';
 import CloseRounded from '@mui/icons-material/CloseRounded';
 import DirectionsRunRounded from '@mui/icons-material/DirectionsRunRounded';
 import EditNoteRounded from '@mui/icons-material/EditNoteRounded';
-import EventNoteOutlined from '@mui/icons-material/EventNoteOutlined';
-import EventNoteRounded from '@mui/icons-material/EventNoteRounded';
 import FavoriteRounded from '@mui/icons-material/FavoriteRounded';
-import HomeOutlined from '@mui/icons-material/HomeOutlined';
-import HomeRounded from '@mui/icons-material/HomeRounded';
 import LightbulbRounded from '@mui/icons-material/LightbulbRounded';
 import MicRounded from '@mui/icons-material/MicRounded';
 import PanToolRounded from '@mui/icons-material/PanToolRounded';
@@ -36,37 +31,6 @@ const ICONO_DOMINIO: Record<Dominio, SvgIconComponent> = {
   motor_grueso: DirectionsRunRounded,
   socioemocional: FavoriteRounded,
 };
-
-export function formatoHora(fecha: Date): string {
-  return fecha.toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit', hour12: false });
-}
-
-function claveDia(fecha: Date): string {
-  return `${fecha.getFullYear()}-${fecha.getMonth()}-${fecha.getDate()}`;
-}
-
-/** «Hoy», «Ayer» o la fecha larga («lunes 12 de octubre»). */
-export function etiquetaDia(fecha: Date, ahora: Date): string {
-  const ayer = new Date(ahora);
-  ayer.setDate(ayer.getDate() - 1);
-  if (claveDia(fecha) === claveDia(ahora)) return 'Hoy';
-  if (claveDia(fecha) === claveDia(ayer)) return 'Ayer';
-  return fecha.toLocaleDateString('es-CL', { weekday: 'long', day: 'numeric', month: 'long' });
-}
-
-/** «Hoy 10:14», «Ayer 16:30» o «12 oct 09:15». */
-export function formatoCuando(fecha: Date, ahora: Date): string {
-  const dia = etiquetaDia(fecha, ahora);
-  const corto =
-    dia === 'Hoy' || dia === 'Ayer'
-      ? dia
-      : fecha.toLocaleDateString('es-CL', { day: 'numeric', month: 'short' });
-  return `${corto} ${formatoHora(fecha)}`;
-}
-
-export function formatoDuracion(segundos: number): string {
-  return `${Math.floor(segundos / 60)}:${String(segundos % 60).padStart(2, '0')}`;
-}
 
 /** Contenedor de cada pantalla: ocupa el alto disponible y deja el contenido en columna. */
 export function Pantalla({ children, oscura = false }: { children: ReactNode; oscura?: boolean }) {
@@ -191,117 +155,6 @@ export function AvisoVerde({ icono, children }: { icono: ReactNode; children: Re
     >
       {icono}
       {children}
-    </Box>
-  );
-}
-
-function ItemBarra({
-  etiqueta,
-  activo,
-  Icono,
-  IconoInactivo,
-  onClick,
-}: {
-  etiqueta: string;
-  activo: boolean;
-  Icono: SvgIconComponent;
-  IconoInactivo: SvgIconComponent;
-  onClick: () => void;
-}) {
-  const Actual = activo ? Icono : IconoInactivo;
-  return (
-    <ButtonBase
-      onClick={onClick}
-      aria-current={activo ? 'page' : undefined}
-      sx={{
-        width: 84,
-        py: 0.5,
-        borderRadius: '12px',
-        flexDirection: 'column',
-        gap: 0.25,
-        fontSize: 14,
-        fontWeight: 700,
-        color: activo ? 'primary.main' : 'text.secondary',
-      }}
-    >
-      <Actual sx={{ fontSize: 30 }} />
-      {etiqueta}
-    </ButtonBase>
-  );
-}
-
-/** Barra inferior: Inicio · botón rojo central «Grabar» · Mis notas. */
-export function BarraInferior({
-  activa,
-  onInicio,
-  onGrabar,
-  onNotas,
-}: {
-  activa: 'inicio' | 'notas';
-  onInicio: () => void;
-  onGrabar: () => void;
-  onNotas: () => void;
-}) {
-  return (
-    <Box
-      component="nav"
-      aria-label="Navegación principal"
-      sx={{
-        position: 'sticky',
-        bottom: 0,
-        mt: 'auto',
-        display: 'flex',
-        alignItems: 'flex-end',
-        justifyContent: 'space-around',
-        px: 1.5,
-        pt: 1,
-        pb: 'calc(14px + env(safe-area-inset-bottom))',
-        bgcolor: '#fff',
-        borderTop: 1,
-        borderColor: 'divider',
-      }}
-    >
-      <ItemBarra
-        etiqueta="Inicio"
-        activo={activa === 'inicio'}
-        Icono={HomeRounded}
-        IconoInactivo={HomeOutlined}
-        onClick={onInicio}
-      />
-      <ButtonBase
-        onClick={onGrabar}
-        sx={{
-          mt: '-34px',
-          borderRadius: '16px',
-          flexDirection: 'column',
-          gap: 0.5,
-          fontSize: 14,
-          fontWeight: 700,
-        }}
-      >
-        <Box
-          sx={{
-            width: 72,
-            height: 72,
-            borderRadius: '50%',
-            bgcolor: 'primary.main',
-            color: '#fff',
-            display: 'grid',
-            placeItems: 'center',
-            boxShadow: '0 8px 24px -4px rgba(214,40,57,.35)',
-          }}
-        >
-          <MicRounded sx={{ fontSize: 38 }} />
-        </Box>
-        Grabar
-      </ButtonBase>
-      <ItemBarra
-        etiqueta="Mis notas"
-        activo={activa === 'notas'}
-        Icono={EventNoteRounded}
-        IconoInactivo={EventNoteOutlined}
-        onClick={onNotas}
-      />
     </Box>
   );
 }

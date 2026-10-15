@@ -2,15 +2,8 @@ import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import CheckCircleRounded from '@mui/icons-material/CheckCircleRounded';
-import {
-  ChipArea,
-  Encabezado,
-  ICONO_FORMATO,
-  NinoAvatar,
-  Pantalla,
-  etiquetaDia,
-  formatoHora,
-} from './componentes';
+import { ChipArea, Encabezado, ICONO_FORMATO, NinoAvatar, Pantalla } from './componentes';
+import { etiquetaDia, formatoHora } from './formato';
 import { NINOS, SALA, type Nota } from './datos';
 import { colores } from './tema';
 

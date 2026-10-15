@@ -12,7 +12,7 @@ La línea base declarada en la presentación es de **4 horas semanales** de docu
 
 ## Estado actual
 
-La base técnica del monorepo está lista (cambio OpenSpec `levantar-stack-base`): web, API, pipeline, paquete compartido e infraestructura compilan, tienen pruebas de humo y se comunican en local. **Todavía no hay funcionalidades del desafío**: modelo de dominio, carga del dataset, autenticación, IA y despliegue en AWS pertenecen al cambio `definir-mvp-e1`, que está propuesto y pendiente de implementación. Los servicios AWS de desarrollo están desplegados (stack `ToquiDev`); el ambiente demo todavía no.
+La base técnica del monorepo está lista (cambio OpenSpec `levantar-stack-base`): web, API, pipeline, paquete compartido e infraestructura compilan, tienen pruebas de humo y se comunican en local. **Todavía no hay funcionalidades del desafío**: modelo de dominio, carga del dataset, autenticación, IA y despliegue en AWS pertenecen al cambio `definir-mvp-e1`, que está propuesto y pendiente de implementación. Los servicios AWS de desarrollo (stack `ToquiDev`) y la arquitectura de producción (`ToquiRed`, `ToquiDatos`, `ToquiApp`) están desplegados; la API y el pipeline de producción todavía solo tienen los endpoints y pasos técnicos de ejemplo.
 
 ## Stack
 
@@ -22,7 +22,7 @@ La base técnica del monorepo está lista (cambio OpenSpec `levantar-stack-base`
 | API | NestJS 11 + Prisma 7 (PostgreSQL), nestjs-zod, Swagger | `apps/api` |
 | Pipeline | Handlers Lambda en TypeScript (esbuild, `nodejs24.x`) | `apps/pipeline` |
 | Contrato | Esquemas zod → OpenAPI → cliente orval (hooks y mocks MSW) | `packages/shared` |
-| Infraestructura | AWS CDK v2 en TypeScript, `us-east-1` (solo síntesis) | `infra` |
+| Infraestructura | AWS CDK v2 en TypeScript, `us-east-1` (stacks de desarrollo y producción) | `infra` |
 | Base local | PostgreSQL 17 en Docker | `docker-compose.yml` |
 
 ## Desarrollo local
@@ -53,6 +53,7 @@ La web muestra el estado de la API; Swagger está en http://localhost:3000/docs.
 | `pnpm typecheck` / `pnpm test` / `pnpm build` | Tipos, pruebas y build de todos los paquetes |
 | `pnpm infra:synth` | Sintetiza CloudFormation sin desplegar ni requerir credenciales |
 | `pnpm aws:*` | Despliegue y prueba de los servicios AWS de desarrollo (ver [guía AWS](docs/guia-aws.md)) |
+| `pnpm aws:prod:*` | Despliegue, prueba y borrado del ambiente de producción (ver [arquitectura AWS](docs/arquitectura-aws.md)) |
 
 Imagen de la API (desde la raíz): `docker build -f apps/api/Dockerfile -t toqui-api .`
 
@@ -63,6 +64,8 @@ Verificado el 14-10-2026 en macOS con Node 24.22.0 y pnpm 11.13.0, en una copia 
 ## AWS de desarrollo
 
 Bedrock (Claude y Guardrail), Transcribe, S3 y Cognito están desplegados para desarrollo en la cuenta del evento (`us-east-1`, stack CDK `ToquiDev`). Configuración, comandos (`pnpm aws:smoke`, `pnpm aws:env`, `pnpm aws:deploy`), usuarios de prueba, costos y limpieza: [guía AWS](docs/guia-aws.md).
+
+El ambiente de producción (CloudFront, Fargate, Aurora Serverless v2, pipeline con Step Functions) se despliega con `pnpm aws:prod:deploy`; diagrama, stacks y decisiones en [arquitectura AWS](docs/arquitectura-aws.md).
 
 ## Materiales del desafío
 

@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { Inject, Injectable, OnModuleDestroy } from '@nestjs/common';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '../generated/prisma/client';
@@ -8,7 +9,9 @@ import type { Env } from '../config/env';
 @Injectable()
 export class PrismaService extends PrismaClient implements OnModuleDestroy {
   constructor(@Inject(ENV) env: Env) {
-    super({ adapter: new PrismaPg({ connectionString: env.DATABASE_URL }) });
+    // En AWS, Aurora exige TLS: se verifica con el bundle de CA de RDS incluido en la imagen.
+    const ssl = env.DATABASE_SSL_CA ? { ca: readFileSync(env.DATABASE_SSL_CA, 'utf8') } : undefined;
+    super({ adapter: new PrismaPg({ connectionString: env.DATABASE_URL, ssl }) });
   }
 
   async onModuleDestroy(): Promise<void> {

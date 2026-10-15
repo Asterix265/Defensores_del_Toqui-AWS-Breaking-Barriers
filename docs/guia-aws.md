@@ -15,7 +15,7 @@ Cuenta AWS entregada por el evento, región **`us-east-1`**. La organización de
 | S3 | Audios y fotos subidos con URL prefirmada | `toqui-dev-capturas-<cuenta>` (privado, borrado a los 7 días, CORS para `http://localhost:5173`) |
 | Cognito | Login con grupos `educadora` y `directora` y atributo `custom:id_jardin` | Pool `toqui-dev` y cliente `toqui-dev-web` |
 
-S3, Cognito y el Guardrail los crea el stack CDK `ToquiDev` (`infra/lib/dev-stack.ts`). Postgres, la API y la web siguen corriendo en local.
+S3, Cognito y el Guardrail los crea el stack CDK `ToquiDev` (`infra/lib/dev-stack.ts`). Postgres, la API y la web siguen corriendo en local. El ambiente de producción (demo) y su arquitectura completa están en [arquitectura AWS](arquitectura-aws.md).
 
 ## Primera vez (cada persona)
 

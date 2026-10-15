@@ -33,6 +33,8 @@ export * from './errorPipelineRequestDto';
 export * from './healthResponseDtoOutput';
 export * from './healthResponseDtoOutputDependencies';
 export * from './healthResponseDtoOutputDependenciesDatabase';
+export * from './healthResponseDtoOutputDependenciesQueue';
+export * from './healthResponseDtoOutputDependenciesStorage';
 export * from './healthResponseDtoOutputStatus';
 export * from './listarCapturasEstado';
 export * from './listarCapturasMias';

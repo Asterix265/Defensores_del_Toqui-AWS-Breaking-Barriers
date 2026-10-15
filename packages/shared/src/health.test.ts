@@ -7,7 +7,7 @@ describe('HealthResponseSchema', () => {
       status: 'ok',
       version: '0.0.0',
       timestamp: new Date().toISOString(),
-      dependencies: { database: 'up' },
+      dependencies: { database: 'up', storage: 'up', queue: 'up' },
     });
     expect(result.success).toBe(true);
   });
@@ -15,6 +15,16 @@ describe('HealthResponseSchema', () => {
   it('rechaza un estado desconocido', () => {
     const result = HealthResponseSchema.safeParse({
       status: 'roto',
+      version: '0.0.0',
+      timestamp: new Date().toISOString(),
+      dependencies: { database: 'up', storage: 'up', queue: 'up' },
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('exige el estado del almacenamiento', () => {
+    const result = HealthResponseSchema.safeParse({
+      status: 'ok',
       version: '0.0.0',
       timestamp: new Date().toISOString(),
       dependencies: { database: 'up' },

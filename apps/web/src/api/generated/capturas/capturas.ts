@@ -307,6 +307,105 @@ export function useListarCapturas<
   return withQueryKey(query, queryOptions.queryKey);
 }
 
+export type confirmarSubidaCapturaResponse200 = {
+  data: CapturaDetalleDtoOutput;
+  status: 200;
+};
+
+export type confirmarSubidaCapturaResponseSuccess = confirmarSubidaCapturaResponse200 & {
+  headers: Headers;
+};
+export type confirmarSubidaCapturaResponse = confirmarSubidaCapturaResponseSuccess;
+
+export const getConfirmarSubidaCapturaUrl = (id: string) => {
+  return `/api/capturas/${id}/subida-completa`;
+};
+
+/**
+ * @summary La web terminó de subir el audio o la foto: la captura se manda a procesar
+ */
+export const confirmarSubidaCaptura = async (
+  id: string,
+  options?: RequestInit,
+): Promise<confirmarSubidaCapturaResponse> => {
+  const res = await fetch(getConfirmarSubidaCapturaUrl(id), {
+    ...options,
+    method: 'POST',
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: confirmarSubidaCapturaResponse['data'] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as confirmarSubidaCapturaResponse;
+};
+
+export const getConfirmarSubidaCapturaMutationKey = () => ['confirmarSubidaCaptura'] as const;
+
+export const getConfirmarSubidaCapturaMutationOptions = <
+  TError = unknown,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof confirmarSubidaCaptura>>,
+    TError,
+    ConfirmarSubidaCapturaMutationVariables,
+    TContext
+  >;
+  fetch?: RequestInit;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof confirmarSubidaCaptura>>,
+  TError,
+  ConfirmarSubidaCapturaMutationVariables,
+  TContext
+> => {
+  const mutationKey = getConfirmarSubidaCapturaMutationKey();
+  const { mutation: mutationOptions, fetch: fetchOptions } = options
+    ? options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, fetch: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof confirmarSubidaCaptura>>,
+    ConfirmarSubidaCapturaMutationVariables
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return confirmarSubidaCaptura(id, fetchOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ConfirmarSubidaCapturaMutationResult = NonNullable<
+  Awaited<ReturnType<typeof confirmarSubidaCaptura>>
+>;
+
+export type ConfirmarSubidaCapturaMutationError = unknown;
+export type ConfirmarSubidaCapturaMutationVariables = { id: string };
+
+/**
+ * @summary La web terminó de subir el audio o la foto: la captura se manda a procesar
+ */
+export const useConfirmarSubidaCaptura = <TError = unknown, TContext = unknown>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof confirmarSubidaCaptura>>,
+      TError,
+      ConfirmarSubidaCapturaMutationVariables,
+      TContext
+    >;
+    fetch?: RequestInit;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof confirmarSubidaCaptura>>,
+  TError,
+  ConfirmarSubidaCapturaMutationVariables,
+  TContext
+> => {
+  return useMutation(getConfirmarSubidaCapturaMutationOptions(options), queryClient);
+};
 export type obtenerCapturaResponse200 = {
   data: CapturaDetalleDtoOutput;
   status: 200;

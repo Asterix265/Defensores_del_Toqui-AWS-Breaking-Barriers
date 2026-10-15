@@ -6,7 +6,11 @@
  * OpenAPI spec version: 0.0.0
  */
 import type { HealthResponseDtoOutputDependenciesDatabase } from './healthResponseDtoOutputDependenciesDatabase';
+import type { HealthResponseDtoOutputDependenciesQueue } from './healthResponseDtoOutputDependenciesQueue';
+import type { HealthResponseDtoOutputDependenciesStorage } from './healthResponseDtoOutputDependenciesStorage';
 
 export type HealthResponseDtoOutputDependencies = {
   database: HealthResponseDtoOutputDependenciesDatabase;
+  storage: HealthResponseDtoOutputDependenciesStorage;
+  queue: HealthResponseDtoOutputDependenciesQueue;
 };

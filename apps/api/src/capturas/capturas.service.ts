@@ -4,9 +4,7 @@ import {
   ForbiddenException,
   Inject,
   Injectable,
-  Logger,
   NotFoundException,
-  ServiceUnavailableException,
   UnprocessableEntityException,
 } from '@nestjs/common';
 import { z } from 'zod';
@@ -55,8 +53,6 @@ const LARGO_EXTRACTO = 140;
 
 @Injectable()
 export class CapturasService {
-  private readonly logger = new Logger(CapturasService.name);
-
   constructor(
     @Inject(ENV) private readonly env: Env,
     private readonly prisma: PrismaService,
@@ -65,8 +61,8 @@ export class CapturasService {
   ) {}
 
   /**
-   * Crea la captura en `procesando`. Audio y foto devuelven el PUT firmado: el pipeline se
-   * dispara cuando el archivo llega a S3. En modo `aws`, el texto se guarda en S3 por el mismo motivo.
+   * Crea la captura en `procesando`. Audio y foto devuelven el PUT firmado: se mandan a procesar
+   * cuando la web confirma la subida (`subidaCompleta`). El texto lo despacha el controlador.
    */
   async crear(
     identidad: Identidad,
@@ -95,19 +91,26 @@ export class CapturasService {
         eventos: { create: { tipo: 'inicio' } },
       },
     });
-
-    if (datos.formato === 'texto' && this.env.PIPELINE_MODE === 'aws') {
-      try {
-        await this.almacenamiento.guardarTexto(id, datos.texto!);
-      } catch (error) {
-        this.logger.error(`No se pudo enviar ${id} al pipeline`, error as Error);
-        await this.marcarError(id, 'No se pudo enviar la captura al pipeline');
-        throw new ServiceUnavailableException(
-          'No se pudo enviar la nota a procesar; intente de nuevo',
-        );
-      }
-    }
     return { id, subida: firmada?.subida ?? null };
+  }
+
+  /**
+   * La web informa que terminó el PUT a S3. Solo la dueña de la captura, y solo si el archivo existe
+   * con el tipo declarado (el tamaño ya lo exige la firma del PUT); si no, 409 y no se procesa.
+   * Si la captura ya se despachó o dejó `procesando`, no hace nada: el aviso repetido es inofensivo.
+   */
+  async verificarSubida(identidad: Identidad, id: string): Promise<void> {
+    const captura = await this.buscarPropia(identidad, id);
+    if (!captura.archivoClave || !captura.archivoTipo) {
+      throw new ConflictException('La captura no tiene archivo que subir');
+    }
+    if (captura.estado !== 'procesando' || captura.encoladaEn) return;
+
+    const archivo = await this.almacenamiento.describirArchivo(captura.archivoClave);
+    if (!archivo) throw new ConflictException('El archivo todavía no está en el almacenamiento');
+    if (archivo.tipo !== captura.archivoTipo || archivo.tamano <= 0) {
+      throw new ConflictException('El archivo subido no coincide con el tipo declarado');
+    }
   }
 
   async detalle(identidad: Identidad, id: string): Promise<CapturaDetalle> {

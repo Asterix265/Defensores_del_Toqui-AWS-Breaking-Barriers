@@ -5,10 +5,12 @@ import { ENV } from '../config/config.module';
 import type { Env } from '../config/env';
 import { PrismaService } from '../prisma/prisma.service';
 import { extraerFake, normalizarFake } from './ia-fake';
+import { nivelEsperado } from './nivel';
 
 /**
  * `PIPELINE_MODE=inline`: los pasos del pipeline (normalizar → extraer → entregar) corren
- * dentro de la API, con el proveedor `fake`. Solo para desarrollo y demo sin AWS.
+ * dentro de la API, con el proveedor `fake`. Solo para desarrollo y demo sin AWS. Lo invoca el
+ * `DespachadorService`, que garantiza una sola ejecución por captura.
  */
 @Injectable()
 export class PipelineInlineService {
@@ -52,18 +54,11 @@ export class PipelineInlineService {
       desdeColumnaFecha(captura.nino.fechaNacimiento),
       desdeColumnaFecha(captura.fecha),
     );
-    const nivel = await this.nivelEsperado(edad);
+    const nivel = await nivelEsperado(this.prisma, edad);
     const catalogo = await this.prisma.manifestacion.findMany({
       where: { nivel },
       select: { id: true, nivel: true, dominio: true, textoObservable: true },
     });
     await this.capturas.registrarBorrador(idCaptura, extraerFake(textoFuente, nivel, catalogo));
-  }
-
-  /** Nivel de la ruta cuyo rango de edad contiene la edad; el último si la supera. */
-  private async nivelEsperado(edadMeses: number): Promise<number> {
-    const niveles = await this.prisma.nivel.findMany({ orderBy: { nivel: 'asc' } });
-    const enRango = niveles.find((n) => edadMeses >= n.edadMinMeses && edadMeses < n.edadMaxMeses);
-    return enRango?.nivel ?? niveles.at(-1)?.nivel ?? 1;
   }
 }

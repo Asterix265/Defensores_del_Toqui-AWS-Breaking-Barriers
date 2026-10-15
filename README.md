@@ -12,7 +12,7 @@ La línea base declarada en la presentación es de **4 horas semanales** de docu
 
 ## Estado actual
 
-La base técnica del monorepo está lista (cambio OpenSpec `levantar-stack-base`): web, API, pipeline, paquete compartido e infraestructura compilan, tienen pruebas de humo y se comunican en local. De `definir-mvp-e1`, la **API** ya implementa el modelo de dominio, la carga del dataset, la autenticación con Cognito (y modo local), la captura con borrador y confirmación, el endpoint interno del pipeline y la trayectoria (ver [API de registro](#api-de-registro)). Faltan el pipeline real con IA (Lambdas), la conexión de la web a la API y el panel de impacto. Los servicios AWS de desarrollo (stack `ToquiDev`) y la arquitectura de producción (`ToquiRed`, `ToquiDatos`, `ToquiApp`) están desplegados; la API y el pipeline de producción todavía solo tienen los endpoints y pasos técnicos de ejemplo.
+La base técnica del monorepo está lista (cambio OpenSpec `levantar-stack-base`): web, API, pipeline, paquete compartido e infraestructura compilan, tienen pruebas de humo y se comunican en local. De `definir-mvp-e1`, la **API** ya implementa el modelo de dominio, la carga del dataset, la autenticación con Cognito (y modo local), la captura con borrador y confirmación, el endpoint interno del pipeline y la trayectoria (ver [API de registro](#api-de-registro)). La Lambda de proceso (`apps/pipeline`, cambio `cola-ia-y-amplify`) ya normaliza con Transcribe y Textract, anonimiza con el Guardrail y entrega al endpoint interno; faltan la clasificación con Claude, el encolado desde la API, la conexión de la web a la API y el panel de impacto. Los servicios AWS de desarrollo (stack `ToquiDev`) y la arquitectura de producción (`ToquiRed`, `ToquiDatos`, `ToquiApp`) están desplegados; la API y el pipeline de producción todavía solo tienen los endpoints y pasos técnicos de ejemplo.
 
 ## Stack
 
@@ -78,19 +78,20 @@ API NestJS en Fargate (`apps/api`), según `definir-mvp-e1`. Contrato completo e
 | `POST /capturas/:id/confirmacion` | educadora | Confirma o corrige (1 a 5 manifestaciones del nivel elegido); guarda la corrección |
 | `POST /capturas/:id/descarte` | educadora | Descarta sin crear observación |
 | `GET /capturas/:id/archivo` | ambos | URL temporal del original (S3 lo borra a los 7 días) |
+| `POST /capturas/:id/subida-completa` | educadora | Terminó la subida del audio o la foto: la captura se manda a procesar |
 | `POST /interno/capturas/:id/borrador` · `/error` | pipeline | Entrega idempotente del borrador; cabecera `x-pipeline-token` = `PIPELINE_TOKEN` |
 
 - Todo queda dentro del jardín del token (`custom:id_jardin`). Un niño o niña de otro jardín responde 403; una captura de otro jardín, 404.
 - Solo quien registró una captura la confirma o la descarta.
-- **Local** (`.env.example`): `AUTH_MODE=local` usa la educadora fija de `JAR-0001` sin token. Para otros usuarios: `Authorization: Bearer local:directora:JAR-0001`. `PIPELINE_MODE=inline` con `IA_PROVIDER=fake` produce borradores deterministas sin AWS. Audio y foto necesitan `S3_BUCKET_CAPTURAS` (el bucket de `ToquiDev`).
-- **AWS** (`PIPELINE_MODE=aws`, por defecto): la captura llega a `capturas/` (el texto también, como `.txt`), EventBridge inicia Step Functions y el pipeline entrega el borrador al endpoint interno. El pipeline obtiene el id de captura del nombre del archivo.
+- **Local** (`.env.example`): `AUTH_MODE=local` usa la educadora fija de `JAR-0001` sin token. Para otros usuarios: `Authorization: Bearer local:directora:JAR-0001`. `PIPELINE_MODE=inline` (por defecto) con `IA_PROVIDER=fake` produce borradores deterministas sin AWS. Audio y foto necesitan `S3_BUCKET_CAPTURAS` (el bucket de `ToquiDev`).
+- **AWS** (`PIPELINE_MODE=cola` con `SQS_URL_CAPTURAS`): la API encola cada captura en `toqui-prod-capturas` y la Lambda `toqui-prod-proceso` entrega el borrador al endpoint interno. El texto se encola al crearlo; el audio y la foto, cuando la web llama a `POST /capturas/:id/subida-completa` después del `PUT` a S3 (la API comprueba que el archivo exista y sea del tipo declarado; si no, 409). Cada captura se encola una sola vez, y si la cola falla queda en `error` con 503.
 - `pnpm test` incluye pruebas e2e que crean la base `toqui_test` en el Postgres local (`pnpm db:up` antes).
 
 ## AWS de desarrollo
 
 Bedrock (Claude y Guardrail), Transcribe, S3 y Cognito están desplegados para desarrollo en la cuenta del evento (`us-east-1`, stack CDK `ToquiDev`). Configuración, comandos (`pnpm aws:smoke`, `pnpm aws:env`, `pnpm aws:deploy`), usuarios de prueba, costos y limpieza: [guía AWS](docs/guia-aws.md).
 
-El ambiente de producción (CloudFront, Fargate, Aurora Serverless v2, pipeline con Step Functions) se despliega con `pnpm aws:prod:deploy`; diagrama, stacks y decisiones en [arquitectura AWS](docs/arquitectura-aws.md).
+El ambiente de producción (CloudFront, Fargate, Aurora Serverless v2, procesamiento con SQS y Lambda) se despliega con `pnpm aws:prod:deploy`; diagrama, stacks y decisiones en [arquitectura AWS](docs/arquitectura-aws.md).
 
 ## Materiales del desafío
 
@@ -158,7 +159,7 @@ Se excluyeron las skills de otras bases de datos, de los servicios en la nube de
 
 ## Próximos pasos
 
-1. Completar `definir-mvp-e1`: pipeline con Transcribe y Bedrock que entregue al endpoint interno, conectar la web a la API y medir el impacto. En `ToquiApp` falta inyectar `PIPELINE_TOKEN` (API y pipeline) y cargar el dataset en Aurora.
+1. Completar `definir-mvp-e1`: pipeline con Transcribe y Bedrock que entregue al endpoint interno, conectar la web a la API y medir el impacto. En `ToquiApp` falta desplegar la cola y la Lambda de proceso (el `PIPELINE_TOKEN` ya va en Secrets Manager) y cargar el dataset en Aurora.
 2. Resolver cómo representar la rúbrica institucional frente a la ruta sintética del dataset.
 3. Configurar IAM, acceso a modelos de Bedrock y despliegue en AWS, documentando permisos, costos y limpieza.
 4. Medir tiempo de documentación y trazabilidad con datos sintéticos; reportar resultados reales de la demo.

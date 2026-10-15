@@ -13,14 +13,13 @@ export const GRUPOS = ['educadora', 'directora'] as const;
 /** Bucket privado para audios y fotos, con borrado a los 7 días y CORS para la web. */
 export function crearBucketCapturas(
   scope: Construct,
-  opciones: { nombre: string; origenes: string[]; eventBridge?: boolean },
+  opciones: { nombre: string; origenes: string[] },
 ): s3.Bucket {
   return new s3.Bucket(scope, 'Capturas', {
     bucketName: opciones.nombre,
     blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
     encryption: s3.BucketEncryption.S3_MANAGED,
     enforceSSL: true,
-    eventBridgeEnabled: opciones.eventBridge ?? false,
     lifecycleRules: [{ id: 'borrar-a-los-7-dias', expiration: Duration.days(7) }],
     cors: [
       {

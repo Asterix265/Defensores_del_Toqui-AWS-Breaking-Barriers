@@ -1,8 +1,9 @@
-// Prueba de humo del ambiente de producción: CloudFront → web y API → Aurora, aislamiento del ALB
-// y pipeline S3 → EventBridge → Step Functions → Lambda.
+// Prueba de humo del ambiente de producción: CloudFront → web, API → Aurora y S3, aislamiento del ALB
+// y procesamiento SQS → Lambda → API interna.
+import { randomUUID } from 'node:crypto';
 import { setTimeout as esperar } from 'node:timers/promises';
-import { DeleteObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
-import { DescribeExecutionCommand, ListExecutionsCommand, SFNClient } from '@aws-sdk/client-sfn';
+import { CloudWatchLogsClient, FilterLogEventsCommand } from '@aws-sdk/client-cloudwatch-logs';
+import { SendMessageCommand, SQSClient } from '@aws-sdk/client-sqs';
 import { REGION, leerSalidasStack, prepararCredenciales } from './comun.js';
 
 let fallidos = 0;
@@ -37,13 +38,20 @@ await paso('2. Rutas de la SPA', async () => {
   return 'una ruta de la app devuelve index.html';
 });
 
-await paso('3. API → Aurora (/api/health)', async () => {
+await paso('3. API → Aurora y S3 (/api/health)', async () => {
   const r = await fetch(`${web}/api/health`);
-  const cuerpo = (await r.json()) as { status?: string; dependencies?: { database?: string } };
-  if (cuerpo.status !== 'ok' || cuerpo.dependencies?.database !== 'up') {
+  const cuerpo = (await r.json()) as {
+    status?: string;
+    dependencies?: { database?: string; storage?: string };
+  };
+  if (
+    cuerpo.status !== 'ok' ||
+    cuerpo.dependencies?.database !== 'up' ||
+    cuerpo.dependencies?.storage !== 'up'
+  ) {
     throw new Error(`respondió ${r.status}: ${JSON.stringify(cuerpo)}`);
   }
-  return 'API en Fargate conectada a Aurora (migraciones aplicadas)';
+  return 'API en Fargate conectada a Aurora (migraciones aplicadas) y al bucket de capturas con su rol';
 });
 
 await paso('4. ALB cerrado fuera de CloudFront', async () => {
@@ -55,42 +63,48 @@ await paso('4. ALB cerrado fuera de CloudFront', async () => {
   throw new Error('el ALB respondió sin pasar por CloudFront');
 });
 
-await paso('5. Pipeline (S3 → EventBridge → Step Functions → Lambda)', async () => {
-  const s3 = new S3Client({ region: REGION });
-  const sfn = new SFNClient({ region: REGION });
-  const clave = `capturas/smoke-${Date.now()}.txt`;
-  const desde = new Date(Date.now() - 5000);
-  await s3.send(
-    new PutObjectCommand({
-      Bucket: salidas['BucketCapturas'],
-      Key: clave,
-      Body: 'Captura sintética de prueba',
-      ContentType: 'text/plain',
+await paso('5. Procesamiento (SQS → Lambda → API interna)', async () => {
+  // Trabajo sintético de una captura que no existe: la Lambda obtiene el token, anonimiza,
+  // clasifica y entrega; la API lo autoriza y responde 404, y la Lambda descarta el trabajo.
+  // Un 401 (token) o un fallo de Bedrock aparecen como reintento en el log.
+  const idCaptura = randomUUID();
+  const desde = Date.now() - 5000;
+  await new SQSClient({ region: REGION }).send(
+    new SendMessageCommand({
+      QueueUrl: salidas['ColaCapturasUrl'],
+      MessageBody: JSON.stringify({
+        version: 1,
+        idCaptura,
+        idUsuario: 'smoke',
+        idJardin: 'SMOKE',
+        edadMeses: 20,
+        nivelEsperado: 4,
+        catalogo: [
+          { id: 'SMOKE-1', nivel: 4, dominio: 'motor_fino', textoObservable: 'Apila bloques' },
+        ],
+        formato: 'texto',
+        texto: 'Nota sintética de prueba: apiló cuatro bloques sin ayuda.',
+      }),
     }),
   );
-  try {
-    for (let intento = 0; intento < 30; intento++) {
-      await esperar(2000);
-      const { executions } = await sfn.send(
-        new ListExecutionsCommand({ stateMachineArn: salidas['StateMachineArn'], maxResults: 10 }),
-      );
-      for (const ejecucion of executions ?? []) {
-        if (!ejecucion.startDate || ejecucion.startDate < desde) continue;
-        const detalle = await sfn.send(
-          new DescribeExecutionCommand({ executionArn: ejecucion.executionArn }),
-        );
-        if (!detalle.input?.includes(clave)) continue;
-        if (detalle.status === 'RUNNING') break;
-        if (detalle.status !== 'SUCCEEDED') throw new Error(`ejecución ${detalle.status}`);
-        return `ejecución ${ejecucion.name} correcta → ${detalle.output}`;
-      }
+  const logs = new CloudWatchLogsClient({ region: REGION });
+  for (let intento = 0; intento < 30; intento++) {
+    await esperar(2000);
+    const { events = [] } = await logs.send(
+      new FilterLogEventsCommand({
+        logGroupName: salidas['GrupoLogsProceso'],
+        startTime: desde,
+        filterPattern: `"${idCaptura}"`,
+      }),
+    );
+    const lineas = events.map((e) => e.message ?? '');
+    if (lineas.some((l) => l.includes('ya no admite borrador') && l.includes('404'))) {
+      return 'la Lambda procesó el trabajo y la API interna aceptó su token (404 esperado)';
     }
-    throw new Error('no apareció una ejecución en 60 s');
-  } finally {
-    await s3
-      .send(new DeleteObjectCommand({ Bucket: salidas['BucketCapturas'], Key: clave }))
-      .catch(() => undefined);
+    const fallo = lineas.find((l) => l.includes('Falló el intento') || l.includes('agotaron'));
+    if (fallo) throw new Error(fallo.slice(fallo.indexOf('{')));
   }
+  throw new Error('la Lambda no registró el trabajo en 60 s');
 });
 
 console.log(

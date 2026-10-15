@@ -12,7 +12,7 @@ import {
 } from '@toqui/shared';
 import { Grupos, IdentidadActual } from '../auth/decoradores';
 import type { Identidad } from '../auth/identidad';
-import { PipelineInlineService } from '../pipeline/pipeline-inline.service';
+import { DespachadorService } from '../pipeline/despachador.service';
 import { CapturasService } from './capturas.service';
 
 class CrearCapturaRequestDto extends createZodDto(CrearCapturaRequestSchema) {}
@@ -29,7 +29,7 @@ class ArchivoResponseDto extends createZodDto(ArchivoResponseSchema) {}
 export class CapturasController {
   constructor(
     private readonly capturas: CapturasService,
-    private readonly pipeline: PipelineInlineService,
+    private readonly despachador: DespachadorService,
   ) {}
 
   @Post()
@@ -41,8 +41,23 @@ export class CapturasController {
   @ZodResponse({ status: 201, type: CrearCapturaResponseDto })
   async crear(@IdentidadActual() identidad: Identidad, @Body() body: CrearCapturaRequestDto) {
     const { id, subida } = await this.capturas.crear(identidad, body);
-    if (this.pipeline.activo) this.pipeline.programar(id);
+    // El texto se procesa de inmediato; audio y foto, cuando la web confirma la subida.
+    if (body.formato === 'texto') await this.despachador.programar(id);
     return { captura: await this.capturas.detalle(identidad, id), subida };
+  }
+
+  @Post(':id/subida-completa')
+  @HttpCode(200)
+  @Grupos('educadora')
+  @ApiOperation({
+    operationId: 'confirmarSubidaCaptura',
+    summary: 'La web terminó de subir el audio o la foto: la captura se manda a procesar',
+  })
+  @ZodResponse({ status: 200, type: CapturaDetalleDto })
+  async subidaCompleta(@IdentidadActual() identidad: Identidad, @Param('id') id: string) {
+    await this.capturas.verificarSubida(identidad, id);
+    await this.despachador.programar(id);
+    return this.capturas.detalle(identidad, id);
   }
 
   @Get()

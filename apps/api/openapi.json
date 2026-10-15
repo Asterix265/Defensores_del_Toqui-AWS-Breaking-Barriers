@@ -352,6 +352,42 @@
         ]
       }
     },
+    "/capturas/{id}/subida-completa": {
+      "post": {
+        "operationId": "confirmarSubidaCaptura",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CapturaDetalleDto_Output"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "La web terminó de subir el audio o la foto: la captura se manda a procesar",
+        "tags": [
+          "capturas"
+        ]
+      }
+    },
     "/capturas/{id}": {
       "get": {
         "operationId": "obtenerCaptura",
@@ -687,10 +723,26 @@
                   "up",
                   "down"
                 ]
+              },
+              "storage": {
+                "type": "string",
+                "enum": [
+                  "up",
+                  "down"
+                ]
+              },
+              "queue": {
+                "type": "string",
+                "enum": [
+                  "up",
+                  "down"
+                ]
               }
             },
             "required": [
-              "database"
+              "database",
+              "storage",
+              "queue"
             ],
             "additionalProperties": false
           }
@@ -1234,6 +1286,88 @@
         ],
         "additionalProperties": false
       },
+      "CapturaDetalleDto_Output": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "nino": {
+            "$ref": "#/components/schemas/NinoRef_Output"
+          },
+          "autor": {
+            "type": "string"
+          },
+          "formato": {
+            "type": "string",
+            "enum": [
+              "texto",
+              "audio",
+              "foto"
+            ]
+          },
+          "estado": {
+            "type": "string",
+            "enum": [
+              "procesando",
+              "borrador_listo",
+              "confirmada",
+              "descartada",
+              "error"
+            ]
+          },
+          "creadoEn": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+          },
+          "texto": {
+            "$ref": "#/components/schemas/TextoNulo_Output"
+          },
+          "tieneArchivo": {
+            "type": "boolean"
+          },
+          "errorDetalle": {
+            "$ref": "#/components/schemas/TextoNulo_Output"
+          },
+          "borrador": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Borrador_Output"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "observacion": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ObservacionConfirmada_Output"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "nino",
+          "autor",
+          "formato",
+          "estado",
+          "creadoEn",
+          "texto",
+          "tieneArchivo",
+          "errorDetalle",
+          "borrador",
+          "observacion"
+        ],
+        "additionalProperties": false
+      },
       "CapturaResumen_Output": {
         "type": "object",
         "properties": {
@@ -1330,88 +1464,6 @@
           "total",
           "pagina",
           "tamano"
-        ],
-        "additionalProperties": false
-      },
-      "CapturaDetalleDto_Output": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid",
-            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-          },
-          "nino": {
-            "$ref": "#/components/schemas/NinoRef_Output"
-          },
-          "autor": {
-            "type": "string"
-          },
-          "formato": {
-            "type": "string",
-            "enum": [
-              "texto",
-              "audio",
-              "foto"
-            ]
-          },
-          "estado": {
-            "type": "string",
-            "enum": [
-              "procesando",
-              "borrador_listo",
-              "confirmada",
-              "descartada",
-              "error"
-            ]
-          },
-          "creadoEn": {
-            "type": "string",
-            "format": "date-time",
-            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
-          },
-          "texto": {
-            "$ref": "#/components/schemas/TextoNulo_Output"
-          },
-          "tieneArchivo": {
-            "type": "boolean"
-          },
-          "errorDetalle": {
-            "$ref": "#/components/schemas/TextoNulo_Output"
-          },
-          "borrador": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/Borrador_Output"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "observacion": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/ObservacionConfirmada_Output"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          }
-        },
-        "required": [
-          "id",
-          "nino",
-          "autor",
-          "formato",
-          "estado",
-          "creadoEn",
-          "texto",
-          "tieneArchivo",
-          "errorDetalle",
-          "borrador",
-          "observacion"
         ],
         "additionalProperties": false
       },

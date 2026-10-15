@@ -17,6 +17,7 @@ import type {
 
 import {
   getConfirmarCapturaResponseMock,
+  getConfirmarSubidaCapturaResponseMock,
   getCrearCapturaResponseMock,
   getDescartarCapturaResponseMock,
   getListarCapturasResponseMock,
@@ -27,6 +28,7 @@ import {
 export {
   getCrearCapturaResponseMock,
   getListarCapturasResponseMock,
+  getConfirmarSubidaCapturaResponseMock,
   getObtenerCapturaResponseMock,
   getConfirmarCapturaResponseMock,
   getDescartarCapturaResponseMock,
@@ -74,6 +76,30 @@ export const getListarCapturasMockHandler = (
             ? await overrideResponse(info)
             : overrideResponse
           : getListarCapturasResponseMock(),
+        { status: 200 },
+      );
+    },
+    options,
+  );
+};
+
+export const getConfirmarSubidaCapturaMockHandler = (
+  overrideResponse?:
+    | CapturaDetalleDtoOutput
+    | ((
+        info: Parameters<Parameters<typeof http.post>[1]>[0],
+      ) => Promise<CapturaDetalleDtoOutput> | CapturaDetalleDtoOutput),
+  options?: RequestHandlerOptions,
+) => {
+  return http.post(
+    '*/capturas/:id/subida-completa',
+    async (info: Parameters<Parameters<typeof http.post>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === 'function'
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getConfirmarSubidaCapturaResponseMock(),
         { status: 200 },
       );
     },
@@ -179,6 +205,7 @@ export const getObtenerArchivoCapturaMockHandler = (
 export const getCapturasMock = () => [
   getCrearCapturaMockHandler(),
   getListarCapturasMockHandler(),
+  getConfirmarSubidaCapturaMockHandler(),
   getObtenerCapturaMockHandler(),
   getConfirmarCapturaMockHandler(),
   getDescartarCapturaMockHandler(),

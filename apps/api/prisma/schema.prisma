@@ -1,4 +1,5 @@
-// Esquema Prisma de la API. El modelo de dominio llega con el cambio definir-mvp-e1.
+// Esquema Prisma de la API (definir-mvp-e1, D4): tablas del dataset E-1 más las del registro
+// en la app (captura → borrador → observación confirmada, corrección y eventos de tiempo).
 
 generator client {
   provider            = "prisma-client"
@@ -11,10 +12,277 @@ datasource db {
   provider = "postgresql"
 }
 
-/// Tabla técnica mínima para validar la cadena de migraciones. Reemplazable por el dominio.
-model Salud {
-  id       Int      @id @default(autoincrement())
-  creadoEn DateTime @default(now()) @map("creado_en")
+// ---------- Dataset E-1 (sintético) ----------
 
-  @@map("_salud")
+enum RolEducadora {
+  educadora_parvulos
+  tecnico_parvulos
+
+  @@map("rol_educadora")
+}
+
+enum SexoRegistrado {
+  f
+  m
+  x
+  no_informado
+
+  @@map("sexo_registrado")
+}
+
+enum Dominio {
+  motor_grueso
+  motor_fino
+  lenguaje_comunicacion
+  socioemocional
+  cognitivo
+
+  @@map("dominio")
+}
+
+enum FormatoCaptura {
+  video
+  audio
+  texto
+  foto
+
+  @@map("formato_captura")
+}
+
+/// `dataset` viene del CSV; `app` es una observación confirmada en la app.
+enum OrigenObservacion {
+  dataset
+  app
+
+  @@map("origen_observacion")
+}
+
+model Jardin {
+  id               String @id @map("id_jardin")
+  nombreFantasia   String @unique @map("nombre_fantasia")
+  comuna           String
+  region           String
+  numeroSalas      Int    @map("numero_salas")
+  numeroEducadoras Int    @map("numero_educadoras")
+
+  educadoras Educadora[]
+  ninos      Nino[]
+  capturas   Captura[]
+
+  @@map("jardines")
+}
+
+model Educadora {
+  id               String       @id @map("id_educadora")
+  idJardin         String       @map("id_jardin")
+  /// Sintéticos: el dataset no trae nombres; los genera la carga.
+  nombres          String
+  apellidos        String
+  rol              RolEducadora
+  aniosExperiencia Int          @map("anios_experiencia")
+
+  jardin        Jardin        @relation(fields: [idJardin], references: [id])
+  observaciones Observacion[]
+
+  @@index([idJardin])
+  @@map("educadoras")
+}
+
+model Nino {
+  id              String         @id @map("id_nino")
+  /// Sintéticos: el dataset no trae nombres; los genera la carga.
+  nombres         String
+  apellidos       String
+  fechaNacimiento DateTime       @map("fecha_nacimiento") @db.Date
+  sexoRegistrado  SexoRegistrado @map("sexo_registrado")
+  idJardin        String         @map("id_jardin")
+  salaGrupo       String         @map("sala_grupo")
+  fechaIngreso    DateTime       @map("fecha_ingreso") @db.Date
+
+  jardin        Jardin        @relation(fields: [idJardin], references: [id])
+  observaciones Observacion[]
+  capturas      Captura[]
+
+  @@index([idJardin, salaGrupo])
+  @@map("ninos")
+}
+
+model Nivel {
+  nivel        Int       @id
+  nombreNivel  String    @map("nombre_nivel")
+  edadMinMeses Int       @map("edad_min_meses")
+  edadMaxMeses Int       @map("edad_max_meses")
+  /// Los cinco dominios en orden canónico.
+  dominios     Dominio[]
+  descripcion  String
+
+  manifestaciones Manifestacion[]
+  observaciones   Observacion[]
+
+  @@map("ruta_niveles")
+}
+
+model Manifestacion {
+  id              String  @id @map("id_manifestacion")
+  nivel           Int
+  dominio         Dominio
+  textoObservable String  @map("texto_observable")
+
+  ruta     Nivel                      @relation(fields: [nivel], references: [nivel])
+  vinculos ObservacionManifestacion[]
+
+  @@index([nivel, dominio])
+  @@map("manifestaciones")
+}
+
+model Observacion {
+  id               String            @id @map("id_observacion")
+  idNino           String            @map("id_nino")
+  /// Educadora del dataset; null en las observaciones de la app.
+  idEducadora      String?           @map("id_educadora")
+  /// `sub` de Cognito de quien confirmó (solo `origen = app`).
+  idUsuario        String?           @map("id_usuario")
+  fechaObservacion DateTime          @map("fecha_observacion") @db.Date
+  formatoCaptura   FormatoCaptura    @map("formato_captura")
+  /// Estimación pedagógica sintética, no un diagnóstico.
+  nivelEstimado    Int               @map("nivel_estimado")
+  notaBreve        String?           @map("nota_breve")
+  origen           OrigenObservacion @default(dataset)
+  idCaptura        String?           @unique @map("id_captura") @db.Uuid
+  creadoEn         DateTime          @default(now()) @map("creado_en")
+
+  nino      Nino                       @relation(fields: [idNino], references: [id])
+  educadora Educadora?                 @relation(fields: [idEducadora], references: [id])
+  nivel     Nivel                      @relation(fields: [nivelEstimado], references: [nivel])
+  captura   Captura?                   @relation(fields: [idCaptura], references: [id])
+  vinculos  ObservacionManifestacion[]
+
+  @@index([idNino, fechaObservacion])
+  @@map("observaciones")
+}
+
+model ObservacionManifestacion {
+  idObservacion   String  @map("id_observacion")
+  idManifestacion String  @map("id_manifestacion")
+  /// Cita textual que respalda la manifestación (solo `origen = app`).
+  cita            String?
+
+  observacion   Observacion   @relation(fields: [idObservacion], references: [id], onDelete: Cascade)
+  manifestacion Manifestacion @relation(fields: [idManifestacion], references: [id])
+
+  @@id([idObservacion, idManifestacion])
+  @@map("observacion_manifestaciones")
+}
+
+// ---------- Registro en la app ----------
+
+/// procesando → borrador_listo → confirmada | descartada; error si el pipeline falla.
+enum EstadoCaptura {
+  procesando
+  borrador_listo
+  confirmada
+  descartada
+  error
+
+  @@map("estado_captura")
+}
+
+enum DecisionCorreccion {
+  confirmada
+  corregida
+  descartada
+
+  @@map("decision_correccion")
+}
+
+enum TipoEventoTiempo {
+  inicio
+  borrador_listo
+  confirmacion
+  descarte
+
+  @@map("tipo_evento_tiempo")
+}
+
+model Captura {
+  id            String         @id @default(uuid()) @map("id_captura") @db.Uuid
+  idNino        String         @map("id_nino")
+  /// Copia del jardín del niño o niña, para filtrar sin unir tablas.
+  idJardin      String         @map("id_jardin")
+  /// `sub` de Cognito de quien registró.
+  idUsuario     String         @map("id_usuario")
+  /// Nombre o correo de quien registró, tomado del token.
+  autor         String
+  formato       FormatoCaptura
+  /// Texto escrito (solo formato texto).
+  texto         String?
+  /// Clave S3 del original (`capturas/<id_captura>.<ext>`).
+  archivoClave  String?        @map("archivo_clave")
+  archivoTipo   String?        @map("archivo_tipo")
+  estado        EstadoCaptura  @default(procesando)
+  errorDetalle  String?        @map("error_detalle")
+  /// Día de registro en la zona horaria de la operación (America/Santiago).
+  fecha         DateTime       @db.Date
+  creadoEn      DateTime       @default(now()) @map("creado_en")
+  actualizadoEn DateTime       @updatedAt @map("actualizado_en")
+
+  nino        Nino           @relation(fields: [idNino], references: [id])
+  jardin      Jardin         @relation(fields: [idJardin], references: [id])
+  borrador    Borrador?
+  observacion Observacion?
+  correccion  Correccion?
+  eventos     EventoTiempo[]
+
+  @@index([idJardin, fecha])
+  @@index([idUsuario, fecha])
+  @@map("capturas")
+}
+
+/// Sugerencia de la IA. Como máximo una por captura (idempotencia del pipeline).
+model Borrador {
+  id                    String   @id @default(uuid()) @db.Uuid
+  idCaptura             String   @unique @map("id_captura") @db.Uuid
+  /// Texto normalizado del que salen las citas (transcripción, lectura de la foto o el texto escrito).
+  textoFuente           String   @map("texto_fuente")
+  /// null con evidencia insuficiente.
+  nivelSugerido         Int?     @map("nivel_sugerido")
+  /// [{ idManifestacion, cita }]
+  manifestaciones       Json
+  evidenciaInsuficiente Boolean  @map("evidencia_insuficiente")
+  proveedor             String
+  modelo                String?
+  creadoEn              DateTime @default(now()) @map("creado_en")
+
+  captura Captura @relation(fields: [idCaptura], references: [id])
+
+  @@map("borradores")
+}
+
+/// Diferencia entre la sugerencia de la IA y la decisión de la educadora.
+model Correccion {
+  id         String             @id @default(uuid()) @db.Uuid
+  idCaptura  String             @unique @map("id_captura") @db.Uuid
+  idUsuario  String             @map("id_usuario")
+  decision   DecisionCorreccion
+  /// { nivel, manifestaciones } del borrador.
+  sugerencia Json
+  /// { nivel, manifestaciones } confirmado; null si se descartó.
+  final      Json?
+  creadoEn   DateTime           @default(now()) @map("creado_en")
+
+  captura Captura @relation(fields: [idCaptura], references: [id])
+
+  @@map("correcciones")
+}
+
+model EventoTiempo {
+  id        String           @id @default(uuid()) @db.Uuid
+  idCaptura String           @map("id_captura") @db.Uuid
+  tipo      TipoEventoTiempo
+  ocurrioEn DateTime         @default(now()) @map("ocurrio_en")
+
+  captura Captura @relation(fields: [idCaptura], references: [id])
+
+  @@unique([idCaptura, tipo])
+  @@map("eventos_tiempo")
 }

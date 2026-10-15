@@ -77,6 +77,8 @@ Tiempos del primer despliegue: `ToquiRed` 38 s, `ToquiDatos` 7 min, `ToquiApp` 8
 
 ## Pendiente
 
+- Conectar el pipeline real con la API: inyectar el mismo `PIPELINE_TOKEN` (Secrets Manager) en la API y en las Lambdas, que entregan el borrador en `POST /api/interno/capturas/:id/borrador`. El id de captura es el nombre del objeto en `capturas/`.
+- Cargar el dataset en Aurora (`pnpm db:seed` con `DATASET_DIR` y la `DATABASE_URL` de producción, o una tarea de ECS).
 - Alerta de presupuesto en Billing → Budgets.
 - Dominio propio con certificado (opcional).
 - CI/CD de despliegue; hoy se despliega desde una máquina del equipo.

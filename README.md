@@ -12,7 +12,7 @@ La línea base declarada en la presentación es de **4 horas semanales** de docu
 
 ## Estado actual
 
-La base técnica del monorepo está lista (cambio OpenSpec `levantar-stack-base`): web, API, pipeline, paquete compartido e infraestructura compilan, tienen pruebas de humo y se comunican en local. **Todavía no hay funcionalidades del desafío**: modelo de dominio, carga del dataset, autenticación, IA y despliegue en AWS pertenecen al cambio `definir-mvp-e1`, que está propuesto y pendiente de implementación. Los servicios AWS de desarrollo (stack `ToquiDev`) y la arquitectura de producción (`ToquiRed`, `ToquiDatos`, `ToquiApp`) están desplegados; la API y el pipeline de producción todavía solo tienen los endpoints y pasos técnicos de ejemplo.
+La base técnica del monorepo está lista (cambio OpenSpec `levantar-stack-base`): web, API, pipeline, paquete compartido e infraestructura compilan, tienen pruebas de humo y se comunican en local. De `definir-mvp-e1`, la **API** ya implementa el modelo de dominio, la carga del dataset, la autenticación con Cognito (y modo local), la captura con borrador y confirmación, el endpoint interno del pipeline y la trayectoria (ver [API de registro](#api-de-registro)). Faltan el pipeline real con IA (Lambdas), la conexión de la web a la API y el panel de impacto. Los servicios AWS de desarrollo (stack `ToquiDev`) y la arquitectura de producción (`ToquiRed`, `ToquiDatos`, `ToquiApp`) están desplegados; la API y el pipeline de producción todavía solo tienen los endpoints y pasos técnicos de ejemplo.
 
 ## Stack
 
@@ -37,6 +37,7 @@ cp .env.example apps/api/.env      # en PowerShell: Copy-Item .env.example apps/
 pnpm setup                          # instala dependencias, compila shared y genera Prisma
 pnpm db:up                          # Postgres en localhost:5432
 pnpm db:deploy                      # aplica las migraciones versionadas
+pnpm db:seed                        # carga el dataset E-1 desde DATASET_DIR (una vez)
 pnpm dev                            # web en http://localhost:5173 y API en http://localhost:3000
 ```
 
@@ -47,6 +48,7 @@ La web abre «Registro Simple», un mock con datos sintéticos y notas en memori
 | `pnpm dev` | Web y API en modo desarrollo |
 | `pnpm db:up` / `pnpm db:down` | Inicia o detiene Postgres local |
 | `pnpm db:deploy` | Aplica las migraciones existentes sin crear nuevas (primera vez y tras cada `git pull`) |
+| `pnpm db:seed` | Carga el dataset E-1 desde `DATASET_DIR` (ver `.env.example`); no hace nada si ya está cargado |
 | `pnpm db:migrate` | Solo al modificar `schema.prisma`: crea una migración nueva y la aplica (`prisma migrate dev`) |
 | `pnpm contract` | Exporta `apps/api/openapi.json` y regenera el cliente web en `apps/web/src/api/generated` |
 | `pnpm lint` / `pnpm format` | ESLint y Prettier |
@@ -60,6 +62,29 @@ Imagen de la API (desde la raíz): `docker build -f apps/api/Dockerfile -t toqui
 Al cambiar un esquema de `packages/shared` o un endpoint, ejecutar `pnpm contract` y versionar el resultado: la CI falla si el contrato generado queda desactualizado. La CI (`.github/workflows/ci.yml`) ejecuta lint, formato, tipos, pruebas, build, contrato y síntesis en cada pull request.
 
 Verificado el 14-10-2026 en macOS con Node 24.22.0 y pnpm 11.13.0, en una copia limpia del repositorio. Falta confirmar en Windows y Linux, y la primera ejecución de la CI en GitHub.
+
+## API de registro
+
+API NestJS en Fargate (`apps/api`), según `definir-mvp-e1`. Contrato completo en Swagger (`http://localhost:3000/docs`) y en `apps/api/openapi.json`.
+
+| Ruta | Grupo | Qué hace |
+| --- | --- | --- |
+| `GET /me` | ambos | Identidad, grupo y jardín del token |
+| `GET /ninos?sala=` | ambos | Niños y niñas del jardín (nombres sintéticos) |
+| `GET /ninos/:id/trayectoria` | ambos | Observaciones por dominio en el periodo, con «sin registros» y evidencia limitada |
+| `GET /manifestaciones?nivel=&dominio=` | ambos | Catálogo para agregar o quitar manifestaciones |
+| `POST /capturas` | educadora | Nota de texto, audio o foto; audio y foto devuelven un PUT firmado a `capturas/<id>.<ext>` |
+| `GET /capturas`, `GET /capturas/:id` | ambos | Notas del jardín (filtros de fecha, sala, niño, estado, `mias`) y su borrador |
+| `POST /capturas/:id/confirmacion` | educadora | Confirma o corrige (1 a 5 manifestaciones del nivel elegido); guarda la corrección |
+| `POST /capturas/:id/descarte` | educadora | Descarta sin crear observación |
+| `GET /capturas/:id/archivo` | ambos | URL temporal del original (S3 lo borra a los 7 días) |
+| `POST /interno/capturas/:id/borrador` · `/error` | pipeline | Entrega idempotente del borrador; cabecera `x-pipeline-token` = `PIPELINE_TOKEN` |
+
+- Todo queda dentro del jardín del token (`custom:id_jardin`). Un niño o niña de otro jardín responde 403; una captura de otro jardín, 404.
+- Solo quien registró una captura la confirma o la descarta.
+- **Local** (`.env.example`): `AUTH_MODE=local` usa la educadora fija de `JAR-0001` sin token. Para otros usuarios: `Authorization: Bearer local:directora:JAR-0001`. `PIPELINE_MODE=inline` con `IA_PROVIDER=fake` produce borradores deterministas sin AWS. Audio y foto necesitan `S3_BUCKET_CAPTURAS` (el bucket de `ToquiDev`).
+- **AWS** (`PIPELINE_MODE=aws`, por defecto): la captura llega a `capturas/` (el texto también, como `.txt`), EventBridge inicia Step Functions y el pipeline entrega el borrador al endpoint interno. El pipeline obtiene el id de captura del nombre del archivo.
+- `pnpm test` incluye pruebas e2e que crean la base `toqui_test` en el Postgres local (`pnpm db:up` antes).
 
 ## AWS de desarrollo
 
@@ -133,7 +158,7 @@ Se excluyeron las skills de otras bases de datos, de los servicios en la nube de
 
 ## Próximos pasos
 
-1. Implementar `definir-mvp-e1`: modelo de dominio, carga del dataset, flujo de captura y confirmación, y trayectoria.
+1. Completar `definir-mvp-e1`: pipeline con Transcribe y Bedrock que entregue al endpoint interno, conectar la web a la API y medir el impacto. En `ToquiApp` falta inyectar `PIPELINE_TOKEN` (API y pipeline) y cargar el dataset en Aurora.
 2. Resolver cómo representar la rúbrica institucional frente a la ruta sintética del dataset.
 3. Configurar IAM, acceso a modelos de Bedrock y despliegue en AWS, documentando permisos, costos y limpieza.
 4. Medir tiempo de documentación y trazabilidad con datos sintéticos; reportar resultados reales de la demo.

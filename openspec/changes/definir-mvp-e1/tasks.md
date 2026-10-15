@@ -1,28 +1,28 @@
 ## 1. Base del monorepo
 
 - [x] 1.1 Base técnica (monorepo, Node 24, lint, Docker Compose, `.env.example`, scripts multiplataforma, CI, Dockerfile de la API, contrato zod → OpenAPI → orval y validación de configuración) cubierta por el cambio `levantar-stack-base`
-- [ ] 1.2 Agregar a `.env.example` y a la validación zod las variables del MVP: `DATASET_DIR`, `IA_PROVIDER`, `AUTH_MODE`, `PIPELINE_MODE`
+- [x] 1.2 Agregar a `.env.example` y a la validación zod las variables del MVP: `DATASET_DIR`, `IA_PROVIDER`, `AUTH_MODE`, `PIPELINE_MODE`
 
 ## 2. Contrato y datos (imprescindible)
 
-- [ ] 2.1 Crear `packages/shared` con esquemas zod: `Nino`, `Manifestacion`, `Captura`, `Borrador`, `ObservacionConfirmada`, `Correccion`, `Trayectoria`, `MetricasImpacto`
-- [ ] 2.2 Reemplazar la tabla técnica `_salud` de `apps/api` por el esquema de tablas del dataset más `captura`, `borrador`, `observacion` (origen, `id_captura`, citas), `correccion` y `evento_tiempo`; generar la migración inicial
-- [ ] 2.3 Implementar `scripts/seed` que lea `DATASET_DIR`, valide los CSV y cargue los datos; verificar los conteos 20/80/500/9/90/2.950/8.850 y el error ante una ruta inválida
+- [x] 2.1 Crear `packages/shared` con esquemas zod: `Nino`, `Manifestacion`, `Captura`, `Borrador`, `ObservacionConfirmada`, `Correccion`, `Trayectoria`, `MetricasImpacto`
+- [x] 2.2 Reemplazar la tabla técnica `_salud` de `apps/api` por el esquema de tablas del dataset más `captura`, `borrador`, `observacion` (origen, `id_captura`, citas), `correccion` y `evento_tiempo`; generar la migración inicial
+- [x] 2.3 Implementar `scripts/seed` que lea `DATASET_DIR`, valide los CSV y cargue los datos; verificar los conteos 20/80/500/9/90/2.950/8.850 y el error ante una ruta inválida
 
 ## 3. Autenticación (debería; el modo local es imprescindible)
 
-- [ ] 3.1 Implementar un *guard* global con `AUTH_MODE=local` (usuario fijo de `JAR-0001`) que bloquee el arranque fuera del entorno local
-- [ ] 3.2 Implementar validación de JWT de Cognito con `aws-jwt-verify`, grupos `educadora`/`directora` y filtro por `custom:id_jardin`; pruebas de 401 y 403
+- [x] 3.1 Implementar un *guard* global con `AUTH_MODE=local` (usuario fijo de `JAR-0001`) que bloquee el arranque fuera del entorno local
+- [x] 3.2 Implementar validación de JWT de Cognito con `aws-jwt-verify`, grupos `educadora`/`directora` y filtro por `custom:id_jardin`; pruebas de 401 y 403
 - [ ] 3.3 Integrar `Authenticator` de Amplify UI en `apps/web` según `AUTH_MODE`
 
 ## 4. Captura y pipeline de IA (imprescindible)
 
-- [ ] 4.1 Implementar en la API la creación de captura y la URL prefirmada de subida a S3 (en local, almacenamiento en disco del contenedor de desarrollo o MinIO, según se decida en la tarea)
-- [ ] 4.2 Definir la interfaz `IaProvider` e implementar `fake` con borradores deterministas válidos
+- [x] 4.1 Implementar en la API la creación de captura y la URL prefirmada de subida a S3 (en local, almacenamiento en disco del contenedor de desarrollo o MinIO, según se decida en la tarea)
+- [x] 4.2 Definir la interfaz `IaProvider` e implementar `fake` con borradores deterministas válidos
 - [ ] 4.3 Implementar el paso de extracción: selección del catálogo por edad (nivel esperado ±1), prompt, salida JSON y validación zod (IDs existentes, citas presentes en el texto, nivel 1–9, coherencia de nivel); reintento y evidencia insuficiente
 - [ ] 4.4 Implementar `IaProvider` `bedrock` con Claude y Guardrails (filtro de información personal); comprobar que la solicitud no incluye `id_nino` ni nombres
 - [ ] 4.5 Implementar la normalización de audio con Transcribe (`es-US`) y probarla con un audio sintético grabado por el equipo
-- [ ] 4.6 Implementar `PIPELINE_MODE=inline` (pasos secuenciales en la API) y el endpoint interno que recibe borradores de forma idempotente por `id_captura`
+- [x] 4.6 Implementar `PIPELINE_MODE=inline` (pasos secuenciales en la API) y el endpoint interno que recibe borradores de forma idempotente por `id_captura`
 - [ ] 4.7 (Debería) Implementar la normalización de foto con Claude multimodal y reducción de tamaño con `sharp`
 
 ## 5. Revisión, trayectoria y panel (imprescindible y debería)
@@ -35,7 +35,7 @@
 
 ## 6. Medición de impacto (debería)
 
-- [ ] 6.1 Registrar eventos de tiempo (inicio, borrador listo, confirmación) por captura
+- [x] 6.1 Registrar eventos de tiempo (inicio, borrador listo, confirmación) por captura
 - [ ] 6.2 Calcular acuerdo exacto, ±1 y de manifestaciones, total y por dominio; panel de impacto con método, supuestos y línea base rotulada
 - [ ] 6.3 (Si sobra tiempo) Conjunto de evaluación sintético desde el dataset y comando `pnpm eval` con precisión, exhaustividad y acuerdo
 
@@ -59,3 +59,12 @@
 - [ ] 9.2 Producir y documentar audios y fotos sintéticos de la demo (sin niños o niñas reales)
 - [ ] 9.3 Guion de demo y pitch alineado a los criterios de evaluación; ensayo con el proveedor `fake` como respaldo
 - [ ] 9.4 Validar con `openspec validate definir-mvp-e1 --strict --no-interactive` y sincronizar especificaciones al completar
+
+## Notas de implementación (15-10-2026, rama `feat/api-lambda`)
+
+- 2.1: los esquemas están en `packages/shared/src/registro.ts` con los nombres del contrato HTTP (`CapturaDetalle`, `Borrador`, `ObservacionConfirmada`, `ConfirmacionRequest`, `TrayectoriaResponse`, `MeResponse`); `Correccion` y `MetricasImpacto` no se exponen todavía.
+- 2.3: la carga vive en `apps/api/src/seed` y se ejecuta con `pnpm db:seed` (compila la API). Verificada con el dataset público: 20/80/500/9/90/2.950/8.850. Genera nombres sintéticos para niños, niñas y educadoras.
+- 4.1: en local se usa el bucket de `ToquiDev` (`S3_BUCKET_CAPTURAS`), no disco ni MinIO.
+- 4.2 y 4.6: el proveedor `fake` y el modo inline están en la API (`apps/api/src/pipeline`); la interfaz `IaProvider` del pipeline de Lambdas queda para 4.3–4.5.
+- 5.3: la API ya expone `GET /ninos/:id/trayectoria`; falta la vista.
+

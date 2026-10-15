@@ -7,6 +7,9 @@ export function buildOpenApiDocument(app: INestApplication): OpenAPIObject {
     .setTitle('Defensores del Toqui — API E-1')
     .setDescription('API del copiloto de registro de observaciones (datos sintéticos).')
     .setVersion('0.0.0')
+    .setOpenAPIVersion('3.1.0')
+    .addBearerAuth()
     .build();
-  return cleanupOpenApiDoc(SwaggerModule.createDocument(app, config));
+  // OpenAPI 3.1: zod expresa los nullable como `type: [..., 'null']`.
+  return cleanupOpenApiDoc(SwaggerModule.createDocument(app, config), { version: '3.1' });
 }

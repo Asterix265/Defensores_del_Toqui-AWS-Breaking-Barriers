@@ -30,6 +30,14 @@ El sistema SHALL presentar el borrador generado por la IA como sugerencia editab
 - **WHEN** la educadora descarta un borrador
 - **THEN** el sistema no crea una observación confirmada y registra el descarte
 
+#### Scenario: Decisión de otra persona
+- **WHEN** una directora u otra educadora intenta confirmar o descartar una captura que no registró
+- **THEN** el sistema responde 403 y la captura no cambia
+
+#### Scenario: Decisión repetida
+- **WHEN** la educadora intenta confirmar o descartar una captura ya confirmada o descartada
+- **THEN** el sistema responde 409 y conserva la primera decisión
+
 ### Requirement: Trazabilidad de la evidencia
 Cada observación confirmada SHALL conservar su identificador, fecha, formato de captura, educadora, niño o niña, manifestaciones vinculadas y la referencia a la captura y al texto de origen.
 

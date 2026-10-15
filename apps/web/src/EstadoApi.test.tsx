@@ -3,7 +3,7 @@ import { render, screen } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { setupServer } from 'msw/node';
 import { getGetHealthMockHandler } from './api/generated/health/health.msw';
-import { App } from './App';
+import { EstadoApi } from './EstadoApi';
 
 const server = setupServer(
   getGetHealthMockHandler({
@@ -18,11 +18,11 @@ beforeAll(() => server.listen({ onUnhandledFrame: 'error' }));
 afterEach(() => server.resetHandlers());
 afterAll(() => server.close());
 
-describe('App', () => {
+describe('EstadoApi', () => {
   it('muestra el estado de salud de la API', async () => {
     render(
       <QueryClientProvider client={new QueryClient()}>
-        <App />
+        <EstadoApi />
       </QueryClientProvider>,
     );
     expect(await screen.findByText('API operativa · base de datos conectada')).toBeInTheDocument();

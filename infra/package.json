@@ -8,15 +8,37 @@
     "synth": "cdk synth --quiet",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "build": "tsc --noEmit"
+    "build": "tsc --noEmit",
+    "aws:bootstrap": "node scripts/cdk.mjs bootstrap",
+    "aws:deploy": "node scripts/cdk.mjs deploy ToquiDev",
+    "aws:diff": "node scripts/cdk.mjs diff ToquiDev",
+    "aws:destroy": "node scripts/cdk.mjs destroy ToquiDev",
+    "aws:users": "tsx scripts/usuarios.ts",
+    "aws:env": "tsx scripts/env.ts",
+    "aws:smoke": "tsx scripts/smoke.ts",
+    "aws:prod:deploy": "node scripts/cdk.mjs deploy ToquiRed ToquiDatos ToquiApp",
+    "aws:prod:diff": "node scripts/cdk.mjs diff ToquiRed ToquiDatos ToquiApp",
+    "aws:prod:destroy": "node scripts/cdk.mjs destroy ToquiApp ToquiDatos ToquiRed",
+    "aws:prod:users": "tsx scripts/usuarios.ts --stack ToquiApp",
+    "aws:prod:env": "tsx scripts/env.ts --stack ToquiApp",
+    "aws:prod:smoke": "tsx scripts/smoke-prod.ts"
   },
   "dependencies": {
     "aws-cdk-lib": "^2.273.0",
     "constructs": "^10.8.1"
   },
   "devDependencies": {
+    "@aws-sdk/client-bedrock-runtime": "^3.1151.0",
+    "@aws-sdk/client-cloudformation": "^3.1151.0",
+    "@aws-sdk/client-cognito-identity-provider": "^3.1151.0",
+    "@aws-sdk/client-s3": "^3.1151.0",
+    "@aws-sdk/client-sfn": "^3.1151.0",
+    "@aws-sdk/client-sts": "^3.1151.0",
+    "@aws-sdk/client-transcribe": "^3.1151.0",
+    "@aws-sdk/s3-request-presigner": "^3.1151.0",
     "@types/node": "^24.19.2",
     "aws-cdk": "^2.1145.0",
+    "aws-jwt-verify": "^5.2.1",
     "tsx": "^4.23.15",
     "typescript": "catalog:",
     "vitest": "catalog:"

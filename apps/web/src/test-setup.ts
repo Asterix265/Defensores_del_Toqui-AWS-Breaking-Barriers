@@ -1,1 +1,6 @@
 import '@testing-library/jest-dom/vitest';
+import { afterEach } from 'vitest';
+import { cleanup } from '@testing-library/react';
+
+// Sin `globals` en Vitest, Testing Library no desmonta solo entre pruebas.
+afterEach(cleanup);

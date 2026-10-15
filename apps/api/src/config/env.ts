@@ -6,6 +6,8 @@ const EnvSchema = z
     PORT: z.coerce.number().int().positive().default(3000),
     DATABASE_URL: z.url({ protocol: /^postgres(ql)?$/ }),
     AWS_REGION: z.string().min(1).default('us-east-1'),
+    /** Ruta al bundle de CA de RDS; si existe, la conexión a Postgres usa TLS verificado. */
+    DATABASE_SSL_CA: z.string().min(1).optional(),
     /**
      * `cognito` valida JWT del User Pool. `local` usa un usuario fijo (educadora de JAR-0001)
      * o `Bearer local:<educadora|directora>:<JAR-XXXX>`; se rechaza en producción.

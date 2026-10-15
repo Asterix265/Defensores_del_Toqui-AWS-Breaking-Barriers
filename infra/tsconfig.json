@@ -6,5 +6,5 @@
     "noEmit": true,
     "types": ["node"]
   },
-  "include": ["bin", "lib"]
+  "include": ["bin", "lib", "scripts", "vitest.config.ts"]
 }

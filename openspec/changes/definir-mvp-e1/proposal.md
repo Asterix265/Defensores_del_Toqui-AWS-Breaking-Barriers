@@ -30,6 +30,6 @@ Las educadoras de Fundación Integra dedican, según la presentación del desaf�
 
 - Código nuevo: `apps/web`, `apps/api`, `apps/pipeline`, `packages/shared`, `infra`, la carga del dataset (`apps/api/src/seed`), `docker-compose.yml`, `.env.example`.
 - Dependencias principales: NestJS, Prisma, zod, nestjs-zod, orval, React, Vite, AWS SDK v3, aws-jwt-verify, AWS CDK.
-- Servicios AWS (cuenta del evento, `us-east-1`): S3, Step Functions, Lambda, Amazon Transcribe, Amazon Bedrock (Claude, Guardrails), ECS Fargate, ALB, Aurora Serverless v2, Secrets Manager, Cognito y Amplify Hosting. Requieren permisos IAM, acceso a modelos de Bedrock y un plan de limpieza.
+- Servicios AWS (cuenta del evento, `us-east-1`): S3, Step Functions, Lambda, Amazon Transcribe, Amazon Bedrock (Claude, Guardrails), ECS Fargate, ALB, Aurora Serverless v2, Secrets Manager, Cognito, S3 y CloudFront (web). Requieren permisos IAM, acceso a modelos de Bedrock y un plan de limpieza.
 - Documentación: README (comandos verificados, ubicación del dataset) y `docs/` cuando cambien decisiones.
 - Beneficio: se medirá con tiempos instrumentados y acuerdo IA–educadora sobre datos sintéticos; no se promete alcanzar la meta institucional de 0 horas.

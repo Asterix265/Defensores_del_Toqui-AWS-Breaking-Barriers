@@ -12,17 +12,17 @@ La línea base declarada en la presentación es de **4 horas semanales** de docu
 
 ## Estado actual
 
-La base técnica del monorepo está lista (cambio OpenSpec `levantar-stack-base`). De `definir-mvp-e1`, la **API** ya implementa el modelo de dominio, la carga del dataset, la autenticación con Cognito (y modo local), la captura con borrador y confirmación, el endpoint interno del pipeline y la trayectoria (ver [API de registro](#api-de-registro)). Faltan el pipeline real con IA (Lambdas), la conexión de la web a la API y el panel de impacto.
+La base técnica del monorepo está lista (cambio OpenSpec `levantar-stack-base`): web, API, pipeline, paquete compartido e infraestructura compilan, tienen pruebas de humo y se comunican en local. De `definir-mvp-e1`, la **API** ya implementa el modelo de dominio, la carga del dataset, la autenticación con Cognito (y modo local), la captura con borrador y confirmación, el endpoint interno del pipeline y la trayectoria (ver [API de registro](#api-de-registro)). Faltan el pipeline real con IA (Lambdas), la conexión de la web a la API y el panel de impacto. Los servicios AWS de desarrollo (stack `ToquiDev`) y la arquitectura de producción (`ToquiRed`, `ToquiDatos`, `ToquiApp`) están desplegados; la API y el pipeline de producción todavía solo tienen los endpoints y pasos técnicos de ejemplo.
 
 ## Stack
 
 | Parte | Tecnología | Ubicación |
 | --- | --- | --- |
-| Web (PWA) | React 19 + Vite + TypeScript, TanStack Query, vite-plugin-pwa | `apps/web` |
+| Web (PWA) | React 19 + Vite + TypeScript, Material UI, TanStack Query, vite-plugin-pwa | `apps/web` |
 | API | NestJS 11 + Prisma 7 (PostgreSQL), nestjs-zod, Swagger | `apps/api` |
 | Pipeline | Handlers Lambda en TypeScript (esbuild, `nodejs24.x`) | `apps/pipeline` |
 | Contrato | Esquemas zod → OpenAPI → cliente orval (hooks y mocks MSW) | `packages/shared` |
-| Infraestructura | AWS CDK v2 en TypeScript, `us-east-1` (solo síntesis) | `infra` |
+| Infraestructura | AWS CDK v2 en TypeScript, `us-east-1` (stacks de desarrollo y producción) | `infra` |
 | Base local | PostgreSQL 17 en Docker | `docker-compose.yml` |
 
 ## Desarrollo local
@@ -41,9 +41,7 @@ pnpm db:seed                        # carga el dataset E-1 desde DATASET_DIR (un
 pnpm dev                            # web en http://localhost:5173 y API en http://localhost:3000
 ```
 
-Si ya tenías `apps/api/.env`, agrégale las variables del modo local de `.env.example` (`AUTH_MODE`, `PIPELINE_MODE`, `IA_PROVIDER`, `DATASET_DIR`): sin `AUTH_MODE=local` la API exige Cognito y no arranca en local.
-
-La web muestra el estado de la API; Swagger está en http://localhost:3000/docs. Se usan los puertos por defecto (web 5173, API 3000, Postgres 5432): si otro servicio local ya los ocupa, hay que detenerlo antes de levantar el proyecto.
+La web abre «Registro Simple», un mock con datos sintéticos y notas en memoria que aún no usa la API: en el celular muestra el flujo de la tía y en pantallas anchas el panel de notas de las salas. El estado de la API queda en http://localhost:5173/estado. Swagger está en http://localhost:3000/docs. Se usan los puertos por defecto (web 5173, API 3000, Postgres 5432): si otro servicio local ya los ocupa, hay que detenerlo antes de levantar el proyecto.
 
 | Comando | Qué hace |
 | --- | --- |
@@ -56,6 +54,8 @@ La web muestra el estado de la API; Swagger está en http://localhost:3000/docs.
 | `pnpm lint` / `pnpm format` | ESLint y Prettier |
 | `pnpm typecheck` / `pnpm test` / `pnpm build` | Tipos, pruebas y build de todos los paquetes |
 | `pnpm infra:synth` | Sintetiza CloudFormation sin desplegar ni requerir credenciales |
+| `pnpm aws:*` | Despliegue y prueba de los servicios AWS de desarrollo (ver [guía AWS](docs/guia-aws.md)) |
+| `pnpm aws:prod:*` | Despliegue, prueba y borrado del ambiente de producción (ver [arquitectura AWS](docs/arquitectura-aws.md)) |
 
 Imagen de la API (desde la raíz): `docker build -f apps/api/Dockerfile -t toqui-api .`
 
@@ -85,6 +85,12 @@ API NestJS en Fargate (`apps/api`), según `definir-mvp-e1`. Contrato completo e
 - **Local** (`.env.example`): `AUTH_MODE=local` usa la educadora fija de `JAR-0001` sin token. Para otros usuarios: `Authorization: Bearer local:directora:JAR-0001`. `PIPELINE_MODE=inline` con `IA_PROVIDER=fake` produce borradores deterministas sin AWS. Audio y foto necesitan `S3_BUCKET_CAPTURAS` (el bucket de `ToquiDev`).
 - **AWS** (`PIPELINE_MODE=aws`, por defecto): la captura llega a `capturas/` (el texto también, como `.txt`), EventBridge inicia Step Functions y el pipeline entrega el borrador al endpoint interno. El pipeline obtiene el id de captura del nombre del archivo.
 - `pnpm test` incluye pruebas e2e que crean la base `toqui_test` en el Postgres local (`pnpm db:up` antes).
+
+## AWS de desarrollo
+
+Bedrock (Claude y Guardrail), Transcribe, S3 y Cognito están desplegados para desarrollo en la cuenta del evento (`us-east-1`, stack CDK `ToquiDev`). Configuración, comandos (`pnpm aws:smoke`, `pnpm aws:env`, `pnpm aws:deploy`), usuarios de prueba, costos y limpieza: [guía AWS](docs/guia-aws.md).
+
+El ambiente de producción (CloudFront, Fargate, Aurora Serverless v2, pipeline con Step Functions) se despliega con `pnpm aws:prod:deploy`; diagrama, stacks y decisiones en [arquitectura AWS](docs/arquitectura-aws.md).
 
 ## Materiales del desafío
 
@@ -152,7 +158,7 @@ Se excluyeron las skills de otras bases de datos, de los servicios en la nube de
 
 ## Próximos pasos
 
-1. Completar `definir-mvp-e1`: pipeline con Transcribe y Bedrock que entregue al endpoint interno, conectar la web a la API, medir el impacto y desplegar con datos.
+1. Completar `definir-mvp-e1`: pipeline con Transcribe y Bedrock que entregue al endpoint interno, conectar la web a la API y medir el impacto. En `ToquiApp` falta inyectar `PIPELINE_TOKEN` (API y pipeline) y cargar el dataset en Aurora.
 2. Resolver cómo representar la rúbrica institucional frente a la ruta sintética del dataset.
 3. Configurar IAM, acceso a modelos de Bedrock y despliegue en AWS, documentando permisos, costos y limpieza.
 4. Medir tiempo de documentación y trazabilidad con datos sintéticos; reportar resultados reales de la demo.

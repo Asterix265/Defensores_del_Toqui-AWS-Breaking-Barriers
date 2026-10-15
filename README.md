@@ -12,7 +12,7 @@ La línea base declarada en la presentación es de **4 horas semanales** de docu
 
 ## Estado actual
 
-La base técnica del monorepo está lista (cambio OpenSpec `levantar-stack-base`): web, API, pipeline, paquete compartido e infraestructura compilan, tienen pruebas de humo y se comunican en local. **Todavía no hay funcionalidades del desafío**: modelo de dominio, carga del dataset, autenticación, IA y despliegue en AWS pertenecen al cambio `definir-mvp-e1`, que está propuesto y pendiente de implementación. No hay recursos desplegados en AWS.
+La base técnica del monorepo está lista (cambio OpenSpec `levantar-stack-base`): web, API, pipeline, paquete compartido e infraestructura compilan, tienen pruebas de humo y se comunican en local. **Todavía no hay funcionalidades del desafío**: modelo de dominio, carga del dataset, autenticación, IA y despliegue en AWS pertenecen al cambio `definir-mvp-e1`, que está propuesto y pendiente de implementación. Los servicios AWS de desarrollo están desplegados (stack `ToquiDev`); el ambiente demo todavía no.
 
 ## Stack
 
@@ -52,12 +52,17 @@ La web muestra el estado de la API; Swagger está en http://localhost:3000/docs.
 | `pnpm lint` / `pnpm format` | ESLint y Prettier |
 | `pnpm typecheck` / `pnpm test` / `pnpm build` | Tipos, pruebas y build de todos los paquetes |
 | `pnpm infra:synth` | Sintetiza CloudFormation sin desplegar ni requerir credenciales |
+| `pnpm aws:*` | Despliegue y prueba de los servicios AWS de desarrollo (ver [guía AWS](docs/guia-aws.md)) |
 
 Imagen de la API (desde la raíz): `docker build -f apps/api/Dockerfile -t toqui-api .`
 
 Al cambiar un esquema de `packages/shared` o un endpoint, ejecutar `pnpm contract` y versionar el resultado: la CI falla si el contrato generado queda desactualizado. La CI (`.github/workflows/ci.yml`) ejecuta lint, formato, tipos, pruebas, build, contrato y síntesis en cada pull request.
 
 Verificado el 14-10-2026 en macOS con Node 24.22.0 y pnpm 11.13.0, en una copia limpia del repositorio. Falta confirmar en Windows y Linux, y la primera ejecución de la CI en GitHub.
+
+## AWS de desarrollo
+
+Bedrock (Claude y Guardrail), Transcribe, S3 y Cognito están desplegados para desarrollo en la cuenta del evento (`us-east-1`, stack CDK `ToquiDev`). Configuración, comandos (`pnpm aws:smoke`, `pnpm aws:env`, `pnpm aws:deploy`), usuarios de prueba, costos y limpieza: [guía AWS](docs/guia-aws.md).
 
 ## Materiales del desafío
 

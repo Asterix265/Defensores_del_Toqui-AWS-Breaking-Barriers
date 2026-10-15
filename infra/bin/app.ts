@@ -1,7 +1,10 @@
 import { App } from 'aws-cdk-lib';
-import { BaseStack } from '../lib/base-stack.js';
+import { DevStack } from '../lib/dev-stack.js';
 
 const app = new App();
 
-// Sin cuenta explícita: la plantilla se sintetiza sin credenciales. La región es fija.
-new BaseStack(app, 'ToquiBase', { env: { region: 'us-east-1' } });
+// Cuenta tomada de las credenciales al desplegar; la región es fija por la SCP del evento.
+new DevStack(app, 'ToquiDev', {
+  env: { account: process.env['CDK_DEFAULT_ACCOUNT'], region: 'us-east-1' },
+  description: 'Defensores del Toqui: recursos AWS compartidos para desarrollo',
+});

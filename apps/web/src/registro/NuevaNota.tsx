@@ -13,8 +13,11 @@ import CheckRounded from '@mui/icons-material/CheckRounded';
 import CloseRounded from '@mui/icons-material/CloseRounded';
 import DeleteRounded from '@mui/icons-material/DeleteRounded';
 import EditRounded from '@mui/icons-material/EditRounded';
+import AddRounded from '@mui/icons-material/AddRounded';
 import AttachFileRounded from '@mui/icons-material/AttachFileRounded';
+import RemoveRounded from '@mui/icons-material/RemoveRounded';
 import MicRounded from '@mui/icons-material/MicRounded';
+import { etiquetaSala, type Manifestacion, type NivelRuta } from './api';
 import {
   AvisoVerde,
   CabeceraConCerrar,
@@ -26,17 +29,14 @@ import {
 import { formatoDuracion } from './formato';
 import {
   DOMINIOS,
-  NINOS,
-  NINOS_DE_MI_SALA,
-  SALAS,
   nuevoId,
   simularLectura,
-  sugerirArea,
-  type Dominio,
   type Formato,
+  type ManifestacionCitada,
   type Nino,
   type Nota,
 } from './datos';
+import { nivelEsperado, proponer } from './propuesta';
 import { SubirArchivo } from './SubirArchivo';
 import { colores } from './tema';
 
@@ -60,18 +60,24 @@ const SUBTITULO_REVISION: Record<Formato, string> = {
   texto: 'Revisa tu nota',
 };
 
+/** Máximo de manifestaciones por nota (el mismo límite que la confirmación de la API). */
+const MAXIMO_MANIFESTACIONES = 5;
+
 /**
  * Flujo «acción primero» (diseño 1b): capturar, elegir al niño o niña y confirmar.
- * La transcripción del audio y la lectura del post-it están simuladas con textos sintéticos.
+ * La transcripción del audio, la lectura del post-it y la propuesta de nivel y manifestaciones
+ * están simuladas (`propuesta.ts`), pero usan el catálogo y los niveles reales de la API.
  * En PC (`escritorio`) la foto y el audio se suben como archivo y se elige entre todas las salas.
- * Con `ninoId` (desde la ficha del niño o niña) la nota ya tiene dueño y se salta la elección.
+ * Con `ninoFijo` (desde la ficha del niño o niña) la nota ya tiene dueño y se salta la elección.
  */
 export function NuevaNota({
   formato,
   semilla,
   educadora,
   escritorio = false,
-  ninoId: ninoFijo,
+  ninos,
+  ninoFijo,
+  catalogo,
   onGuardar,
   onCancelar,
 }: {
@@ -80,8 +86,11 @@ export function NuevaNota({
   semilla: number;
   educadora: string;
   escritorio?: boolean;
+  /** Niños y niñas que se ofrecen en «¿De quién es?». */
+  ninos: Nino[];
   /** Niño o niña ya elegido: la nota se le asocia sin pasar por «¿De quién es?». */
-  ninoId?: string;
+  ninoFijo?: Nino;
+  catalogo: { niveles: NivelRuta[]; manifestaciones: Manifestacion[] };
   onGuardar: (nota: Nota) => void;
   onCancelar: () => void;
 }) {
@@ -91,20 +100,38 @@ export function NuevaNota({
   const [archivo, setArchivo] = useState<string>();
   const [duracion, setDuracion] = useState<number>();
   const [texto, setTexto] = useState('');
-  const [sugerencia, setSugerencia] = useState<Nota['sugerencia']>({ texto: '', area: null });
-  const [area, setArea] = useState<Dominio | null>(null);
-  const [ninoId, setNinoId] = useState<string | null>(ninoFijo ?? null);
+  const [sugerencia, setSugerencia] = useState<Nota['sugerencia']>({
+    nivel: null,
+    manifestaciones: [],
+  });
+  const [nivel, setNivel] = useState(1);
+  const [manifestaciones, setManifestaciones] = useState<ManifestacionCitada[]>([]);
+  const [ninoId, setNinoId] = useState<string | null>(ninoFijo?.id ?? null);
 
-  const capturar = (textoLeido: string, areaSugerida: Dominio | null) => {
-    setTexto(textoLeido);
-    setSugerencia({ texto: textoLeido, area: areaSugerida });
-    setArea(areaSugerida);
-    setEtapa(ninoFijo ? 'revision' : 'nino');
+  const nino = ninoFijo ?? ninos.find((n) => n.id === ninoId);
+
+  /** Pide la propuesta (simulada) para el niño o niña y el texto, y pasa a la revisión. */
+  const revisar = (para: Nino, textoLeido: string) => {
+    const propuesta = proponer(
+      textoLeido,
+      para.edadMeses,
+      catalogo.niveles,
+      catalogo.manifestaciones,
+    );
+    setSugerencia({
+      nivel: propuesta.nivel,
+      manifestaciones: propuesta.manifestaciones.map((m) => m.manifestacion.id),
+    });
+    setNivel(propuesta.nivel ?? nivelEsperado(para.edadMeses, catalogo.niveles));
+    setManifestaciones(propuesta.manifestaciones);
+    setEtapa('revision');
   };
 
-  const ninos = escritorio ? NINOS : NINOS_DE_MI_SALA;
-  // Se busca en todas las salas: desde la ficha puede venir un niño o niña de otra sala.
-  const nino = NINOS.find((n) => n.id === ninoId);
+  const capturar = (textoLeido: string) => {
+    setTexto(textoLeido);
+    if (ninoFijo) revisar(ninoFijo, textoLeido);
+    else setEtapa('nino');
+  };
 
   switch (etapa) {
     case 'grabando':
@@ -113,20 +140,13 @@ export function NuevaNota({
           onCancelar={onCancelar}
           onTerminar={(segundos) => {
             setDuracion(segundos);
-            const lectura = simularLectura('audio', semilla);
-            capturar(lectura.texto, lectura.area);
+            capturar(simularLectura('audio', semilla));
           }}
         />
       );
     case 'camara':
       return (
-        <Camara
-          onCancelar={onCancelar}
-          onTomar={() => {
-            const lectura = simularLectura('foto', semilla);
-            capturar(lectura.texto, lectura.area);
-          }}
-        />
+        <Camara onCancelar={onCancelar} onTomar={() => capturar(simularLectura('foto', semilla))} />
       );
     case 'subir':
       if (formato === 'texto') return null;
@@ -137,18 +157,12 @@ export function NuevaNota({
           onGrabar={formato === 'audio' ? () => setEtapa('grabando') : undefined}
           onListo={(nombreArchivo) => {
             setArchivo(nombreArchivo);
-            const lectura = simularLectura(formato, semilla);
-            capturar(lectura.texto, lectura.area);
+            capturar(simularLectura(formato, semilla));
           }}
         />
       );
     case 'escribiendo':
-      return (
-        <Escribiendo
-          onCancelar={onCancelar}
-          onListo={(escrito) => capturar(escrito, sugerirArea(escrito))}
-        />
-      );
+      return <Escribiendo onCancelar={onCancelar} onListo={capturar} />;
     case 'nino':
       return (
         <ElegirNino
@@ -157,7 +171,7 @@ export function NuevaNota({
           agrupar={escritorio}
           seleccionado={ninoId}
           onSeleccionar={setNinoId}
-          onSeguir={() => setEtapa('revision')}
+          onSeguir={() => nino && revisar(nino, texto)}
           onCancelar={onCancelar}
         />
       );
@@ -172,20 +186,30 @@ export function NuevaNota({
           archivo={archivo}
           texto={texto}
           onTexto={setTexto}
-          area={area}
-          onArea={setArea}
+          nivel={nivel}
+          onNivel={(n) => {
+            setNivel(n);
+            // La API exige que todas las manifestaciones sean del nivel confirmado.
+            setManifestaciones((previas) => previas.filter((m) => m.manifestacion.nivel === n));
+          }}
+          niveles={catalogo.niveles}
+          manifestaciones={manifestaciones}
+          onManifestaciones={setManifestaciones}
+          catalogo={catalogo.manifestaciones}
+          evidenciaInsuficiente={sugerencia.nivel === null}
           onBorrar={onCancelar}
           onConfirmar={() => {
-            if (!area) return;
+            if (manifestaciones.length === 0) return;
             onGuardar({
               id: nuevoId(),
-              ninoId: nino.id,
+              nino,
               educadora,
               formato,
               creada: new Date(),
               duracion,
               texto: texto.trim(),
-              area,
+              nivel,
+              manifestaciones,
               sugerencia,
             });
           }}
@@ -413,7 +437,9 @@ function ElegirNino({
 }) {
   const elegido = ninos.find((n) => n.id === seleccionado);
   const grupos = agrupar
-    ? SALAS.map((sala) => ({ sala, ninos: ninos.filter((n) => n.sala === sala) }))
+    ? [...new Set(ninos.map((n) => n.sala))]
+        .sort()
+        .map((sala) => ({ sala, ninos: ninos.filter((n) => n.sala === sala) }))
     : [{ sala: null, ninos }];
   return (
     <Pantalla>
@@ -427,14 +453,18 @@ function ElegirNino({
       </Box>
       <Box sx={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
         {grupos.map((grupo) => (
-          <Box key={grupo.sala ?? 'sala'} component="section" aria-label={grupo.sala ?? undefined}>
+          <Box
+            key={grupo.sala ?? 'sala'}
+            component="section"
+            aria-label={grupo.sala ? etiquetaSala(grupo.sala) : undefined}
+          >
             {grupo.sala && (
               <Typography
                 variant="h2"
                 color="text.secondary"
                 sx={{ px: 2.5, pt: 2, textTransform: 'uppercase' }}
               >
-                {grupo.sala}
+                {etiquetaSala(grupo.sala)}
               </Typography>
             )}
             <GrillaNinos
@@ -525,8 +555,13 @@ function Revision({
   archivo,
   texto,
   onTexto,
-  area,
-  onArea,
+  nivel,
+  onNivel,
+  niveles,
+  manifestaciones,
+  onManifestaciones,
+  catalogo,
+  evidenciaInsuficiente,
   onConfirmar,
   onBorrar,
 }: {
@@ -537,14 +572,20 @@ function Revision({
   archivo?: string;
   texto: string;
   onTexto: (texto: string) => void;
-  area: Dominio | null;
-  onArea: (area: Dominio) => void;
+  nivel: number;
+  onNivel: (nivel: number) => void;
+  niveles: NivelRuta[];
+  manifestaciones: ManifestacionCitada[];
+  onManifestaciones: (manifestaciones: ManifestacionCitada[]) => void;
+  catalogo: Manifestacion[];
+  /** La propuesta no encontró evidencia: la educadora elige las manifestaciones. */
+  evidenciaInsuficiente: boolean;
   onConfirmar: () => void;
   onBorrar: () => void;
 }) {
   const [editando, setEditando] = useState(false);
-  const [cambiandoArea, setCambiandoArea] = useState(area === null);
-  const listo = texto.trim() !== '' && area !== null;
+  const [agregando, setAgregando] = useState(evidenciaInsuficiente);
+  const listo = texto.trim() !== '' && manifestaciones.length > 0;
 
   return (
     <Pantalla>
@@ -647,37 +688,82 @@ function Revision({
 
         <Box sx={{ height: '1px', bgcolor: 'divider' }} />
 
+        <ElegirNivel nivel={nivel} niveles={niveles} onNivel={onNivel} />
+
         <Stack sx={{ gap: 1 }}>
           <Typography variant="caption" color="text.secondary">
-            {area ? 'Área sugerida' : 'Elige un área'}
+            {evidenciaInsuficiente ? 'Elige lo que observaste' : 'Lo que observaste'}
           </Typography>
-          {cambiandoArea ? (
-            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-              {DOMINIOS.map((d) => (
-                <ChipArea
-                  key={d}
-                  area={d}
-                  seleccionada={d === area}
-                  onClick={() => {
-                    onArea(d);
-                    setCambiandoArea(false);
-                  }}
-                />
-              ))}
+          {evidenciaInsuficiente && manifestaciones.length === 0 && (
+            <Typography sx={{ fontSize: 15, color: colores.amarilloTinta, fontWeight: 600 }}>
+              No encontramos evidencia suficiente en la nota. Agrega al menos una manifestación.
+            </Typography>
+          )}
+          {manifestaciones.map(({ manifestacion, cita }) => (
+            <Box
+              key={manifestacion.id}
+              component="section"
+              aria-label={manifestacion.textoObservable}
+              sx={{
+                p: 1.5,
+                display: 'flex',
+                gap: 1,
+                alignItems: 'flex-start',
+                border: 1,
+                borderColor: 'divider',
+                borderRadius: '12px',
+              }}
+            >
+              <Stack sx={{ flex: 1, gap: 0.75, minWidth: 0 }}>
+                <Box>
+                  <ChipArea area={manifestacion.dominio} compacto />
+                </Box>
+                <Typography sx={{ fontSize: 16, fontWeight: 700, lineHeight: '22px' }}>
+                  {manifestacion.textoObservable}
+                </Typography>
+                {cita && (
+                  <Typography variant="body2" color="text.secondary">
+                    «{cita}»
+                  </Typography>
+                )}
+              </Stack>
+              <IconButton
+                aria-label={`Quitar «${manifestacion.textoObservable}»`}
+                onClick={() =>
+                  onManifestaciones(
+                    manifestaciones.filter((m) => m.manifestacion.id !== manifestacion.id),
+                  )
+                }
+              >
+                <CloseRounded />
+              </IconButton>
             </Box>
+          ))}
+          {agregando ? (
+            <AgregarManifestacion
+              opciones={catalogo.filter(
+                (m) =>
+                  m.nivel === nivel &&
+                  !manifestaciones.some((elegida) => elegida.manifestacion.id === m.id),
+              )}
+              lleno={manifestaciones.length >= MAXIMO_MANIFESTACIONES}
+              onAgregar={(m) =>
+                onManifestaciones([...manifestaciones, { manifestacion: m, cita: null }])
+              }
+              onCerrar={() => setAgregando(false)}
+            />
           ) : (
-            area && (
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25 }}>
-                <ChipArea area={area} />
-                <Button
-                  variant="text"
-                  onClick={() => setCambiandoArea(true)}
-                  sx={{ color: 'primary.dark', fontSize: 15, minHeight: 40, px: 1 }}
-                >
-                  Cambiar
-                </Button>
-              </Box>
-            )
+            <Box>
+              <Button
+                variant="text"
+                startIcon={<AddRounded />}
+                disabled={manifestaciones.length >= MAXIMO_MANIFESTACIONES}
+                onClick={() => setAgregando(true)}
+                sx={{ color: 'primary.dark', fontSize: 15, minHeight: 40, px: 1, ml: -1 }}
+              >
+                Agregar manifestación
+              </Button>
+            </Box>
           )}
         </Stack>
       </Stack>
@@ -704,6 +790,118 @@ function Revision({
         </Button>
       </Stack>
     </Pantalla>
+  );
+}
+
+/** Nivel estimado con botones para bajarlo o subirlo. Se rotula como estimación, no diagnóstico. */
+function ElegirNivel({
+  nivel,
+  niveles,
+  onNivel,
+}: {
+  nivel: number;
+  niveles: NivelRuta[];
+  onNivel: (nivel: number) => void;
+}) {
+  const nombre = niveles.find((n) => n.nivel === nivel)?.nombre;
+  const minimo = niveles[0]?.nivel ?? 1;
+  const maximo = niveles.at(-1)?.nivel ?? 9;
+  return (
+    <Stack sx={{ gap: 0.5 }}>
+      <Typography variant="caption" color="text.secondary">
+        Nivel estimado (estimación pedagógica, no un diagnóstico)
+      </Typography>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+        <IconButton
+          aria-label="Bajar nivel"
+          disabled={nivel <= minimo}
+          onClick={() => onNivel(nivel - 1)}
+          sx={{ border: 1, borderColor: 'divider' }}
+        >
+          <RemoveRounded />
+        </IconButton>
+        <Box role="status" aria-label="Nivel estimado" sx={{ flex: 1, textAlign: 'center' }}>
+          <Typography sx={{ fontSize: 17, fontWeight: 800 }}>Nivel {nivel}</Typography>
+          {nombre && (
+            <Typography variant="body2" color="text.secondary">
+              {nombre}
+            </Typography>
+          )}
+        </Box>
+        <IconButton
+          aria-label="Subir nivel"
+          disabled={nivel >= maximo}
+          onClick={() => onNivel(nivel + 1)}
+          sx={{ border: 1, borderColor: 'divider' }}
+        >
+          <AddRounded />
+        </IconButton>
+      </Box>
+    </Stack>
+  );
+}
+
+/** Manifestaciones del catálogo para el nivel elegido, agrupadas por área. */
+function AgregarManifestacion({
+  opciones,
+  lleno,
+  onAgregar,
+  onCerrar,
+}: {
+  opciones: Manifestacion[];
+  lleno: boolean;
+  onAgregar: (manifestacion: Manifestacion) => void;
+  onCerrar: () => void;
+}) {
+  return (
+    <Stack
+      component="section"
+      aria-label="Catálogo de manifestaciones"
+      sx={{ gap: 1, p: 1.5, bgcolor: colores.crema, borderRadius: '12px' }}
+    >
+      {lleno && (
+        <Typography variant="body2" color="text.secondary">
+          Puedes elegir hasta {MAXIMO_MANIFESTACIONES} manifestaciones.
+        </Typography>
+      )}
+      {DOMINIOS.map((dominio) =>
+        opciones
+          .filter((m) => m.dominio === dominio)
+          .map((m) => (
+            <ButtonBase
+              key={m.id}
+              disabled={lleno}
+              onClick={() => onAgregar(m)}
+              sx={{
+                p: 1.25,
+                gap: 1,
+                justifyContent: 'flex-start',
+                textAlign: 'left',
+                bgcolor: '#fff',
+                borderRadius: '12px',
+                border: 1,
+                borderColor: 'divider',
+                opacity: lleno ? 0.5 : 1,
+              }}
+            >
+              <ChipArea area={m.dominio} compacto />
+              <Box component="span" sx={{ fontSize: 15, fontWeight: 600 }}>
+                {m.textoObservable}
+              </Box>
+            </ButtonBase>
+          )),
+      )}
+      {opciones.length === 0 && (
+        <Typography variant="body2" color="text.secondary">
+          No quedan manifestaciones de este nivel por agregar.
+        </Typography>
+      )}
+      <Box>
+        <Button variant="text" onClick={onCerrar} sx={{ color: 'primary.dark', px: 1, ml: -1 }}>
+          Listo
+        </Button>
+      </Box>
+    </Stack>
   );
 }
 

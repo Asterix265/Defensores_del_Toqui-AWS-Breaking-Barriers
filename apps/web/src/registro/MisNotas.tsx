@@ -4,14 +4,12 @@ import Typography from '@mui/material/Typography';
 import CheckCircleRounded from '@mui/icons-material/CheckCircleRounded';
 import { ChipArea, Encabezado, ICONO_FORMATO, NinoAvatar, Pantalla } from './componentes';
 import { etiquetaDia, formatoHora } from './formato';
-import { NINOS, SALA, type Nota } from './datos';
+import { dominiosDe, type Nota } from './datos';
 import { colores } from './tema';
 
-/** Notas de la sala de la tía, agrupadas por día (diseño 1d). */
+/** Notas que la tía guardó en esta sesión, agrupadas por día (diseño 1d). */
 export function MisNotas({ notas, ahora }: { notas: Nota[]; ahora: Date }) {
-  const ordenadas = notas
-    .filter((n) => NINOS.find((nino) => nino.id === n.ninoId)?.sala === SALA)
-    .sort((a, b) => b.creada.getTime() - a.creada.getTime());
+  const ordenadas = [...notas].sort((a, b) => b.creada.getTime() - a.creada.getTime());
   const grupos = new Map<string, Nota[]>();
   for (const nota of ordenadas) {
     const etiqueta = etiquetaDia(nota.creada, ahora);
@@ -48,7 +46,7 @@ export function MisNotas({ notas, ahora }: { notas: Nota[]; ahora: Date }) {
 }
 
 function TarjetaNota({ nota }: { nota: Nota }) {
-  const nino = NINOS.find((n) => n.id === nota.ninoId);
+  const { nino } = nota;
   const Icono = ICONO_FORMATO[nota.formato];
   return (
     <Stack
@@ -63,10 +61,8 @@ function TarjetaNota({ nota }: { nota: Nota }) {
       }}
     >
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25 }}>
-        {nino && <NinoAvatar nino={nino} />}
-        <Typography sx={{ fontSize: 17, fontWeight: 700 }}>
-          {nino?.nombre ?? 'Sin nombre'}
-        </Typography>
+        <NinoAvatar nino={nino} />
+        <Typography sx={{ fontSize: 17, fontWeight: 700 }}>{nino.nombre}</Typography>
         <Box
           sx={{
             ml: 'auto',
@@ -94,8 +90,10 @@ function TarjetaNota({ nota }: { nota: Nota }) {
       >
         {nota.texto}
       </Typography>
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-        <ChipArea area={nota.area} compacto />
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+        {dominiosDe(nota.manifestaciones).map((d) => (
+          <ChipArea key={d} area={d} compacto />
+        ))}
         <Box
           sx={{
             ml: 'auto',

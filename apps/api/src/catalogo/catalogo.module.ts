@@ -1,9 +1,13 @@
 import { Module } from '@nestjs/common';
-import { ManifestacionesController, NinosController } from './catalogo.controller';
+import {
+  ManifestacionesController,
+  NinosController,
+  NivelesController,
+} from './catalogo.controller';
 import { CatalogoService } from './catalogo.service';
 
 @Module({
-  controllers: [NinosController, ManifestacionesController],
+  controllers: [NinosController, ManifestacionesController, NivelesController],
   providers: [CatalogoService],
   exports: [CatalogoService],
 })

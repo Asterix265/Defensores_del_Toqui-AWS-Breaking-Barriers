@@ -4,7 +4,8 @@ import Button from '@mui/material/Button';
 import Typography from '@mui/material/Typography';
 import AddRounded from '@mui/icons-material/AddRounded';
 import DownloadRounded from '@mui/icons-material/DownloadRounded';
-import { NINOS, type Nota } from './datos';
+import type { Manifestacion, NivelRuta } from './api';
+import type { Nino, Nota } from './datos';
 import { NuevaNotaEscritorio } from './NuevaNotaEscritorio';
 import { CabeceraPanel } from './panel/CabeceraPanel';
 import { FiltrosPanel } from './panel/FiltrosPanel';
@@ -17,11 +18,17 @@ import { descargarCsv, notasACsv } from './reporte';
  * «Nueva nota» para cargar notas desde el PC.
  */
 export function PanelSalas({
+  ninos,
+  salas,
+  catalogo,
   notas,
   ahora,
   nombre,
   onGuardar,
 }: {
+  ninos: Nino[];
+  salas: string[];
+  catalogo: { niveles: NivelRuta[]; manifestaciones: Manifestacion[] };
   notas: Nota[];
   ahora: Date;
   nombre: string;
@@ -35,7 +42,7 @@ export function PanelSalas({
   const delPeriodo = notas
     .filter((n) => !limite || n.creada >= limite)
     .sort((a, b) => b.creada.getTime() - a.creada.getTime());
-  const salaDe = (nota: Nota) => NINOS.find((n) => n.id === nota.ninoId)?.sala;
+  const salaDe = (nota: Nota) => nota.nino.sala;
   const visibles = sala ? delPeriodo.filter((n) => salaDe(n) === sala) : delPeriodo;
 
   const descargar = () => {
@@ -85,6 +92,7 @@ export function PanelSalas({
         </Box>
 
         <FiltrosPanel
+          salas={salas}
           sala={sala}
           onSala={setSala}
           cantidadPorSala={(s) => delPeriodo.filter((n) => salaDe(n) === s).length}
@@ -96,6 +104,8 @@ export function PanelSalas({
       </Box>
       {cargando && (
         <NuevaNotaEscritorio
+          ninos={ninos}
+          catalogo={catalogo}
           semilla={notas.length}
           educadora={nombre}
           onCerrar={() => setCargando(false)}

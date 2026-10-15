@@ -5,7 +5,8 @@ import TableCell from '@mui/material/TableCell';
 import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
 import { ChipArea, ICONO_FORMATO, NinoAvatar } from '../componentes';
-import { NINOS, type Nota } from '../datos';
+import { etiquetaSala } from '../api';
+import { dominiosDe, type Nota } from '../datos';
 import { formatoCuando } from '../formato';
 import { colores } from '../tema';
 
@@ -76,24 +77,28 @@ export function TablaNotas({ notas, ahora }: { notas: Nota[]; ahora: Date }) {
 }
 
 function FilaNota({ nota, ahora }: { nota: Nota; ahora: Date }) {
-  const nino = NINOS.find((n) => n.id === nota.ninoId);
+  const { nino } = nota;
   const Icono = ICONO_FORMATO[nota.formato];
   return (
     <TableRow>
       <TableCell>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, fontWeight: 700 }}>
-          {nino && <NinoAvatar nino={nino} tamano={36} />}
-          {nino?.nombre}
+          <NinoAvatar nino={nino} tamano={36} />
+          {nino.nombre}
         </Box>
       </TableCell>
       <TableCell sx={{ color: 'text.secondary', fontWeight: 600 }}>
-        {nino?.sala}
+        {etiquetaSala(nino.sala)}
         <br />
         Tía {nota.educadora}
       </TableCell>
       <TableCell>{nota.texto}</TableCell>
       <TableCell>
-        <ChipArea area={nota.area} compacto />
+        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+          {dominiosDe(nota.manifestaciones).map((d) => (
+            <ChipArea key={d} area={d} compacto />
+          ))}
+        </Box>
       </TableCell>
       <TableCell sx={{ color: 'text.secondary', fontWeight: 600 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, whiteSpace: 'nowrap' }}>

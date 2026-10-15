@@ -16,6 +16,12 @@ describe('loadEnv', () => {
     expect(env.ZONA_HORARIA).toBe('America/Santiago');
   });
 
+  it('trata las variables vacías como no definidas', () => {
+    const env = loadEnv({ ...BASE, AUTH_MODE: 'local', S3_BUCKET_CAPTURAS: '', PORT: '' });
+    expect(env.S3_BUCKET_CAPTURAS).toBeUndefined();
+    expect(env.PORT).toBe(3000);
+  });
+
   it('exige el User Pool en modo cognito', () => {
     expect(() => loadEnv(BASE)).toThrow(/COGNITO_USER_POOL_ID/);
   });

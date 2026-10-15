@@ -262,6 +262,17 @@ describe('API de registro (e2e)', () => {
     });
   });
 
+  it('niveles de la ruta con su rango de edad', async () => {
+    const res = await http().get('/niveles').expect(200);
+    expect(res.body).toHaveLength(9);
+    expect(res.body[6]).toEqual({
+      nivel: 7,
+      nombre: 'Nivel 7',
+      edadMinMeses: 18,
+      edadMaxMeses: 24,
+    });
+  });
+
   describe('trayectoria', () => {
     it('por dominio, con «sin registros» y evidencia limitada', async () => {
       const res = await http().get('/ninos/NINO-00001/trayectoria').expect(200);
@@ -281,11 +292,34 @@ describe('API de registro (e2e)', () => {
         (d: { dominio: string }) => d.dominio === 'motor_grueso',
       );
       expect(motor).toEqual({ dominio: 'motor_grueso', sinRegistros: true, puntos: [] });
+      expect(res.body.observaciones).toEqual([
+        {
+          id: 'OBS-0000001',
+          fecha: sumarDias(HOY, -10),
+          formato: 'texto',
+          origen: 'dataset',
+          nivelEstimado: 6,
+          notaBreve: null,
+          manifestaciones: [
+            {
+              id: 'MAN-L06-CO-01',
+              nivel: 6,
+              dominio: 'cognitivo',
+              textoObservable: 'Manifestación de prueba CO 6.',
+            },
+          ],
+        },
+      ]);
 
       const amplio = await http()
         .get(`/ninos/NINO-00001/trayectoria?desde=${sumarDias(HOY, -500)}`)
         .expect(200);
       expect(amplio.body.totalObservaciones).toBe(2);
+      // De la más reciente a la más antigua.
+      expect(amplio.body.observaciones.map((o: { id: string }) => o.id)).toEqual([
+        'OBS-0000001',
+        'OBS-0000002',
+      ]);
     });
 
     it('403 para otro jardín y 404 si no existe', async () => {

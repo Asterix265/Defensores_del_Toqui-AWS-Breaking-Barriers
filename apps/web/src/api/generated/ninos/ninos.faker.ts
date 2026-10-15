@@ -54,5 +54,33 @@ export const getObtenerTrayectoriaResponseMock = (
       ),
     }),
   ),
+  observaciones: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+    () => ({
+      id: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      fecha: faker.date.past().toISOString().slice(0, 10),
+      formato: faker.helpers.arrayElement(['texto', 'audio', 'foto', 'video'] as const),
+      origen: faker.helpers.arrayElement(['dataset', 'app'] as const),
+      nivelEstimado: faker.number.int({ min: 1, max: 9 }),
+      notaBreve: faker.helpers.arrayElement([
+        faker.string.alpha({ length: { min: 10, max: 20 } }),
+        null,
+      ]),
+      manifestaciones: Array.from(
+        { length: faker.number.int({ min: 1, max: 10 }) },
+        (_, i) => i + 1,
+      ).map(() => ({
+        id: faker.string.alpha({ length: { min: 10, max: 20 } }),
+        nivel: faker.number.int({ min: 1, max: 9 }),
+        dominio: faker.helpers.arrayElement([
+          'motor_grueso',
+          'motor_fino',
+          'lenguaje_comunicacion',
+          'socioemocional',
+          'cognitivo',
+        ] as const),
+        textoObservable: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      })),
+    }),
+  ),
   ...overrideResponse,
 });

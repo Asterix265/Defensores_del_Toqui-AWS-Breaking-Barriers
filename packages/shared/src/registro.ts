@@ -82,6 +82,15 @@ export const ManifestacionesQuerySchema = z.object({
 });
 export const ManifestacionesResponseSchema = z.array(ManifestacionSchema);
 
+/** Nivel de la ruta sintética con su rango de edad en meses (`edadMinMeses` ≤ edad < `edadMaxMeses`). */
+export const NivelRutaSchema = z.object({
+  nivel: NivelSchema,
+  nombre: z.string(),
+  edadMinMeses: z.number().int(),
+  edadMaxMeses: z.number().int(),
+});
+export type NivelRuta = z.infer<typeof NivelRutaSchema>;
+
 /** Manifestación con la cita textual que la respalda. */
 export const ManifestacionCitadaSchema = z
   .object({ manifestacion: ManifestacionSchema, cita: z.string().nullable() })
@@ -296,6 +305,21 @@ export const TrayectoriaQuerySchema = z.object({
   hasta: FechaSchema.optional(),
 });
 
+/** Observación del periodo con sus manifestaciones (dataset o confirmada en la app). */
+export const ObservacionTrayectoriaSchema = z
+  .object({
+    id: z.string(),
+    fecha: FechaSchema,
+    /** El dataset además trae `video`, solo como metadato. */
+    formato: z.enum(['texto', 'audio', 'foto', 'video']),
+    origen: z.enum(['dataset', 'app']),
+    nivelEstimado: NivelSchema,
+    notaBreve: z.string().nullable(),
+    manifestaciones: z.array(ManifestacionSchema),
+  })
+  .meta({ id: 'ObservacionTrayectoria' });
+export type ObservacionTrayectoria = z.infer<typeof ObservacionTrayectoriaSchema>;
+
 export const TrayectoriaResponseSchema = z.object({
   nino: NinoSchema,
   desde: FechaSchema,
@@ -318,5 +342,7 @@ export const TrayectoriaResponseSchema = z.object({
       ),
     }),
   ),
+  /** Observaciones del periodo, de la más reciente a la más antigua. */
+  observaciones: z.array(ObservacionTrayectoriaSchema),
 });
 export type TrayectoriaResponse = z.infer<typeof TrayectoriaResponseSchema>;

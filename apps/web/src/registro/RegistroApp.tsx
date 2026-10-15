@@ -5,7 +5,7 @@ import Snackbar from '@mui/material/Snackbar';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { useTheme } from '@mui/material/styles';
 import { BarraInferior } from './BarraInferior';
-import { NINOS, NINOS_DE_MI_SALA, notasDeEjemplo, type Formato, type Nota } from './datos';
+import { NINOS, NINOS_DE_MI_SALA, SALA, notasDeEjemplo, type Formato, type Nota } from './datos';
 import { FichaNino } from './FichaNino';
 import { Ingreso } from './Ingreso';
 import { Inicio } from './Inicio';
@@ -65,6 +65,8 @@ export function RegistroApp() {
   const [vista, setVista] = useState<Vista>({ tipo: 'inicio' });
   const [notas, setNotas] = useState<Nota[]>(() => notasDeEjemplo(new Date()));
   const [aviso, setAviso] = useState<string | null>(null);
+  // Sala que se consulta en «Mi sala». Queda fuera de `Vista`: Grabar de la barra no la hereda.
+  const [salaVista, setSalaVista] = useState(SALA);
   const escritorio = useMediaQuery(useTheme().breakpoints.up('md'));
 
   const ahora = new Date();
@@ -146,6 +148,8 @@ export function RegistroApp() {
         <MiSala
           notas={notas}
           ahora={ahora}
+          sala={salaVista}
+          onCambiarSala={setSalaVista}
           onAbrir={(ninoId) => setVista({ tipo: 'ficha', ninoId })}
         />
       );

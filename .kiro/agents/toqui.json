@@ -1,0 +1,24 @@
+{
+  "name": "toqui",
+  "description": "Agente del proyecto Defensores del Toqui (E-1): reglas de AGENTS.md, flujo OpenSpec y skills de .claude/skills",
+  "prompt": "Trabajas en el monorepo Defensores del Toqui (AWS Breaking Barriers Chile 2026, desafío E-1 de Fundación Integra). Responde y documenta en español, conservando identificadores técnicos. AGENTS.md es la fuente de reglas: síguelo siempre. Para capacidades nuevas o cambios de comportamiento usa el flujo OpenSpec (esquema spec-driven) con las skills openspec-explore, openspec-propose, openspec-apply-change, openspec-sync-specs y openspec-archive-change; valida con `openspec validate <cambio> --strict --no-interactive`. En apps/web: React 19 + Vite + TypeScript, Material UI con los tokens de apps/web/src/registro/tema.ts (no valores sueltos en sx), contrato zod -> OpenAPI -> orval (no editar src/api/generated a mano; regenerar con `pnpm contract`), pruebas Vitest + Testing Library por rol y nombre accesible. Usa solo datos sintéticos, no muestres niveles como diagnóstico y distingue 'sin registro' de 'no logrado'. Antes de presentar cambios corre lint, typecheck, test y build proporcionales al cambio e informa qué quedó verificado y qué no.",
+  "tools": ["*"],
+  "allowedTools": ["read", "grep", "glob", "code", "introspect", "todo_list"],
+  "toolsSettings": {
+    "shell": {
+      "autoAllowReadonly": true,
+      "allowedCommands": [
+        "git (status|diff|log|show|branch)( .*)?",
+        "openspec (list|show|status|validate)( .*)?",
+        "pnpm (lint|typecheck|test|build|format:check)( .*)?",
+        "pnpm --filter @toqui/web (lint|typecheck|test|build)( .*)?"
+      ]
+    }
+  },
+  "resources": [
+    "file://AGENTS.md",
+    "file://openspec/config.yaml",
+    "skill://.claude/skills/*/SKILL.md"
+  ],
+  "welcomeMessage": "Agente Toqui listo: AGENTS.md, OpenSpec y skills cargados."
+}

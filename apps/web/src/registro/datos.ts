@@ -88,7 +88,11 @@ export const NINOS: Nino[] = [
   ]),
 ];
 
-export const NINOS_DE_MI_SALA = NINOS.filter((n) => n.sala === SALA);
+export function ninosDeSala(sala: string): Nino[] {
+  return NINOS.filter((n) => n.sala === sala);
+}
+
+export const NINOS_DE_MI_SALA = ninosDeSala(SALA);
 
 interface Lectura {
   texto: string;

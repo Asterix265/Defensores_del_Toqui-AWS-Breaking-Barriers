@@ -11,13 +11,18 @@ const DETALLE_PC: Record<Formato, string> = {
   texto: 'Con el teclado',
 };
 
-/** «Nueva nota» en PC: el mismo flujo 1b dentro de un diálogo, con carga de archivos. */
+/**
+ * «Nueva nota» en PC: el mismo flujo 1b dentro de un diálogo, con carga de archivos.
+ * Con `ninoId` (desde la ficha) la nota ya tiene dueño y se salta la elección.
+ */
 export function NuevaNotaEscritorio({
+  ninoId,
   semilla,
   educadora,
   onGuardar,
   onCerrar,
 }: {
+  ninoId?: string;
   semilla: number;
   educadora: string;
   onGuardar: (nota: Nota) => void;
@@ -51,6 +56,7 @@ export function NuevaNotaEscritorio({
           semilla={semilla}
           educadora={educadora}
           escritorio
+          ninoId={ninoId}
           onGuardar={onGuardar}
           onCancelar={onCerrar}
         />

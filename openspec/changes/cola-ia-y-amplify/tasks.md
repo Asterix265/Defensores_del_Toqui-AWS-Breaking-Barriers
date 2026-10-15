@@ -18,18 +18,20 @@
 
 ## 3. API: despachador, cola y salud
 
-- [ ] 3.1 Implementar `Despachador` con las variantes `cola` (SQS `SendMessage`) e `inline` (servicio actual), cambiar `PIPELINE_MODE` a `cola | inline` y exigir `SQS_URL_CAPTURAS` en modo `cola`. Eliminar `guardarTexto`. Actualizar `env.spec.ts` y `.env.example`
-- [ ] 3.2 Armar el mensaje en la API: edad, nivel esperado y catálogo completo de manifestaciones (decisión del 15-10-2026: sin ventana ±1), sin datos personales. Encolar el texto al crear la captura, y si falla, pasarla a `error` y responder 503. Verificar con una prueba e2e que el mensaje cumple el esquema y no contiene `idNino`
-- [ ] 3.3 Implementar `POST /capturas/:id/subida-completa`:
+- [x] 3.1 Implementar `Despachador` con las variantes `cola` (SQS `SendMessage`) e `inline` (servicio actual), cambiar `PIPELINE_MODE` a `cola | inline` y exigir `SQS_URL_CAPTURAS` en modo `cola`. Eliminar `guardarTexto`. Actualizar `env.spec.ts` y `.env.example`
+- [x] 3.2 Armar el mensaje en la API: edad, nivel esperado y catálogo completo de manifestaciones (decisión del 15-10-2026: sin ventana ±1), sin datos personales. Encolar el texto al crear la captura, y si falla, pasarla a `error` y responder 503. Verificar con una prueba e2e que el mensaje cumple el esquema y no contiene `idNino`
+- [x] 3.3 Implementar `POST /capturas/:id/subida-completa`:
   - solo la dueña de la captura;
   - `HeadObject` con el tipo y el tamaño declarados, y 409 si no coinciden;
   - encolado idempotente con `encolada_en`.
 
   Verificar con pruebas e2e de éxito, 409, repetición (un solo mensaje) y captura ajena (404)
-- [ ] 3.4 Ampliar `/health` con `storage` (`HeadBucket`) y `queue` (`GetQueueAttributes`), con un tiempo límite de 2 s. Verificar con una prueba en la que la cola falla y el estado queda `degraded`
+- [x] 3.4 Ampliar `/health` con `storage` (`HeadBucket`) y `queue` (`GetQueueAttributes`), con un tiempo límite de 2 s. Verificar con una prueba en la que la cola falla y el estado queda `degraded`
   - Hecho: `storage` (sin bucket configurado se informa `down`), límite de 2 s para base y bucket, causa del fallo solo en el log, contrato regenerado, `/estado` en la web y paso 3 de `pnpm aws:prod:smoke`. Verificado con `health.e2e.spec.ts` y `almacenamiento.service.spec.ts`.
   - Pendiente: `queue`, junto con 3.1.
-- [ ] 3.5 Regenerar el contrato (`pnpm contract`) y verificar que `lint`, `typecheck`, `test` y `build` pasan, y que la CI queda en verde
+- [x] 3.5 Regenerar el contrato (`pnpm contract`) y verificar que `lint`, `typecheck`, `test` y `build` pasan, y que la CI queda en verde
+
+Verificado el 15-10-2026: 56 pruebas de la API (e2e con Postgres en Docker), contrato regenerado, lint, tipos y build. Sin la columna `ejemplos_usados` (2.2), que llega con la memoria.
 
 ## 4. Lambda de proceso
 
@@ -55,7 +57,7 @@
 
 ## 5. Infraestructura de la cola
 
-- [ ] 5.1 En `app-stack.ts`:
+- [x] 5.1 En `app-stack.ts`:
   - crear la cola, la DLQ y la Lambda `toqui-prod-proceso` con la fuente de eventos (D4);
   - crear el secreto `PIPELINE_TOKEN`, inyectarlo en ECS y dar a la Lambda permiso de lectura;
   - aplicar los permisos de D12;

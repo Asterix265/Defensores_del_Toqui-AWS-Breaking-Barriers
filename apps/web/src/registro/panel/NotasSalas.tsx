@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import Button from '@mui/material/Button';
 import DownloadRounded from '@mui/icons-material/DownloadRounded';
-import { NINOS, type Nota } from '../datos';
+import type { Nota } from '../datos';
 import { descargarCsv, notasACsv } from '../reporte';
 import { FiltrosPanel } from './FiltrosPanel';
 import { ETIQUETA_PERIODO, desde, type Periodo } from './periodo';
@@ -10,12 +10,14 @@ import { BotonNuevaNota, TituloVista } from './TituloVista';
 
 /** Pestaña «Mis notas» (diseño 1e): notas de las salas, periodo y reporte CSV. */
 export function NotasSalas({
+  salas,
   notas,
   ahora,
   sala,
   onSala,
   onNuevaNota,
 }: {
+  salas: string[];
   notas: Nota[];
   ahora: Date;
   sala: string | null;
@@ -28,7 +30,7 @@ export function NotasSalas({
   const delPeriodo = notas
     .filter((n) => !limite || n.creada >= limite)
     .sort((a, b) => b.creada.getTime() - a.creada.getTime());
-  const salaDe = (nota: Nota) => NINOS.find((n) => n.id === nota.ninoId)?.sala;
+  const salaDe = (nota: Nota) => nota.nino.sala;
   const visibles = sala ? delPeriodo.filter((n) => salaDe(n) === sala) : delPeriodo;
 
   const descargar = () => {
@@ -57,6 +59,7 @@ export function NotasSalas({
       </TituloVista>
 
       <FiltrosPanel
+        salas={salas}
         sala={sala}
         onSala={onSala}
         cantidadPorSala={(s) => delPeriodo.filter((n) => salaDe(n) === s).length}

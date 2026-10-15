@@ -9,37 +9,59 @@ import Typography from '@mui/material/Typography';
 import CheckRounded from '@mui/icons-material/CheckRounded';
 import ChevronRightRounded from '@mui/icons-material/ChevronRightRounded';
 import ExpandMoreRounded from '@mui/icons-material/ExpandMoreRounded';
-import { areasSinNotas, resumenAreas } from './areas';
+import { etiquetaSala, useObservacionesDe } from './api';
+import { areasSinNotas, registrosDe, resumenAreas } from './areas';
 import { NinoAvatar, Pantalla } from './componentes';
-import { SALA, SALAS, ninosDeSala, type Nota } from './datos';
+import type { Nino, Nota } from './datos';
 import { colores } from './tema';
 
 /**
- * Niños y niñas de la sala elegida, con cuántas áreas siguen sin notas en 30 días.
+ * Niños y niñas de la sala elegida, con cuántas áreas siguen sin registros en 30 días
+ * (observaciones de la API más las notas de esta sesión).
  * La sala se cambia desde el subtítulo: no suma filas ni controles a la pantalla.
  */
 export function MiSala({
+  ninos,
+  salas,
+  salaPropia,
   notas,
   ahora,
   sala,
   onCambiarSala,
   onAbrir,
 }: {
+  /** Niños y niñas de todas las salas del jardín. */
+  ninos: Nino[];
+  salas: string[];
+  salaPropia: string;
   notas: Nota[];
   ahora: Date;
   sala: string;
   onCambiarSala: (sala: string) => void;
   onAbrir: (ninoId: string) => void;
 }) {
+  const deLaSala = ninos.filter((n) => n.sala === sala);
+  const observaciones = useObservacionesDe(deLaSala.map((n) => n.id));
+  const cuantosEn = (s: string) => ninos.filter((n) => n.sala === s).length;
   return (
     <Pantalla>
       <Stack sx={{ px: 2.5, pt: 3, gap: 0.25 }}>
         <Typography variant="h1">Mi sala</Typography>
-        <SelectorSala sala={sala} onCambiar={onCambiarSala} />
+        <SelectorSala
+          sala={sala}
+          salas={salas}
+          salaPropia={salaPropia}
+          cuantosEn={cuantosEn}
+          onCambiar={onCambiarSala}
+        />
       </Stack>
       <Stack component="ul" sx={{ listStyle: 'none', m: 0, px: 2, pt: 1.5, pb: 3, gap: 1.25 }}>
-        {ninosDeSala(sala).map((nino) => {
-          const sinNotas = areasSinNotas(resumenAreas(notas, nino.id, ahora));
+        {deLaSala.map((nino, i) => {
+          const consulta = observaciones[i];
+          // Mientras carga no se muestra la cuenta, para no anunciar áreas «sin notas» por error.
+          const sinNotas = consulta?.isSuccess
+            ? areasSinNotas(resumenAreas(registrosDe(nino.id, consulta.data, notas), ahora))
+            : 0;
           return (
             <li key={nino.id}>
               <ButtonBase
@@ -90,7 +112,19 @@ export function MiSala({
 }
 
 /** Nombre de la sala con un chevron; abre un menú corto con las salas del jardín. */
-function SelectorSala({ sala, onCambiar }: { sala: string; onCambiar: (sala: string) => void }) {
+function SelectorSala({
+  sala,
+  salas,
+  salaPropia,
+  cuantosEn,
+  onCambiar,
+}: {
+  sala: string;
+  salas: string[];
+  salaPropia: string;
+  cuantosEn: (sala: string) => number;
+  onCambiar: (sala: string) => void;
+}) {
   const [ancla, setAncla] = useState<HTMLElement | null>(null);
   const cerrar = () => setAncla(null);
 
@@ -98,7 +132,7 @@ function SelectorSala({ sala, onCambiar }: { sala: string; onCambiar: (sala: str
     <>
       <ButtonBase
         onClick={(e) => setAncla(e.currentTarget)}
-        aria-label={`${sala}. Cambiar sala`}
+        aria-label={`${etiquetaSala(sala)}. Cambiar sala`}
         aria-haspopup="menu"
         aria-expanded={ancla !== null}
         aria-controls={ancla ? 'menu-salas' : undefined}
@@ -115,7 +149,7 @@ function SelectorSala({ sala, onCambiar }: { sala: string; onCambiar: (sala: str
           '&:hover': { bgcolor: colores.cremaRosa },
         }}
       >
-        {sala}
+        {etiquetaSala(sala)}
         <ExpandMoreRounded
           sx={{ transition: 'transform .15s', transform: ancla ? 'rotate(180deg)' : 'none' }}
         />
@@ -127,7 +161,7 @@ function SelectorSala({ sala, onCambiar }: { sala: string; onCambiar: (sala: str
         onClose={cerrar}
         slotProps={{ paper: { sx: { borderRadius: '16px', minWidth: 240 } } }}
       >
-        {SALAS.map((s) => {
+        {salas.map((s) => {
           const elegida = s === sala;
           return (
             <MenuItem
@@ -140,8 +174,8 @@ function SelectorSala({ sala, onCambiar }: { sala: string; onCambiar: (sala: str
               sx={{ minHeight: 56, gap: 1.5 }}
             >
               <ListItemText
-                primary={s}
-                secondary={`${s === SALA ? 'Tu sala · ' : ''}${ninosDeSala(s).length} niños y niñas`}
+                primary={etiquetaSala(s)}
+                secondary={`${s === salaPropia ? 'Tu sala · ' : ''}${cuantosEn(s)} niños y niñas`}
                 slotProps={{
                   primary: { sx: { fontWeight: 700 } },
                   secondary: { sx: { fontSize: 14 } },

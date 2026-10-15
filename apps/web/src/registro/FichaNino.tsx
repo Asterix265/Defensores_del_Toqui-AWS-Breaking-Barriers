@@ -7,7 +7,8 @@ import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import ChevronLeftRounded from '@mui/icons-material/ChevronLeftRounded';
 import MicRounded from '@mui/icons-material/MicRounded';
-import { DIAS_PERIODO, resumenAreas, type ResumenArea } from './areas';
+import { useObservaciones } from './api';
+import { DIAS_PERIODO, registrosDe, resumenAreas, type ResumenArea } from './areas';
 import { ChipArea, ICONO_DOMINIO, NinoAvatar, Pantalla } from './componentes';
 import { COLOR_DOMINIO, ETIQUETA_DOMINIO, type Nino, type Nota } from './datos';
 import { diaCorto, formatoCuando } from './formato';
@@ -22,8 +23,9 @@ const titulo = {
 } as const;
 
 /**
- * Ficha del niño o niña (diseño B, «áreas primero»): notas por área en los últimos 30 días,
- * con las áreas sin notas primero como sugerencia de observación, y sus últimas notas.
+ * Ficha del niño o niña (diseño B, «áreas primero»): registros por área en los últimos 30 días,
+ * con las áreas sin registros primero como sugerencia de observación, y sus últimos registros.
+ * Junta las observaciones de la API con las notas guardadas en esta sesión.
  * No muestra niveles ni comparaciones con la edad: cuenta registros, no logros.
  */
 export function FichaNino({
@@ -101,7 +103,8 @@ export function FichaNino({
  * observar) y las demás en grilla. La comparten la ficha del celular y la de escritorio.
  */
 export function AreasNino({ nino, notas, ahora }: { nino: Nino; notas: Nota[]; ahora: Date }) {
-  const resumen = resumenAreas(notas, nino.id, ahora);
+  const observaciones = useObservaciones(nino.id);
+  const resumen = resumenAreas(registrosDe(nino.id, observaciones.data ?? [], notas), ahora);
   const sinNotas = resumen.filter((r) => r.cantidad === 0);
   const conNotas = resumen.filter((r) => r.cantidad > 0);
   return (
@@ -109,13 +112,20 @@ export function AreasNino({ nino, notas, ahora }: { nino: Nino; notas: Nota[]; a
       <Typography variant="h2" sx={titulo}>
         Últimos {DIAS_PERIODO} días
       </Typography>
-      {sinNotas.map((r) => (
-        <AreaSinNotas key={r.area} resumen={r} />
-      ))}
+      {observaciones.isPending && (
+        <Typography role="status" color="text.secondary" sx={{ px: 0.5 }}>
+          Cargando registros…
+        </Typography>
+      )}
+      {observaciones.isError && (
+        <Typography role="alert" color="error" sx={{ px: 0.5 }}>
+          No se pudieron cargar los registros anteriores. Se muestran solo las notas de hoy.
+        </Typography>
+      )}
+      {!observaciones.isPending && sinNotas.map((r) => <AreaSinNotas key={r.area} resumen={r} />)}
       <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 1.25 }}>
-        {conNotas.map((r) => (
-          <AreaConNotas key={r.area} resumen={r} ahora={ahora} />
-        ))}
+        {!observaciones.isPending &&
+          conNotas.map((r) => <AreaConNotas key={r.area} resumen={r} ahora={ahora} />)}
       </Box>
     </Stack>
   );
@@ -135,23 +145,22 @@ export function UltimasNotas({
   sinNotas: string;
 }) {
   const [verTodas, setVerTodas] = useState(false);
-  const delNino = notas
-    .filter((n) => n.ninoId === nino.id)
-    .sort((a, b) => b.creada.getTime() - a.creada.getTime());
+  const observaciones = useObservaciones(nino.id);
+  const delNino = registrosDe(nino.id, observaciones.data ?? [], notas);
   const visibles = verTodas ? delNino : delNino.slice(0, NOTAS_VISIBLES);
   return (
     <Stack sx={{ gap: 1.25 }}>
       <Typography variant="h2" sx={titulo}>
         Últimas notas
       </Typography>
-      {delNino.length === 0 && (
+      {!observaciones.isPending && delNino.length === 0 && (
         <Typography color="text.secondary" sx={{ px: 0.5 }}>
           Aún no hay notas de {nino.nombre}. {sinNotas}
         </Typography>
       )}
-      {visibles.map((nota) => (
+      {visibles.map((registro) => (
         <Stack
-          key={nota.id}
+          key={registro.id}
           component="article"
           sx={{
             p: 1.75,
@@ -162,11 +171,20 @@ export function UltimasNotas({
             borderRadius: '16px',
           }}
         >
-          <Typography sx={{ fontSize: 16, lineHeight: '24px' }}>{nota.texto}</Typography>
+          <Typography sx={{ fontSize: 16, lineHeight: '24px' }}>{registro.texto}</Typography>
+          {registro.detalle && (
+            <Typography variant="body2" color="text.secondary">
+              {registro.detalle}
+            </Typography>
+          )}
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-            <ChipArea area={nota.area} compacto />
+            {registro.dominios.map((d) => (
+              <ChipArea key={d} area={d} compacto />
+            ))}
             <Typography variant="caption" color="text.secondary" sx={{ ml: 'auto' }}>
-              {formatoCuando(nota.creada, ahora)} · Tía {nota.educadora}
+              {registro.autor
+                ? `${formatoCuando(registro.creada, ahora)} · Tía ${registro.autor}`
+                : `${diaCorto(registro.creada, ahora)} · Registro del jardín`}
             </Typography>
           </Box>
         </Stack>

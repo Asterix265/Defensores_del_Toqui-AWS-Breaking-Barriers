@@ -7,7 +7,7 @@
  */
 import { faker } from '@faker-js/faker';
 
-import type { ManifestacionDtoOutput } from '../model';
+import type { ManifestacionDtoOutput, NivelRutaDtoOutput } from '../model';
 
 export const getListarManifestacionesResponseMock = (): ManifestacionDtoOutput[] =>
   Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() => ({
@@ -21,4 +21,12 @@ export const getListarManifestacionesResponseMock = (): ManifestacionDtoOutput[]
       'cognitivo',
     ] as const),
     textoObservable: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  }));
+
+export const getListarNivelesResponseMock = (): NivelRutaDtoOutput[] =>
+  Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() => ({
+    nivel: faker.number.int({ min: 1, max: 9 }),
+    nombre: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    edadMinMeses: faker.number.int({ min: -9007199254740991, max: 9007199254740991 }),
+    edadMaxMeses: faker.number.int({ min: -9007199254740991, max: 9007199254740991 }),
   }));

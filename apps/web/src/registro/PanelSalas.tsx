@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import Box from '@mui/material/Box';
-import { NINOS, type Nota } from './datos';
+import type { Manifestacion, NivelRuta } from './api';
+import type { Nino, Nota } from './datos';
 import { NuevaNotaEscritorio } from './NuevaNotaEscritorio';
 import { CabeceraPanel, type Seccion } from './panel/CabeceraPanel';
 import { FichaEscritorio } from './panel/FichaEscritorio';
@@ -13,11 +14,19 @@ import { SalaEscritorio } from './panel/SalaEscritorio';
  * ambas pestañas. «Nueva nota» solo viene con niño o niña cuando se abre desde su ficha.
  */
 export function PanelSalas({
+  ninos,
+  salas,
+  salaPropia,
+  catalogo,
   notas,
   ahora,
   nombre,
   onGuardar,
 }: {
+  ninos: Nino[];
+  salas: string[];
+  salaPropia: string;
+  catalogo: { niveles: NivelRuta[]; manifestaciones: Manifestacion[] };
   notas: Nota[];
   ahora: Date;
   nombre: string;
@@ -33,12 +42,13 @@ export function PanelSalas({
     setNinoAbierto(null);
   };
   const nuevaGeneral = () => setNueva({});
-  const ficha = seccion === 'sala' ? NINOS.find((n) => n.id === ninoAbierto) : undefined;
+  const ficha = seccion === 'sala' ? ninos.find((n) => n.id === ninoAbierto) : undefined;
 
   let contenido;
   if (seccion === 'notas') {
     contenido = (
       <NotasSalas
+        salas={salas}
         notas={notas}
         ahora={ahora}
         sala={sala}
@@ -50,6 +60,7 @@ export function PanelSalas({
     contenido = (
       <FichaEscritorio
         nino={ficha}
+        salaPropia={salaPropia}
         notas={notas}
         ahora={ahora}
         onVolver={() => setNinoAbierto(null)}
@@ -59,6 +70,9 @@ export function PanelSalas({
   } else {
     contenido = (
       <SalaEscritorio
+        ninos={ninos}
+        salas={salas}
+        salaPropia={salaPropia}
         notas={notas}
         ahora={ahora}
         sala={sala}
@@ -77,6 +91,8 @@ export function PanelSalas({
       </Box>
       {nueva && (
         <NuevaNotaEscritorio
+          ninos={ninos}
+          catalogo={catalogo}
           ninoId={nueva.ninoId}
           semilla={notas.length}
           educadora={nombre}

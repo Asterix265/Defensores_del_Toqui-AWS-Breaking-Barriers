@@ -3,18 +3,20 @@ import Chip from '@mui/material/Chip';
 import MenuItem from '@mui/material/MenuItem';
 import Select from '@mui/material/Select';
 import CalendarTodayRounded from '@mui/icons-material/CalendarTodayRounded';
-import { SALAS } from '../datos';
+import { etiquetaSala } from '../api';
 import { colores } from '../tema';
 import { ETIQUETA_PERIODO, type Periodo } from './periodo';
 
 /** Chips de sala y selector de periodo de «Mis notas». */
 export function FiltrosPanel({
+  salas,
   sala,
   onSala,
   cantidadPorSala,
   periodo,
   onPeriodo,
 }: {
+  salas: string[];
   sala: string | null;
   onSala: (sala: string | null) => void;
   cantidadPorSala: (sala: string) => number;
@@ -23,7 +25,7 @@ export function FiltrosPanel({
 }) {
   return (
     <Box sx={{ pt: 3, display: 'flex', alignItems: 'center', gap: 1.25, flexWrap: 'wrap' }}>
-      <ChipsSala sala={sala} onSala={onSala} cantidadPorSala={cantidadPorSala} />
+      <ChipsSala salas={salas} sala={sala} onSala={onSala} cantidadPorSala={cantidadPorSala} />
       <Select
         value={periodo}
         onChange={(e) => onPeriodo(e.target.value as Periodo)}
@@ -58,10 +60,12 @@ export function FiltrosPanel({
  * «Mis notas»; cada vista decide qué cuenta (niños y niñas o notas).
  */
 export function ChipsSala({
+  salas,
   sala,
   onSala,
   cantidadPorSala,
 }: {
+  salas: string[];
   sala: string | null;
   onSala: (sala: string | null) => void;
   cantidadPorSala: (sala: string) => number;
@@ -69,10 +73,10 @@ export function ChipsSala({
   return (
     <>
       <FiltroSala etiqueta="Todas las salas" activo={sala === null} onClick={() => onSala(null)} />
-      {SALAS.map((s) => (
+      {salas.map((s) => (
         <FiltroSala
           key={s}
-          etiqueta={s}
+          etiqueta={etiquetaSala(s)}
           cantidad={cantidadPorSala(s)}
           activo={sala === s}
           onClick={() => onSala(s)}

@@ -18,7 +18,11 @@ import type {
   UseQueryResult,
 } from '@tanstack/react-query';
 
-import type { ListarManifestacionesParams, ManifestacionDtoOutput } from '../model';
+import type {
+  ListarManifestacionesParams,
+  ManifestacionDtoOutput,
+  NivelRutaDtoOutput,
+} from '../model';
 
 const withQueryKey = <T extends object, K>(query: T, queryKey: K): T & { queryKey: K } => {
   const result = { queryKey } as T & { queryKey: K };
@@ -187,6 +191,132 @@ export function useListarManifestaciones<
   queryClient?: QueryClient,
 ): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
   const queryOptions = getListarManifestacionesQueryOptions(params, options);
+
+  const query = useQuery(queryOptions, queryClient) as UseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+  };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+export type listarNivelesResponse200 = {
+  data: NivelRutaDtoOutput[];
+  status: 200;
+};
+
+export type listarNivelesResponseSuccess = listarNivelesResponse200 & {
+  headers: Headers;
+};
+export type listarNivelesResponse = listarNivelesResponseSuccess;
+
+export const getListarNivelesUrl = () => {
+  return `/api/niveles`;
+};
+
+/**
+ * @summary Niveles de la ruta sintética con su rango de edad en meses
+ */
+export const listarNiveles = async (options?: RequestInit): Promise<listarNivelesResponse> => {
+  const res = await fetch(getListarNivelesUrl(), {
+    ...options,
+    method: 'GET',
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: listarNivelesResponse['data'] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as listarNivelesResponse;
+};
+
+export const getListarNivelesQueryKey = () => {
+  return [`/api/niveles`] as const;
+};
+
+export const getListarNivelesQueryOptions = <
+  TData = Awaited<ReturnType<typeof listarNiveles>>,
+  TError = unknown,
+>(options?: {
+  query?: Partial<UseQueryOptions<Awaited<ReturnType<typeof listarNiveles>>, TError, TData>>;
+  fetch?: RequestInit;
+}) => {
+  const { query: queryOptions, fetch: fetchOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListarNivelesQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listarNiveles>>> = ({ signal }) =>
+    listarNiveles({ signal, ...fetchOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listarNiveles>>,
+    TError,
+    TData
+  > & { queryKey: DataTag<QueryKey, TData, TError> };
+};
+
+export type ListarNivelesQueryResult = NonNullable<Awaited<ReturnType<typeof listarNiveles>>>;
+export type ListarNivelesQueryError = unknown;
+
+export function useListarNiveles<
+  TData = Awaited<ReturnType<typeof listarNiveles>>,
+  TError = unknown,
+>(
+  options: {
+    query: Partial<UseQueryOptions<Awaited<ReturnType<typeof listarNiveles>>, TError, TData>> &
+      Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof listarNiveles>>,
+          TError,
+          Awaited<ReturnType<typeof listarNiveles>>
+        >,
+        'initialData'
+      >;
+    fetch?: RequestInit;
+  },
+  queryClient?: QueryClient,
+): DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+export function useListarNiveles<
+  TData = Awaited<ReturnType<typeof listarNiveles>>,
+  TError = unknown,
+>(
+  options?: {
+    query?: Partial<UseQueryOptions<Awaited<ReturnType<typeof listarNiveles>>, TError, TData>> &
+      Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof listarNiveles>>,
+          TError,
+          Awaited<ReturnType<typeof listarNiveles>>
+        >,
+        'initialData'
+      >;
+    fetch?: RequestInit;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+export function useListarNiveles<
+  TData = Awaited<ReturnType<typeof listarNiveles>>,
+  TError = unknown,
+>(
+  options?: {
+    query?: Partial<UseQueryOptions<Awaited<ReturnType<typeof listarNiveles>>, TError, TData>>;
+    fetch?: RequestInit;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+/**
+ * @summary Niveles de la ruta sintética con su rango de edad en meses
+ */
+
+export function useListarNiveles<
+  TData = Awaited<ReturnType<typeof listarNiveles>>,
+  TError = unknown,
+>(
+  options?: {
+    query?: Partial<UseQueryOptions<Awaited<ReturnType<typeof listarNiveles>>, TError, TData>>;
+    fetch?: RequestInit;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+  const queryOptions = getListarNivelesQueryOptions(options);
 
   const query = useQuery(queryOptions, queryClient) as UseQueryResult<TData, TError> & {
     queryKey: DataTag<QueryKey, TData, TError>;

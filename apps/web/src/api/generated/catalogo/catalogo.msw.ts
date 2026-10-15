@@ -8,11 +8,17 @@
 import { HttpResponse, http } from 'msw';
 import type { RequestHandlerOptions } from 'msw';
 
-import type { ManifestacionDtoOutput } from '../model';
+import type { ManifestacionDtoOutput, NivelRutaDtoOutput } from '../model';
 
-import { getListarManifestacionesResponseMock } from './catalogo.faker';
+import {
+  getListarManifestacionesResponseMock,
+  getListarNivelesResponseMock,
+} from './catalogo.faker';
 
-export { getListarManifestacionesResponseMock } from './catalogo.faker';
+export {
+  getListarManifestacionesResponseMock,
+  getListarNivelesResponseMock,
+} from './catalogo.faker';
 
 export const getListarManifestacionesMockHandler = (
   overrideResponse?:
@@ -37,4 +43,31 @@ export const getListarManifestacionesMockHandler = (
     options,
   );
 };
-export const getCatalogoMock = () => [getListarManifestacionesMockHandler()];
+
+export const getListarNivelesMockHandler = (
+  overrideResponse?:
+    | NivelRutaDtoOutput[]
+    | ((
+        info: Parameters<Parameters<typeof http.get>[1]>[0],
+      ) => Promise<NivelRutaDtoOutput[]> | NivelRutaDtoOutput[]),
+  options?: RequestHandlerOptions,
+) => {
+  return http.get(
+    '*/niveles',
+    async (info: Parameters<Parameters<typeof http.get>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === 'function'
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getListarNivelesResponseMock(),
+        { status: 200 },
+      );
+    },
+    options,
+  );
+};
+export const getCatalogoMock = () => [
+  getListarManifestacionesMockHandler(),
+  getListarNivelesMockHandler(),
+];

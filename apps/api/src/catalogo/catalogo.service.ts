@@ -1,5 +1,5 @@
 import { ForbiddenException, Inject, Injectable, NotFoundException } from '@nestjs/common';
-import type { Dominio, Manifestacion, Nino, TrayectoriaResponse } from '@toqui/shared';
+import type { Dominio, Manifestacion, Nino, NivelRuta, TrayectoriaResponse } from '@toqui/shared';
 import type { Identidad } from '../auth/identidad';
 import { desdeColumnaFecha, edadEnMeses, hoyEn, sumarDias, aColumnaFecha } from '../comun/fechas';
 import { ENV } from '../config/config.module';
@@ -57,6 +57,16 @@ export class CatalogoService {
     });
   }
 
+  async niveles(): Promise<NivelRuta[]> {
+    const filas = await this.prisma.nivel.findMany({ orderBy: { nivel: 'asc' } });
+    return filas.map((n) => ({
+      nivel: n.nivel,
+      nombre: n.nombreNivel,
+      edadMinMeses: n.edadMinMeses,
+      edadMaxMeses: n.edadMaxMeses,
+    }));
+  }
+
   /**
    * Observaciones del niño o niña por dominio (dataset y app). Un dominio sin observaciones
    * en el periodo se informa como «sin registros», no como ausencia de aprendizaje.
@@ -79,9 +89,18 @@ export class CatalogoService {
       select: {
         id: true,
         fechaObservacion: true,
+        formatoCaptura: true,
         nivelEstimado: true,
+        notaBreve: true,
         origen: true,
-        vinculos: { select: { manifestacion: { select: { dominio: true } } } },
+        vinculos: {
+          orderBy: { idManifestacion: 'asc' },
+          select: {
+            manifestacion: {
+              select: { id: true, nivel: true, dominio: true, textoObservable: true },
+            },
+          },
+        },
       },
     });
 
@@ -102,6 +121,17 @@ export class CatalogoService {
           }));
         return { dominio, sinRegistros: puntos.length === 0, puntos };
       }),
+      observaciones: observaciones
+        .map((o) => ({
+          id: o.id,
+          fecha: desdeColumnaFecha(o.fechaObservacion),
+          formato: o.formatoCaptura,
+          origen: o.origen,
+          nivelEstimado: o.nivelEstimado,
+          notaBreve: o.notaBreve,
+          manifestaciones: o.vinculos.map((v) => v.manifestacion),
+        }))
+        .reverse(),
     };
   }
 

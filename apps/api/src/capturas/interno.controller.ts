@@ -2,6 +2,7 @@ import { timingSafeEqual } from 'node:crypto';
 import {
   Body,
   Controller,
+  Get,
   Headers,
   HttpCode,
   Inject,
@@ -15,6 +16,7 @@ import { createZodDto, ZodResponse } from 'nestjs-zod';
 import {
   BorradorEntranteSchema,
   CapturaEstadoResponseSchema,
+  ContextoCapturaSchema,
   ErrorPipelineRequestSchema,
 } from '@toqui/shared';
 import { Publico } from '../auth/decoradores';
@@ -25,6 +27,7 @@ import { CapturasService } from './capturas.service';
 class BorradorEntranteDto extends createZodDto(BorradorEntranteSchema) {}
 class ErrorPipelineRequestDto extends createZodDto(ErrorPipelineRequestSchema) {}
 class CapturaEstadoResponseDto extends createZodDto(CapturaEstadoResponseSchema) {}
+class ContextoCapturaDto extends createZodDto(ContextoCapturaSchema) {}
 
 /** Cabecera con el secreto compartido entre el pipeline y la API. */
 export const CABECERA_PIPELINE = 'x-pipeline-token';
@@ -42,6 +45,17 @@ export class InternoController {
     @Inject(ENV) private readonly env: Env,
     private readonly capturas: CapturasService,
   ) {}
+
+  @Get(':id/contexto')
+  @ApiOperation({
+    operationId: 'obtenerContextoCaptura',
+    summary: 'Contexto mínimo de la captura para extraer (sin datos identificables)',
+  })
+  @ZodResponse({ status: 200, type: ContextoCapturaDto })
+  contexto(@Headers(CABECERA_PIPELINE) token: string | undefined, @Param('id') id: string) {
+    this.autorizar(token);
+    return this.capturas.contexto(id);
+  }
 
   @Post(':id/borrador')
   @HttpCode(200)

@@ -8,17 +8,43 @@
 import { HttpResponse, http } from 'msw';
 import type { RequestHandlerOptions } from 'msw';
 
-import type { CapturaEstadoResponseDtoOutput } from '../model';
+import type { CapturaEstadoResponseDtoOutput, ContextoCapturaDtoOutput } from '../model';
 
 import {
   getEntregarBorradorResponseMock,
   getInformarErrorPipelineResponseMock,
+  getObtenerContextoCapturaResponseMock,
 } from './interno.faker';
 
 export {
+  getObtenerContextoCapturaResponseMock,
   getEntregarBorradorResponseMock,
   getInformarErrorPipelineResponseMock,
 } from './interno.faker';
+
+export const getObtenerContextoCapturaMockHandler = (
+  overrideResponse?:
+    | ContextoCapturaDtoOutput
+    | ((
+        info: Parameters<Parameters<typeof http.get>[1]>[0],
+      ) => Promise<ContextoCapturaDtoOutput> | ContextoCapturaDtoOutput),
+  options?: RequestHandlerOptions,
+) => {
+  return http.get(
+    '*/interno/capturas/:id/contexto',
+    async (info: Parameters<Parameters<typeof http.get>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === 'function'
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getObtenerContextoCapturaResponseMock(),
+        { status: 200 },
+      );
+    },
+    options,
+  );
+};
 
 export const getEntregarBorradorMockHandler = (
   overrideResponse?:
@@ -68,6 +94,7 @@ export const getInformarErrorPipelineMockHandler = (
   );
 };
 export const getInternoMock = () => [
+  getObtenerContextoCapturaMockHandler(),
   getEntregarBorradorMockHandler(),
   getInformarErrorPipelineMockHandler(),
 ];

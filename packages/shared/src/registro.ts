@@ -332,6 +332,24 @@ export const ErrorPipelineRequestSchema = z.object({ detalle: z.string().min(1).
 
 export const CapturaEstadoResponseSchema = z.object({ id: z.uuid(), estado: EstadoCapturaSchema });
 
+/**
+ * Contexto mínimo que el pipeline necesita para extraer (se envía a un modelo):
+ * sin datos identificables del niño o niña, solo la edad en meses a la fecha de la captura.
+ */
+export const ContextoCapturaSchema = z.object({
+  id: z.uuid(),
+  formato: FormatoCapturaSchema,
+  estado: EstadoCapturaSchema,
+  /** Solo si `formato` es `texto`. */
+  texto: TextoNuloSchema,
+  /** Edad a la fecha de la captura. */
+  edadMeses: z.number().int().min(0),
+  nivelEsperado: NivelSchema,
+  /** Manifestaciones de los niveles esperado ±1, ordenadas por `id`. */
+  catalogo: z.array(ManifestacionSchema),
+});
+export type ContextoCaptura = z.infer<typeof ContextoCapturaSchema>;
+
 // ---- Trayectoria ----
 
 export const TrayectoriaQuerySchema = z.object({

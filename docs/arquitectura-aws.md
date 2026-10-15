@@ -75,9 +75,17 @@ Desplegado y verificado el 15-10-2026 con `pnpm aws:prod:smoke` (5/5): web y rut
 
 Tiempos del primer despliegue: `ToquiRed` 38 s, `ToquiDatos` 7 min, `ToquiApp` 8 min.
 
+## Pipeline ↔ API
+
+Las Lambdas no tocan Aurora: hablan con la API por CloudFront (`{WebUrl}/api/interno/capturas/:id/...`) con la cabecera `x-pipeline-token`. El secreto `toqui-prod/pipeline-token` (Secrets Manager, 48 caracteres generados al desplegar, ~0,40 USD/mes, se elimina con `cdk destroy`) se inyecta a la tarea de la API como `PIPELINE_TOKEN`; su ARN sale como `PipelineTokenSecretArn`.
+
+- `GET .../contexto`: edad en meses a la fecha de la captura, nivel esperado y catálogo de los niveles ±1, sin datos identificables.
+- `POST .../borrador` y `POST .../error`: entregan el resultado (idempotente por captura).
+
 ## Pendiente
 
-- Conectar el pipeline real con la API: inyectar el mismo `PIPELINE_TOKEN` (Secrets Manager) en la API y en las Lambdas, que entregan el borrador en `POST /api/interno/capturas/:id/borrador`. El id de captura es el nombre del objeto en `capturas/`.
+- Conectar la Lambda `procesar` con la API: darle lectura del secreto `toqui-prod/pipeline-token` (ARN en la salida `PipelineTokenSecretArn` de `ToquiApp`) y enviarlo en la cabecera `x-pipeline-token`. El id de captura es el nombre del objeto en `capturas/`.
+- Comprobar tras desplegar que CloudFront reenvía `x-pipeline-token` a la API.
 - Cargar el dataset en Aurora (`pnpm db:seed` con `DATASET_DIR` y la `DATABASE_URL` de producción, o una tarea de ECS).
 - Alerta de presupuesto en Billing → Budgets.
 - Dominio propio con certificado (opcional).

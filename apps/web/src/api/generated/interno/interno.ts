@@ -5,19 +5,194 @@
  * API del copiloto de registro de observaciones (datos sintéticos).
  * OpenAPI spec version: 0.0.0
  */
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import type {
+  DataTag,
+  DefinedInitialDataOptions,
+  DefinedUseQueryResult,
   MutationFunction,
   QueryClient,
+  QueryFunction,
+  QueryKey,
+  UndefinedInitialDataOptions,
   UseMutationOptions,
   UseMutationResult,
+  UseQueryOptions,
+  UseQueryResult,
 } from '@tanstack/react-query';
 
 import type {
   BorradorEntranteDto,
   CapturaEstadoResponseDtoOutput,
+  ContextoCapturaDtoOutput,
   ErrorPipelineRequestDto,
 } from '../model';
+
+const withQueryKey = <T extends object, K>(query: T, queryKey: K): T & { queryKey: K } => {
+  const result = { queryKey } as T & { queryKey: K };
+  for (const key of Object.keys(query)) {
+    // The explicit queryKey always wins, matching the previous
+    // `{ ...query, queryKey }` spread where it was set last.
+    if (key === 'queryKey') continue;
+    Object.defineProperty(result, key, {
+      enumerable: true,
+      configurable: true,
+      get: () => (query as Record<string, unknown>)[key],
+    });
+  }
+  return result;
+};
+
+export type obtenerContextoCapturaResponse200 = {
+  data: ContextoCapturaDtoOutput;
+  status: 200;
+};
+
+export type obtenerContextoCapturaResponseSuccess = obtenerContextoCapturaResponse200 & {
+  headers: Headers;
+};
+export type obtenerContextoCapturaResponse = obtenerContextoCapturaResponseSuccess;
+
+export const getObtenerContextoCapturaUrl = (id: string) => {
+  return `/api/interno/capturas/${id}/contexto`;
+};
+
+/**
+ * @summary Contexto mínimo de la captura para extraer (sin datos identificables)
+ */
+export const obtenerContextoCaptura = async (
+  id: string,
+  options?: RequestInit,
+): Promise<obtenerContextoCapturaResponse> => {
+  const res = await fetch(getObtenerContextoCapturaUrl(id), {
+    ...options,
+    method: 'GET',
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: obtenerContextoCapturaResponse['data'] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as obtenerContextoCapturaResponse;
+};
+
+export const getObtenerContextoCapturaQueryKey = (id: string) => {
+  return [`/api/interno/capturas/${id}/contexto`] as const;
+};
+
+export const getObtenerContextoCapturaQueryOptions = <
+  TData = Awaited<ReturnType<typeof obtenerContextoCaptura>>,
+  TError = unknown,
+>(
+  id: string,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<Awaited<ReturnType<typeof obtenerContextoCaptura>>, TError, TData>
+    >;
+    fetch?: RequestInit;
+  },
+) => {
+  const { query: queryOptions, fetch: fetchOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getObtenerContextoCapturaQueryKey(id);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof obtenerContextoCaptura>>> = ({ signal }) =>
+    obtenerContextoCaptura(id, { signal, ...fetchOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: id !== null && id !== undefined,
+    ...queryOptions,
+  } as UseQueryOptions<Awaited<ReturnType<typeof obtenerContextoCaptura>>, TError, TData> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+  };
+};
+
+export type ObtenerContextoCapturaQueryResult = NonNullable<
+  Awaited<ReturnType<typeof obtenerContextoCaptura>>
+>;
+export type ObtenerContextoCapturaQueryError = unknown;
+
+export function useObtenerContextoCaptura<
+  TData = Awaited<ReturnType<typeof obtenerContextoCaptura>>,
+  TError = unknown,
+>(
+  id: string,
+  options: {
+    query: Partial<
+      UseQueryOptions<Awaited<ReturnType<typeof obtenerContextoCaptura>>, TError, TData>
+    > &
+      Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof obtenerContextoCaptura>>,
+          TError,
+          Awaited<ReturnType<typeof obtenerContextoCaptura>>
+        >,
+        'initialData'
+      >;
+    fetch?: RequestInit;
+  },
+  queryClient?: QueryClient,
+): DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+export function useObtenerContextoCaptura<
+  TData = Awaited<ReturnType<typeof obtenerContextoCaptura>>,
+  TError = unknown,
+>(
+  id: string,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<Awaited<ReturnType<typeof obtenerContextoCaptura>>, TError, TData>
+    > &
+      Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof obtenerContextoCaptura>>,
+          TError,
+          Awaited<ReturnType<typeof obtenerContextoCaptura>>
+        >,
+        'initialData'
+      >;
+    fetch?: RequestInit;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+export function useObtenerContextoCaptura<
+  TData = Awaited<ReturnType<typeof obtenerContextoCaptura>>,
+  TError = unknown,
+>(
+  id: string,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<Awaited<ReturnType<typeof obtenerContextoCaptura>>, TError, TData>
+    >;
+    fetch?: RequestInit;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+/**
+ * @summary Contexto mínimo de la captura para extraer (sin datos identificables)
+ */
+
+export function useObtenerContextoCaptura<
+  TData = Awaited<ReturnType<typeof obtenerContextoCaptura>>,
+  TError = unknown,
+>(
+  id: string,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<Awaited<ReturnType<typeof obtenerContextoCaptura>>, TError, TData>
+    >;
+    fetch?: RequestInit;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+  const queryOptions = getObtenerContextoCapturaQueryOptions(id, options);
+
+  const query = useQuery(queryOptions, queryClient) as UseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+  };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
 
 export type entregarBorradorResponse200 = {
   data: CapturaEstadoResponseDtoOutput;

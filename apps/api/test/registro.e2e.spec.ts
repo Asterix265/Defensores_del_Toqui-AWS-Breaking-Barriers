@@ -735,6 +735,68 @@ describe('API de registro (e2e)', () => {
       await entregar('00000000-0000-4000-8000-000000000000', valido).expect(404);
       await entregar('no-es-uuid', valido).expect(404);
     });
+
+    describe('contexto', () => {
+      const contexto = (id: string, token?: string) => {
+        const req = http().get(`/interno/capturas/${id}/contexto`);
+        return token === undefined ? req : req.set('x-pipeline-token', token);
+      };
+
+      it('401 sin token o con token erróneo; 404 si no existe o no es UUID', async () => {
+        const id = await capturaProcesando();
+        await contexto(id).expect(401);
+        await contexto(id, 'otro-secreto-cualquiera').expect(401);
+        await contexto('00000000-0000-4000-8000-000000000000', TOKEN_PIPELINE).expect(404);
+        await contexto('no-es-uuid', TOKEN_PIPELINE).expect(404);
+      });
+
+      it('texto a los 20 meses: nivel 7, catálogo 6–8 ordenado y sin datos identificables', async () => {
+        const nino = await prisma.nino.findUniqueOrThrow({ where: { id: 'NINO-00001' } });
+        const fecha = new Date(nino.fechaNacimiento);
+        fecha.setUTCMonth(fecha.getUTCMonth() + 20);
+        const id = (
+          await prisma.captura.create({
+            data: {
+              idNino: nino.id,
+              idJardin: 'JAR-0001',
+              idUsuario: 'local-educadora',
+              autor: 'Educadora local',
+              formato: 'texto',
+              texto: 'Apiló tres bloques.',
+              fecha,
+            },
+          })
+        ).id;
+        const res = await contexto(id, TOKEN_PIPELINE).expect(200);
+        expect(Object.keys(res.body).sort()).toEqual(
+          ['catalogo', 'edadMeses', 'estado', 'formato', 'id', 'nivelEsperado', 'texto'].sort(),
+        );
+        expect(res.body).toMatchObject({
+          id,
+          formato: 'texto',
+          estado: 'procesando',
+          texto: 'Apiló tres bloques.',
+          edadMeses: 20,
+          nivelEsperado: 7,
+        });
+        const esperado = await prisma.manifestacion.findMany({
+          where: { nivel: { in: [6, 7, 8] } },
+          orderBy: { id: 'asc' },
+        });
+        expect(res.body.catalogo.map((m: { id: string }) => m.id)).toEqual(
+          esperado.map((m) => m.id),
+        );
+        const json = JSON.stringify(res.body);
+        expect(json).not.toContain(nino.id);
+        expect(json).not.toContain(nino.nombres);
+      });
+
+      it('audio: formato audio y texto null', async () => {
+        const id = await capturaProcesando();
+        const res = await contexto(id, TOKEN_PIPELINE).expect(200);
+        expect(res.body).toMatchObject({ formato: 'audio', texto: null, estado: 'procesando' });
+      });
+    });
   });
 
   describe('listado y archivo', () => {

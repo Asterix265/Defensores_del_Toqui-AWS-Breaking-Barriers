@@ -50,6 +50,21 @@ describe('stacks de producción', () => {
     });
   });
 
+  it('genera el PIPELINE_TOKEN en Secrets Manager y lo inyecta a la API', () => {
+    app.hasResourceProperties('AWS::SecretsManager::Secret', {
+      Name: 'toqui-prod/pipeline-token',
+      GenerateSecretString: { PasswordLength: 48, ExcludePunctuation: true },
+    });
+    app.hasResourceProperties('AWS::ECS::TaskDefinition', {
+      ContainerDefinitions: [
+        Match.objectLike({
+          Secrets: Match.arrayWith([Match.objectLike({ Name: 'PIPELINE_TOKEN' })]),
+        }),
+      ],
+    });
+    app.hasOutput('PipelineTokenSecretArn', {});
+  });
+
   it('solo deja entrar al ALB desde CloudFront', () => {
     app.hasResourceProperties('AWS::EC2::SecurityGroupIngress', {
       SourcePrefixListId: PREFIX_LIST_CLOUDFRONT,

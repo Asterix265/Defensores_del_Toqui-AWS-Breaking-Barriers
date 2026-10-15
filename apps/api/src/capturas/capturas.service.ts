@@ -16,6 +16,7 @@ import type {
   BorradorEntrante,
   CapturaDetalle,
   CapturaResumen,
+  ContextoCaptura,
   ConfirmacionRequest,
   CrearCapturaRequest,
   CrearCapturaResponse,
@@ -28,7 +29,7 @@ import type {
 import { autorDe, type Identidad } from '../auth/identidad';
 import { AlmacenamientoService } from '../aws/almacenamiento.service';
 import { CatalogoService } from '../catalogo/catalogo.service';
-import { aColumnaFecha, desdeColumnaFecha, hoyEn } from '../comun/fechas';
+import { aColumnaFecha, desdeColumnaFecha, edadEnMeses, hoyEn } from '../comun/fechas';
 import { ENV } from '../config/config.module';
 import type { Env } from '../config/env';
 import { Prisma } from '../generated/prisma/client';
@@ -323,6 +324,51 @@ export class CapturasService {
       select: { estado: true },
     });
     return { id, estado: actual.estado };
+  }
+
+  /**
+   * Contexto para el pipeline: edad a la fecha de la captura, nivel esperado (mismo criterio que
+   * el pipeline inline) y catálogo de los niveles esperado ±1. Sin datos identificables.
+   */
+  async contexto(id: string): Promise<ContextoCaptura> {
+    const captura = await this.prisma.captura.findUnique({
+      where: { id: this.uuid(id) },
+      select: {
+        formato: true,
+        estado: true,
+        texto: true,
+        fecha: true,
+        nino: { select: { fechaNacimiento: true } },
+      },
+    });
+    if (!captura) throw new NotFoundException('Captura no encontrada');
+    const edadMeses = Math.max(
+      0,
+      edadEnMeses(
+        desdeColumnaFecha(captura.nino.fechaNacimiento),
+        desdeColumnaFecha(captura.fecha),
+      ),
+    );
+    const niveles = await this.prisma.nivel.findMany({ orderBy: { nivel: 'asc' } });
+    const nivelEsperado =
+      niveles.find((n) => edadMeses >= n.edadMinMeses && edadMeses < n.edadMaxMeses)?.nivel ??
+      niveles.at(-1)?.nivel ??
+      1;
+    const catalogo = await this.prisma.manifestacion.findMany({
+      where: { nivel: { gte: nivelEsperado - 1, lte: nivelEsperado + 1 } },
+      select: { id: true, nivel: true, dominio: true, textoObservable: true },
+      orderBy: { id: 'asc' },
+    });
+    const formato = captura.formato === 'video' ? 'audio' : captura.formato;
+    return {
+      id,
+      formato,
+      estado: captura.estado,
+      texto: formato === 'texto' ? captura.texto : null,
+      edadMeses,
+      nivelEsperado,
+      catalogo,
+    };
   }
 
   /** El pipeline informa que no pudo procesar la captura. */

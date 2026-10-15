@@ -24,6 +24,7 @@ import * as logs from 'aws-cdk-lib/aws-logs';
 import type * as rds from 'aws-cdk-lib/aws-rds';
 import * as s3 from 'aws-cdk-lib/aws-s3';
 import * as s3deploy from 'aws-cdk-lib/aws-s3-deployment';
+import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager';
 import * as sfn from 'aws-cdk-lib/aws-stepfunctions';
 import * as tasks from 'aws-cdk-lib/aws-stepfunctions-tasks';
 import type { Construct } from 'constructs';
@@ -89,6 +90,13 @@ export class AppStack extends Stack {
       removalPolicy: RemovalPolicy.DESTROY,
     });
 
+    // Secreto compartido API ↔ pipeline; el valor se genera al desplegar y nunca va a Git.
+    const tokenPipeline = new secretsmanager.Secret(this, 'PipelineToken', {
+      secretName: 'toqui-prod/pipeline-token',
+      generateSecretString: { passwordLength: 48, excludePunctuation: true },
+      removalPolicy: RemovalPolicy.DESTROY,
+    });
+
     const api = new ecsPatterns.ApplicationLoadBalancedFargateService(this, 'Api', {
       cluster,
       serviceName: 'toqui-api',
@@ -135,6 +143,7 @@ export class AppStack extends Stack {
           DB_PORT: ecs.Secret.fromSecretsManager(secreto, 'port'),
           DB_USER: ecs.Secret.fromSecretsManager(secreto, 'username'),
           DB_PASSWORD: ecs.Secret.fromSecretsManager(secreto, 'password'),
+          PIPELINE_TOKEN: ecs.Secret.fromSecretsManager(tokenPipeline),
         },
       },
     });
@@ -295,5 +304,6 @@ export class AppStack extends Stack {
     new CfnOutput(this, 'GuardrailId', { value: guardrail.attrGuardrailId });
     new CfnOutput(this, 'GuardrailVersion', { value: version.attrVersion });
     new CfnOutput(this, 'StateMachineArn', { value: maquina.stateMachineArn });
+    new CfnOutput(this, 'PipelineTokenSecretArn', { value: tokenPipeline.secretArn });
   }
 }

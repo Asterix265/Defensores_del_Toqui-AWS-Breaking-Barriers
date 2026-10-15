@@ -1,13 +1,15 @@
 import { useState } from 'react';
-import { describe, expect, it } from 'vitest';
-import { fireEvent, render, screen, within } from '@testing-library/react';
-import { ThemeProvider } from '@mui/material/styles';
+import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
+import { fireEvent, screen, within } from '@testing-library/react';
 import { aNino, type Manifestacion } from './api';
 import type { Nota } from './datos';
 import { PanelSalas } from './PanelSalas';
-import { MANIFESTACIONES, NINOS, NIVELES } from './prueba-api';
+import { conProveedores, MANIFESTACIONES, NINOS, NIVELES, servidor } from './prueba-api';
 import { notasACsv } from './reporte';
-import { tema } from './tema';
+
+beforeAll(() => servidor.listen({ onUnhandledFrame: 'error' }));
+afterEach(() => servidor.resetHandlers());
+afterAll(() => servidor.close());
 
 const ahora = new Date(2026, 9, 15, 12, 0);
 const ninos = NINOS.map(aNino);
@@ -42,6 +44,7 @@ function PanelConEstado() {
     <PanelSalas
       ninos={ninos}
       salas={['SG-A', 'SG-B']}
+      salaPropia="SG-A"
       catalogo={catalogo}
       notas={lista}
       ahora={ahora}
@@ -52,11 +55,7 @@ function PanelConEstado() {
 }
 
 function renderizar() {
-  return render(
-    <ThemeProvider theme={tema}>
-      <PanelConEstado />
-    </ThemeProvider>,
-  );
+  return conProveedores(<PanelConEstado />);
 }
 
 const boton = (nombre: string | RegExp) => screen.getByRole('button', { name: nombre });
@@ -152,65 +151,68 @@ describe('Pestañas de escritorio', () => {
     expect(screen.getByRole('heading', { name: 'Mi sala' })).toBeInTheDocument();
   });
 
-  it('agrupa por sala con «Todas las salas» e indica las áreas sin notas', () => {
+  it('agrupa por sala con «Todas las salas» e indica las áreas sin notas', async () => {
     abrirMiSala();
     const grupos = screen.getAllByRole('region').map((r) => r.getAttribute('aria-label'));
-    expect(grupos).toEqual(['Sala Cuna Mayor', 'Sala Cuna Menor', 'Medio Menor']);
+    expect(grupos).toEqual(['Sala A', 'Sala B']);
+    expect(await screen.findByText('1 área sin notas')).toBeInTheDocument();
     expect(boton(/Martina/)).toHaveTextContent('1 área sin notas');
   });
 
   it('filtra Mi sala y comparte la sala con Mis notas', () => {
     abrirMiSala();
-    fireEvent.click(boton(/Medio Menor/));
+    fireEvent.click(boton(/Sala B/));
     expect(boton(/Vicente/)).toBeInTheDocument();
-    expect(boton(/Florencia/)).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /Martina/ })).not.toBeInTheDocument();
 
     fireEvent.click(pestana('Mis notas'));
-    expect(boton(/Medio Menor/)).toHaveAttribute('aria-pressed', 'true');
-    expect(screen.getAllByRole('row').slice(1)).toHaveLength(2);
+    expect(boton(/Sala B/)).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getAllByRole('row').slice(1)).toHaveLength(1);
   });
 
-  it('abre la ficha con las áreas sin notas primero, sin niveles, y permite ver todas', () => {
+  it('abre la ficha con las áreas sin notas primero, sin niveles, y permite ver todas', async () => {
     abrirMiSala();
     fireEvent.click(boton(/Martina/));
 
-    expect(screen.getByRole('heading', { name: 'Martina' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Martina P.' })).toBeInTheDocument();
+    expect(
+      await screen.findByText('Sin notas aún. Buen momento para observar.'),
+    ).toBeInTheDocument();
     const regiones = screen.getAllByRole('region').map((r) => r.getAttribute('aria-label'));
     expect(regiones[0]).toBe('Motor grueso');
-    expect(screen.getByText('Sin notas aún. Buen momento para observar.')).toBeInTheDocument();
     expect(screen.queryByText(/nivel|rezago/i)).not.toBeInTheDocument();
 
+    // 4 observaciones de la API + 1 nota de la sesión.
     expect(screen.getAllByRole('article')).toHaveLength(3);
-    fireEvent.click(boton('Ver las 4'));
-    expect(screen.getAllByRole('article')).toHaveLength(4);
+    fireEvent.click(boton('Ver las 5'));
+    expect(screen.getAllByRole('article')).toHaveLength(5);
   });
 
   it('vuelve a Mi sala con la sala elegida, también desde la pestaña', () => {
     abrirMiSala();
-    fireEvent.click(boton(/Medio Menor/));
+    fireEvent.click(boton(/Sala B/));
     fireEvent.click(boton(/Vicente/));
     fireEvent.click(boton('Volver a Mi sala'));
-    expect(boton(/Medio Menor/)).toHaveAttribute('aria-pressed', 'true');
-    expect(boton(/Florencia/)).toBeInTheDocument();
+    expect(boton(/Sala B/)).toHaveAttribute('aria-pressed', 'true');
+    expect(boton(/Vicente/)).toBeInTheDocument();
 
-    fireEvent.click(boton(/Florencia/));
+    fireEvent.click(boton(/Vicente/));
     fireEvent.click(pestana('Mi sala'));
     expect(screen.getByRole('heading', { name: 'Mi sala' })).toBeInTheDocument();
   });
 
-  it('Nueva nota desde la ficha queda para ese niño o niña sin elegirlo', () => {
+  it('Nueva nota desde la ficha queda para ese niño o niña sin elegirlo', async () => {
     abrirMiSala();
     fireEvent.click(boton(/Vicente/));
-    fireEvent.click(boton('Nueva nota para Vicente'));
+    fireEvent.click(boton('Nueva nota para Vicente P.'));
     escribirNota(screen.getByRole('dialog'), 'Apiló cinco bloques y aplaudió.');
 
     expect(screen.queryByText('¿De quién es?')).not.toBeInTheDocument();
     fireEvent.click(boton('Está bien'));
 
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'Vicente' })).toBeInTheDocument();
-    expect(screen.getAllByRole('article')[0]).toHaveTextContent('Apiló cinco bloques');
+    expect(screen.getByRole('heading', { name: 'Vicente P.' })).toBeInTheDocument();
+    expect((await screen.findAllByRole('article'))[0]).toHaveTextContent('Apiló cinco bloques');
   });
 
   it('Nueva nota de la cabecera pide elegir sin nadie preseleccionado', () => {

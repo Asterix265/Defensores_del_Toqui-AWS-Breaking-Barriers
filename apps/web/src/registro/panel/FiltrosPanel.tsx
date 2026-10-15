@@ -25,7 +25,7 @@ export function FiltrosPanel({
 }) {
   return (
     <Box sx={{ pt: 3, display: 'flex', alignItems: 'center', gap: 1.25, flexWrap: 'wrap' }}>
-      <ChipsSala sala={sala} onSala={onSala} cantidadPorSala={cantidadPorSala} />
+      <ChipsSala salas={salas} sala={sala} onSala={onSala} cantidadPorSala={cantidadPorSala} />
       <Select
         value={periodo}
         onChange={(e) => onPeriodo(e.target.value as Periodo)}
@@ -60,10 +60,12 @@ export function FiltrosPanel({
  * «Mis notas»; cada vista decide qué cuenta (niños y niñas o notas).
  */
 export function ChipsSala({
+  salas,
   sala,
   onSala,
   cantidadPorSala,
 }: {
+  salas: string[];
   sala: string | null;
   onSala: (sala: string | null) => void;
   cantidadPorSala: (sala: string) => number;
@@ -71,10 +73,10 @@ export function ChipsSala({
   return (
     <>
       <FiltroSala etiqueta="Todas las salas" activo={sala === null} onClick={() => onSala(null)} />
-      {SALAS.map((s) => (
+      {salas.map((s) => (
         <FiltroSala
           key={s}
-          etiqueta={s}
+          etiqueta={etiquetaSala(s)}
           cantidad={cantidadPorSala(s)}
           activo={sala === s}
           onClick={() => onSala(s)}

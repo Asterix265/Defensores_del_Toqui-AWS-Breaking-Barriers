@@ -1,9 +1,5 @@
 import { useState } from 'react';
 import Box from '@mui/material/Box';
-import Button from '@mui/material/Button';
-import Typography from '@mui/material/Typography';
-import AddRounded from '@mui/icons-material/AddRounded';
-import DownloadRounded from '@mui/icons-material/DownloadRounded';
 import type { Manifestacion, NivelRuta } from './api';
 import type { Nino, Nota } from './datos';
 import { NuevaNotaEscritorio } from './NuevaNotaEscritorio';
@@ -20,6 +16,7 @@ import { SalaEscritorio } from './panel/SalaEscritorio';
 export function PanelSalas({
   ninos,
   salas,
+  salaPropia,
   catalogo,
   notas,
   ahora,
@@ -28,6 +25,7 @@ export function PanelSalas({
 }: {
   ninos: Nino[];
   salas: string[];
+  salaPropia: string;
   catalogo: { niveles: NivelRuta[]; manifestaciones: Manifestacion[] };
   notas: Nota[];
   ahora: Date;
@@ -39,27 +37,18 @@ export function PanelSalas({
   const [ninoAbierto, setNinoAbierto] = useState<string | null>(null);
   const [nueva, setNueva] = useState<{ ninoId?: string } | null>(null);
 
-  const limite = desde(periodo, ahora);
-  const delPeriodo = notas
-    .filter((n) => !limite || n.creada >= limite)
-    .sort((a, b) => b.creada.getTime() - a.creada.getTime());
-  const salaDe = (nota: Nota) => nota.nino.sala;
-  const visibles = sala ? delPeriodo.filter((n) => salaDe(n) === sala) : delPeriodo;
-
-  const descargar = () => {
-    const fecha = ahora.toISOString().slice(0, 10);
-    descargarCsv(`notas-salas-${fecha}.csv`, notasACsv(visibles));
   const cambiarSeccion = (s: Seccion) => {
     setSeccion(s);
     setNinoAbierto(null);
   };
   const nuevaGeneral = () => setNueva({});
-  const ficha = seccion === 'sala' ? NINOS.find((n) => n.id === ninoAbierto) : undefined;
+  const ficha = seccion === 'sala' ? ninos.find((n) => n.id === ninoAbierto) : undefined;
 
   let contenido;
   if (seccion === 'notas') {
     contenido = (
       <NotasSalas
+        salas={salas}
         notas={notas}
         ahora={ahora}
         sala={sala}
@@ -71,6 +60,7 @@ export function PanelSalas({
     contenido = (
       <FichaEscritorio
         nino={ficha}
+        salaPropia={salaPropia}
         notas={notas}
         ahora={ahora}
         onVolver={() => setNinoAbierto(null)}
@@ -80,6 +70,9 @@ export function PanelSalas({
   } else {
     contenido = (
       <SalaEscritorio
+        ninos={ninos}
+        salas={salas}
+        salaPropia={salaPropia}
         notas={notas}
         ahora={ahora}
         sala={sala}
@@ -98,6 +91,8 @@ export function PanelSalas({
       </Box>
       {nueva && (
         <NuevaNotaEscritorio
+          ninos={ninos}
+          catalogo={catalogo}
           ninoId={nueva.ninoId}
           semilla={notas.length}
           educadora={nombre}

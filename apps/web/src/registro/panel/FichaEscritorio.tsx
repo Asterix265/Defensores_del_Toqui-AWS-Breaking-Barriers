@@ -2,8 +2,9 @@ import Box from '@mui/material/Box';
 import ButtonBase from '@mui/material/ButtonBase';
 import Typography from '@mui/material/Typography';
 import ChevronLeftRounded from '@mui/icons-material/ChevronLeftRounded';
+import { etiquetaSala } from '../api';
 import { NinoAvatar } from '../componentes';
-import { SALA, type Nino, type Nota } from '../datos';
+import type { Nino, Nota } from '../datos';
 import { AreasNino, UltimasNotas } from '../FichaNino';
 import { BotonNuevaNota } from './TituloVista';
 
@@ -13,12 +14,14 @@ import { BotonNuevaNota } from './TituloVista';
  */
 export function FichaEscritorio({
   nino,
+  salaPropia,
   notas,
   ahora,
   onVolver,
   onNuevaNota,
 }: {
   nino: Nino;
+  salaPropia: string;
   notas: Nota[];
   ahora: Date;
   onVolver: () => void;
@@ -51,8 +54,8 @@ export function FichaEscritorio({
             {nino.nombre}
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            {nino.sala}
-            {nino.sala === SALA && ' · Tu sala'}
+            {etiquetaSala(nino.sala)}
+            {nino.sala === salaPropia && ' · Tu sala'}
           </Typography>
         </Box>
         <Box sx={{ ml: 'auto' }}>

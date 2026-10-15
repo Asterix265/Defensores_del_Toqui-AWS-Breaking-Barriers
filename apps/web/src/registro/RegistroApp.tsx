@@ -215,6 +215,7 @@ function AppConDatos({
         <PanelSalas
           ninos={ninos}
           salas={salas}
+          salaPropia={salaPropia}
           catalogo={catalogo}
           notas={notas}
           ahora={ahora}

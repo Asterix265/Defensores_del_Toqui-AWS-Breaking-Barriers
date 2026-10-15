@@ -2,9 +2,10 @@ import Box from '@mui/material/Box';
 import ButtonBase from '@mui/material/ButtonBase';
 import Typography from '@mui/material/Typography';
 import ChevronRightRounded from '@mui/icons-material/ChevronRightRounded';
-import { areasSinNotas, DIAS_PERIODO, resumenAreas } from '../areas';
+import { etiquetaSala, useObservacionesDe } from '../api';
+import { areasSinNotas, DIAS_PERIODO, registrosDe, resumenAreas } from '../areas';
 import { NinoAvatar } from '../componentes';
-import { SALA, SALAS, ninosDeSala, type Nino, type Nota } from '../datos';
+import type { Nino, Nota } from '../datos';
 import { colores } from '../tema';
 import { ChipsSala } from './FiltrosPanel';
 import { BotonNuevaNota, TituloVista } from './TituloVista';
@@ -14,6 +15,9 @@ import { BotonNuevaNota, TituloVista } from './TituloVista';
  * notas en 30 días. Con «Todas las salas» se agrupan por sala.
  */
 export function SalaEscritorio({
+  ninos,
+  salas: todas,
+  salaPropia,
   notas,
   ahora,
   sala,
@@ -21,6 +25,9 @@ export function SalaEscritorio({
   onAbrir,
   onNuevaNota,
 }: {
+  ninos: Nino[];
+  salas: string[];
+  salaPropia: string;
   notas: Nota[];
   ahora: Date;
   sala: string | null;
@@ -28,32 +35,46 @@ export function SalaEscritorio({
   onAbrir: (ninoId: string) => void;
   onNuevaNota: () => void;
 }) {
-  const salas = sala ? [sala] : SALAS;
-  const total = salas.reduce((suma, s) => suma + ninosDeSala(s).length, 0);
+  const salas = sala ? [sala] : todas;
+  const ninosDeSala = (s: string) => ninos.filter((n) => n.sala === s);
+  const visibles = ninos.filter((n) => salas.includes(n.sala));
+  const observaciones = useObservacionesDe(visibles.map((n) => n.id));
+  // Mientras carga no se muestra la cuenta, para no anunciar áreas «sin notas» por error.
+  const sinNotasDe = (nino: Nino) => {
+    const consulta = observaciones[visibles.indexOf(nino)];
+    return consulta?.isSuccess
+      ? areasSinNotas(resumenAreas(registrosDe(nino.id, consulta.data, notas), ahora))
+      : 0;
+  };
 
   return (
     <>
       <TituloVista
         titulo="Mi sala"
-        subtitulo={`${total} niños y niñas · áreas con notas en los últimos ${DIAS_PERIODO} días`}
+        subtitulo={`${visibles.length} niños y niñas · áreas con notas en los últimos ${DIAS_PERIODO} días`}
       >
         <BotonNuevaNota onClick={onNuevaNota} />
       </TituloVista>
 
       <Box sx={{ pt: 3, display: 'flex', alignItems: 'center', gap: 1.25, flexWrap: 'wrap' }}>
-        <ChipsSala sala={sala} onSala={onSala} cantidadPorSala={(s) => ninosDeSala(s).length} />
+        <ChipsSala
+          salas={todas}
+          sala={sala}
+          onSala={onSala}
+          cantidadPorSala={(s) => ninosDeSala(s).length}
+        />
       </Box>
 
       {salas.map((s) => (
-        <Box key={s} component="section" aria-label={s} sx={{ pt: 3 }}>
+        <Box key={s} component="section" aria-label={etiquetaSala(s)} sx={{ pt: 3 }}>
           {!sala && (
             <Typography
               variant="h2"
               color="text.secondary"
               sx={{ pb: 1.5, px: 0.5, textTransform: 'uppercase' }}
             >
-              {s}
-              {s === SALA && ' · Tu sala'}
+              {etiquetaSala(s)}
+              {s === salaPropia && ' · Tu sala'}
             </Typography>
           )}
           <Box
@@ -71,7 +92,7 @@ export function SalaEscritorio({
               <li key={nino.id}>
                 <TarjetaNino
                   nino={nino}
-                  sinNotas={areasSinNotas(resumenAreas(notas, nino.id, ahora))}
+                  sinNotas={sinNotasDe(nino)}
                   onClick={() => onAbrir(nino.id)}
                 />
               </li>

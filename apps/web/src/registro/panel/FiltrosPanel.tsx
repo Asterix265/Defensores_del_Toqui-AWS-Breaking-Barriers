@@ -7,7 +7,7 @@ import { SALAS } from '../datos';
 import { colores } from '../tema';
 import { ETIQUETA_PERIODO, type Periodo } from './periodo';
 
-/** Chips de sala («Todas las salas» + una por sala con su cantidad) y selector de periodo. */
+/** Chips de sala y selector de periodo de «Mis notas». */
 export function FiltrosPanel({
   sala,
   onSala,
@@ -23,16 +23,7 @@ export function FiltrosPanel({
 }) {
   return (
     <Box sx={{ pt: 3, display: 'flex', alignItems: 'center', gap: 1.25, flexWrap: 'wrap' }}>
-      <FiltroSala etiqueta="Todas las salas" activo={sala === null} onClick={() => onSala(null)} />
-      {SALAS.map((s) => (
-        <FiltroSala
-          key={s}
-          etiqueta={s}
-          cantidad={cantidadPorSala(s)}
-          activo={sala === s}
-          onClick={() => onSala(s)}
-        />
-      ))}
+      <ChipsSala sala={sala} onSala={onSala} cantidadPorSala={cantidadPorSala} />
       <Select
         value={periodo}
         onChange={(e) => onPeriodo(e.target.value as Periodo)}
@@ -59,6 +50,35 @@ export function FiltrosPanel({
         ))}
       </Select>
     </Box>
+  );
+}
+
+/**
+ * Chips de sala («Todas las salas» + una por sala con su cantidad). Los usan «Mi sala» y
+ * «Mis notas»; cada vista decide qué cuenta (niños y niñas o notas).
+ */
+export function ChipsSala({
+  sala,
+  onSala,
+  cantidadPorSala,
+}: {
+  sala: string | null;
+  onSala: (sala: string | null) => void;
+  cantidadPorSala: (sala: string) => number;
+}) {
+  return (
+    <>
+      <FiltroSala etiqueta="Todas las salas" activo={sala === null} onClick={() => onSala(null)} />
+      {SALAS.map((s) => (
+        <FiltroSala
+          key={s}
+          etiqueta={s}
+          cantidad={cantidadPorSala(s)}
+          activo={sala === s}
+          onClick={() => onSala(s)}
+        />
+      ))}
+    </>
   );
 }
 

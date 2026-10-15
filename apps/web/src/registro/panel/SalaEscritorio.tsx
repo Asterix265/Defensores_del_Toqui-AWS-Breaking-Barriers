@@ -1,0 +1,142 @@
+import Box from '@mui/material/Box';
+import ButtonBase from '@mui/material/ButtonBase';
+import Typography from '@mui/material/Typography';
+import ChevronRightRounded from '@mui/icons-material/ChevronRightRounded';
+import { areasSinNotas, DIAS_PERIODO, resumenAreas } from '../areas';
+import { NinoAvatar } from '../componentes';
+import { SALA, SALAS, ninosDeSala, type Nino, type Nota } from '../datos';
+import { colores } from '../tema';
+import { ChipsSala } from './FiltrosPanel';
+import { BotonNuevaNota, TituloVista } from './TituloVista';
+
+/**
+ * Pestaña «Mi sala» en escritorio: tarjetas de los niños y niñas con cuántas áreas siguen sin
+ * notas en 30 días. Con «Todas las salas» se agrupan por sala.
+ */
+export function SalaEscritorio({
+  notas,
+  ahora,
+  sala,
+  onSala,
+  onAbrir,
+  onNuevaNota,
+}: {
+  notas: Nota[];
+  ahora: Date;
+  sala: string | null;
+  onSala: (sala: string | null) => void;
+  onAbrir: (ninoId: string) => void;
+  onNuevaNota: () => void;
+}) {
+  const salas = sala ? [sala] : SALAS;
+  const total = salas.reduce((suma, s) => suma + ninosDeSala(s).length, 0);
+
+  return (
+    <>
+      <TituloVista
+        titulo="Mi sala"
+        subtitulo={`${total} niños y niñas · áreas con notas en los últimos ${DIAS_PERIODO} días`}
+      >
+        <BotonNuevaNota onClick={onNuevaNota} />
+      </TituloVista>
+
+      <Box sx={{ pt: 3, display: 'flex', alignItems: 'center', gap: 1.25, flexWrap: 'wrap' }}>
+        <ChipsSala sala={sala} onSala={onSala} cantidadPorSala={(s) => ninosDeSala(s).length} />
+      </Box>
+
+      {salas.map((s) => (
+        <Box key={s} component="section" aria-label={s} sx={{ pt: 3 }}>
+          {!sala && (
+            <Typography
+              variant="h2"
+              color="text.secondary"
+              sx={{ pb: 1.5, px: 0.5, textTransform: 'uppercase' }}
+            >
+              {s}
+              {s === SALA && ' · Tu sala'}
+            </Typography>
+          )}
+          <Box
+            component="ul"
+            sx={{
+              listStyle: 'none',
+              m: 0,
+              p: 0,
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
+              gap: 1.5,
+            }}
+          >
+            {ninosDeSala(s).map((nino) => (
+              <li key={nino.id}>
+                <TarjetaNino
+                  nino={nino}
+                  sinNotas={areasSinNotas(resumenAreas(notas, nino.id, ahora))}
+                  onClick={() => onAbrir(nino.id)}
+                />
+              </li>
+            ))}
+          </Box>
+        </Box>
+      ))}
+    </>
+  );
+}
+
+function TarjetaNino({
+  nino,
+  sinNotas,
+  onClick,
+}: {
+  nino: Nino;
+  sinNotas: number;
+  onClick: () => void;
+}) {
+  return (
+    <ButtonBase
+      onClick={onClick}
+      sx={{
+        width: '100%',
+        minHeight: 72,
+        px: 2,
+        py: 1.5,
+        gap: 1.5,
+        justifyContent: 'flex-start',
+        textAlign: 'left',
+        bgcolor: '#fff',
+        border: 1,
+        borderColor: 'divider',
+        borderRadius: '16px',
+        '&:hover': { borderColor: colores.textoSuave },
+      }}
+    >
+      <NinoAvatar nino={nino} tamano={48} />
+      <Box sx={{ flex: 1, minWidth: 0 }}>
+        <Box sx={{ fontSize: 17, fontWeight: 700 }}>{nino.nombre}</Box>
+        {sinNotas > 0 ? (
+          <Box
+            component="span"
+            sx={{
+              display: 'inline-block',
+              mt: 0.5,
+              px: 1.25,
+              py: 0.25,
+              borderRadius: 999,
+              bgcolor: colores.amarilloSuave,
+              color: colores.amarilloTinta,
+              fontSize: 14,
+              fontWeight: 700,
+            }}
+          >
+            {sinNotas} {sinNotas === 1 ? 'área' : 'áreas'} sin notas
+          </Box>
+        ) : (
+          <Box sx={{ mt: 0.5, fontSize: 14, fontWeight: 600, color: 'text.secondary' }}>
+            Notas en las 5 áreas
+          </Box>
+        )}
+      </Box>
+      <ChevronRightRounded sx={{ color: 'text.secondary' }} />
+    </ButtonBase>
+  );
+}

@@ -92,3 +92,100 @@ describe('notasACsv', () => {
     expect(csv[1]).toContain('Sala Cuna Mayor,Mercedes,Sofía,audio,Socioemocional');
   });
 });
+
+describe('Pestañas de escritorio', () => {
+  const pestana = (nombre: string) => screen.getByRole('tab', { name: nombre });
+
+  function abrirMiSala() {
+    renderizar();
+    fireEvent.click(pestana('Mi sala'));
+  }
+
+  function escribirNota(dialogo: HTMLElement, texto: string) {
+    fireEvent.click(within(dialogo).getByRole('button', { name: /Escribir/ }));
+    fireEvent.change(screen.getByRole('textbox', { name: 'Texto de la nota' }), {
+      target: { value: texto },
+    });
+    fireEvent.click(boton('Listo'));
+  }
+
+  it('parte en Mis notas y cambia a Mi sala', () => {
+    renderizar();
+    expect(pestana('Mis notas')).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByRole('heading', { name: 'Notas de las salas' })).toBeInTheDocument();
+
+    fireEvent.click(pestana('Mi sala'));
+    expect(pestana('Mi sala')).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByRole('heading', { name: 'Mi sala' })).toBeInTheDocument();
+  });
+
+  it('agrupa por sala con «Todas las salas» e indica las áreas sin notas', () => {
+    abrirMiSala();
+    const grupos = screen.getAllByRole('region').map((r) => r.getAttribute('aria-label'));
+    expect(grupos).toEqual(['Sala Cuna Mayor', 'Sala Cuna Menor', 'Medio Menor']);
+    expect(boton(/Martina/)).toHaveTextContent('1 área sin notas');
+  });
+
+  it('filtra Mi sala y comparte la sala con Mis notas', () => {
+    abrirMiSala();
+    fireEvent.click(boton(/Medio Menor/));
+    expect(boton(/Vicente/)).toBeInTheDocument();
+    expect(boton(/Florencia/)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Martina/ })).not.toBeInTheDocument();
+
+    fireEvent.click(pestana('Mis notas'));
+    expect(boton(/Medio Menor/)).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getAllByRole('row').slice(1)).toHaveLength(2);
+  });
+
+  it('abre la ficha con las áreas sin notas primero, sin niveles, y permite ver todas', () => {
+    abrirMiSala();
+    fireEvent.click(boton(/Martina/));
+
+    expect(screen.getByRole('heading', { name: 'Martina' })).toBeInTheDocument();
+    const regiones = screen.getAllByRole('region').map((r) => r.getAttribute('aria-label'));
+    expect(regiones[0]).toBe('Motor grueso');
+    expect(screen.getByText('Sin notas aún. Buen momento para observar.')).toBeInTheDocument();
+    expect(screen.queryByText(/nivel|rezago/i)).not.toBeInTheDocument();
+
+    expect(screen.getAllByRole('article')).toHaveLength(3);
+    fireEvent.click(boton('Ver las 4'));
+    expect(screen.getAllByRole('article')).toHaveLength(4);
+  });
+
+  it('vuelve a Mi sala con la sala elegida, también desde la pestaña', () => {
+    abrirMiSala();
+    fireEvent.click(boton(/Medio Menor/));
+    fireEvent.click(boton(/Vicente/));
+    fireEvent.click(boton('Volver a Mi sala'));
+    expect(boton(/Medio Menor/)).toHaveAttribute('aria-pressed', 'true');
+    expect(boton(/Florencia/)).toBeInTheDocument();
+
+    fireEvent.click(boton(/Florencia/));
+    fireEvent.click(pestana('Mi sala'));
+    expect(screen.getByRole('heading', { name: 'Mi sala' })).toBeInTheDocument();
+  });
+
+  it('Nueva nota desde la ficha queda para ese niño o niña sin elegirlo', () => {
+    abrirMiSala();
+    fireEvent.click(boton(/Vicente/));
+    fireEvent.click(boton('Nueva nota para Vicente'));
+    escribirNota(screen.getByRole('dialog'), 'Apiló cinco bloques y aplaudió.');
+
+    expect(screen.queryByText('¿De quién es?')).not.toBeInTheDocument();
+    fireEvent.click(boton('Está bien'));
+
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Vicente' })).toBeInTheDocument();
+    expect(screen.getAllByRole('article')[0]).toHaveTextContent('Apiló cinco bloques');
+  });
+
+  it('Nueva nota de la cabecera pide elegir sin nadie preseleccionado', () => {
+    abrirMiSala();
+    fireEvent.click(boton('Nueva nota'));
+    escribirNota(screen.getByRole('dialog'), 'Apiló cinco bloques y aplaudió.');
+
+    expect(screen.getByText('¿De quién es?')).toBeInTheDocument();
+    expect(boton('Elige un niño o niña')).toBeDisabled();
+  });
+});

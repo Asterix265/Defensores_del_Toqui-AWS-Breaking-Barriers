@@ -18,7 +18,7 @@ La base técnica del monorepo está lista (cambio OpenSpec `levantar-stack-base`
 
 | Parte | Tecnología | Ubicación |
 | --- | --- | --- |
-| Web (PWA) | React 19 + Vite + TypeScript, TanStack Query, vite-plugin-pwa | `apps/web` |
+| Web (PWA) | React 19 + Vite + TypeScript, Material UI, TanStack Query, vite-plugin-pwa | `apps/web` |
 | API | NestJS 11 + Prisma 7 (PostgreSQL), nestjs-zod, Swagger | `apps/api` |
 | Pipeline | Handlers Lambda en TypeScript (esbuild, `nodejs24.x`) | `apps/pipeline` |
 | Contrato | Esquemas zod → OpenAPI → cliente orval (hooks y mocks MSW) | `packages/shared` |
@@ -40,7 +40,7 @@ pnpm db:deploy                      # aplica las migraciones versionadas
 pnpm dev                            # web en http://localhost:5173 y API en http://localhost:3000
 ```
 
-La web muestra el estado de la API; Swagger está en http://localhost:3000/docs. Se usan los puertos por defecto (web 5173, API 3000, Postgres 5432): si otro servicio local ya los ocupa, hay que detenerlo antes de levantar el proyecto.
+La web abre «Registro Simple», un mock con datos sintéticos y notas en memoria que aún no usa la API: en el celular muestra el flujo de la tía y en pantallas anchas el panel de notas de las salas. El estado de la API queda en http://localhost:5173/estado. Swagger está en http://localhost:3000/docs. Se usan los puertos por defecto (web 5173, API 3000, Postgres 5432): si otro servicio local ya los ocupa, hay que detenerlo antes de levantar el proyecto.
 
 | Comando | Qué hace |
 | --- | --- |

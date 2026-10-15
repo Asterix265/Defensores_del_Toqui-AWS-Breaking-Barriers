@@ -1,25 +1,8 @@
-import { useGetHealth } from './api/generated/health/health';
+import { EstadoApi } from './EstadoApi';
+import { RegistroApp } from './registro/RegistroApp';
 
-/** Pantalla inicial técnica: confirma que la web se comunica con la API. */
+/** «Registro Simple» para la tía; /estado conserva el chequeo técnico de la API. */
 export function App() {
-  const { data, isPending, isError } = useGetHealth();
-
-  let estado = 'Consultando la API…';
-  if (isError) estado = 'No se pudo contactar la API';
-  else if (data) {
-    const salud = data.data;
-    estado = `API ${salud.status === 'ok' ? 'operativa' : 'degradada'} · base de datos ${
-      salud.dependencies.database === 'up' ? 'conectada' : 'sin conexión'
-    }`;
-  }
-
-  return (
-    <main>
-      <h1>Defensores del Toqui</h1>
-      <p>Desafío E-1 · Ruta de Trayectoria de Aprendizaje</p>
-      <p role="status" aria-busy={isPending}>
-        {estado}
-      </p>
-    </main>
-  );
+  if (window.location.pathname === '/estado') return <EstadoApi />;
+  return <RegistroApp />;
 }

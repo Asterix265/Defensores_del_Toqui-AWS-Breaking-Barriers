@@ -82,7 +82,7 @@ API NestJS en Fargate (`apps/api`), según `definir-mvp-e1`. Contrato completo e
 
 - Todo queda dentro del jardín del token (`custom:id_jardin`). Un niño o niña de otro jardín responde 403; una captura de otro jardín, 404.
 - Solo quien registró una captura la confirma o la descarta.
-- **Local** (`.env.example`): `AUTH_MODE=local` usa la educadora fija de `JAR-0001` sin token. Para otros usuarios: `Authorization: Bearer local:directora:JAR-0001`. `PIPELINE_MODE=inline` con `IA_PROVIDER=fake` produce borradores deterministas sin AWS. Audio y foto necesitan `S3_BUCKET_CAPTURAS` (el bucket de `ToquiDev`).
+- **Local** (`.env.example`): `AUTH_MODE=local` usa la educadora fija de `JAR-0001` sin token. Para otros usuarios: `Authorization: Bearer local:directora:JAR-0001`. `PIPELINE_MODE=inline` con `IA_PROVIDER=fake` produce borradores deterministas sin AWS. Con `IA_PROVIDER=bedrock` (y `BEDROCK_GUARDRAIL_*` de `pnpm aws:env`), el texto y la foto del post-it pasan por el Guardrail y Claude reales del perfil `toqui`; el audio sigue con un texto de ejemplo hasta conectar Transcribe. Audio y foto necesitan `S3_BUCKET_CAPTURAS` (el bucket de `ToquiDev`).
 - **AWS** (`PIPELINE_MODE=aws`, por defecto): la captura llega a `capturas/` (el texto también, como `.txt`), EventBridge inicia Step Functions y el pipeline entrega el borrador al endpoint interno. El pipeline obtiene el id de captura del nombre del archivo.
 - `pnpm test` incluye pruebas e2e que crean la base `toqui_test` en el Postgres local (`pnpm db:up` antes).
 

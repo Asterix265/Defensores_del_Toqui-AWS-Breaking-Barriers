@@ -22,6 +22,14 @@ describe('loadEnv', () => {
     expect(env.PORT).toBe(3000);
   });
 
+  it('acepta IA_PROVIDER=bedrock y exige la versión del Guardrail', () => {
+    const env = loadEnv({ ...BASE, AUTH_MODE: 'local', IA_PROVIDER: 'bedrock' });
+    expect(env.BEDROCK_MODEL_EXTRACCION).toBe('us.anthropic.claude-sonnet-5-5');
+    expect(() => loadEnv({ ...BASE, AUTH_MODE: 'local', BEDROCK_GUARDRAIL_ID: 'gr-1' })).toThrow(
+      /BEDROCK_GUARDRAIL_VERSION/,
+    );
+  });
+
   it('exige el User Pool en modo cognito', () => {
     expect(() => loadEnv(BASE)).toThrow(/COGNITO_USER_POOL_ID/);
   });

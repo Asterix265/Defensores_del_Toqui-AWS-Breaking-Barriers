@@ -17,9 +17,16 @@ describe('formatoBytes', () => {
 });
 
 describe('prepararFoto', () => {
-  it('deja tal cual un JPEG o PNG de hasta 10 MB', async () => {
+  it('deja tal cual un JPEG o PNG de hasta 3,75 MB', async () => {
     const foto = new File(['x'], 'postit.png', { type: 'image/png' });
     await expect(prepararFoto(foto)).resolves.toBe(foto);
+  });
+
+  it('redibuja una foto más pesada de lo que Claude puede leer', async () => {
+    const pesada = new File([new Uint8Array(4 * 1024 * 1024)], 'postit.jpg', {
+      type: 'image/jpeg',
+    });
+    await expect(prepararFoto(pesada)).rejects.toThrow('No se pudo leer esa imagen');
   });
 
   it('avisa si no puede leer una imagen en otro formato', async () => {

@@ -8,10 +8,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends openssl ca-cert
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc tsconfig.base.json ./
 COPY apps/api/package.json apps/api/
 COPY packages/shared/package.json packages/shared/
+COPY packages/ia/package.json packages/ia/
 RUN pnpm install --frozen-lockfile --filter @toqui/api...
 COPY packages/shared packages/shared
+COPY packages/ia packages/ia
 COPY apps/api apps/api
 RUN pnpm --filter @toqui/shared build \
+  && pnpm --filter @toqui/ia build \
   && pnpm --filter @toqui/api prisma:generate \
   && pnpm --filter @toqui/api build \
   && pnpm --filter @toqui/api deploy --prod --legacy /out

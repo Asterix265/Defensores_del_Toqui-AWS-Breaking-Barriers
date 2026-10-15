@@ -68,3 +68,8 @@
 - 4.2 y 4.6: el proveedor `fake` y el modo inline están en la API (`apps/api/src/pipeline`); la interfaz `IaProvider` del pipeline de Lambdas queda para 4.3–4.5.
 - 5.3: la API ya expone `GET /ninos/:id/trayectoria`; falta la vista.
 
+## Notas de implementación (15-10-2026, cambio `extraccion-bedrock-inline`)
+
+- 4.3 y 4.4: implementados en `packages/ia` (`ProveedorBedrock`) y usados por el modo inline con `IA_PROVIDER=bedrock`; probados contra Claude y el Guardrail de `ToquiDev`. Siguen abiertos hasta que el pipeline de AWS use el mismo módulo.
+- 4.7: la lectura de la foto con Claude funciona en modo inline. En lugar de `sharp`, la web reduce las fotos de más de 3,75 MB.
+- 4.5 y 7.4: sin cambios; Transcribe y Step Functions quedan para el pipeline de AWS.

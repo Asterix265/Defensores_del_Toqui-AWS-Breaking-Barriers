@@ -9,6 +9,7 @@ import {
   instalarMicrofono,
   reiniciarApi,
   servidor,
+  usarIaReal,
 } from './prueba-api';
 import { RegistroApp } from './RegistroApp';
 
@@ -159,6 +160,23 @@ describe('RegistroApp', () => {
     expect(await screen.findByRole('heading', { name: 'Hola, Mercedes' })).toBeInTheDocument();
     fireEvent.click(boton('Mis notas'));
     expect(await screen.findByText(/Aún no tienes notas/)).toBeInTheDocument();
+  });
+
+  it('con la foto leída por Claude no la rotula como texto de ejemplo', async () => {
+    usarIaReal();
+    await ingresado();
+    fireEvent.click(boton(/Foto/));
+    fireEvent.change(screen.getByLabelText('Cámara'), {
+      target: { files: [new File(['foto'], 'postit.jpg', { type: 'image/jpeg' })] },
+    });
+    expect(await screen.findByText('Foto lista')).toBeInTheDocument();
+    await elegirYProcesar('Tomás A.');
+
+    const aviso = screen.getByRole('alert');
+    expect(aviso).toHaveTextContent('Procesamiento completado');
+    expect(aviso).toHaveTextContent('Lectura de la foto: listo.');
+    expect(screen.getByText('Lo que se leyó en tu foto')).toBeInTheDocument();
+    expect(screen.queryByText('Texto de ejemplo (no es tu foto)')).not.toBeInTheDocument();
   });
 
   it('sin evidencia suficiente pide elegir manifestaciones del nivel', async () => {

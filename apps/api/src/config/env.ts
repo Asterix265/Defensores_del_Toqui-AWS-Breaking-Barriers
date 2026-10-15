@@ -20,8 +20,16 @@ const EnvSchema = z
      * entrega el borrador por el endpoint interno. `inline`: los pasos corren en la API.
      */
     PIPELINE_MODE: z.enum(['aws', 'inline']).default('aws'),
-    /** Proveedor de IA del modo inline. Por ahora solo `fake` (borradores deterministas). */
-    IA_PROVIDER: z.enum(['fake']).default('fake'),
+    /**
+     * Proveedor de IA del modo inline: `fake` (borradores deterministas, sin AWS) o `bedrock`
+     * (Guardrail + Claude para el texto y la foto; el audio sigue con un texto de ejemplo).
+     */
+    IA_PROVIDER: z.enum(['fake', 'bedrock']).default('fake'),
+    /** Modelo o inference profile de Claude para extraer y leer fotos. */
+    BEDROCK_MODEL_EXTRACCION: z.string().min(1).default('us.anthropic.claude-sonnet-5-5'),
+    /** Guardrail que anonimiza datos personales antes de enviar el texto a Claude. */
+    BEDROCK_GUARDRAIL_ID: z.string().min(1).optional(),
+    BEDROCK_GUARDRAIL_VERSION: z.string().min(1).optional(),
     /** Secreto compartido con el pipeline para el endpoint interno. Sin él, responde 503. */
     PIPELINE_TOKEN: z.string().min(16).optional(),
     /** Bucket privado de capturas. Sin él, las capturas de audio o foto responden 503. */
@@ -38,6 +46,13 @@ const EnvSchema = z
         code: 'custom',
         path: ['COGNITO_USER_POOL_ID'],
         message: 'AUTH_MODE=cognito requiere COGNITO_USER_POOL_ID y COGNITO_CLIENT_ID',
+      });
+    }
+    if (env.BEDROCK_GUARDRAIL_ID && !env.BEDROCK_GUARDRAIL_VERSION) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['BEDROCK_GUARDRAIL_VERSION'],
+        message: 'BEDROCK_GUARDRAIL_ID requiere BEDROCK_GUARDRAIL_VERSION',
       });
     }
     if (env.NODE_ENV === 'production' && env.AUTH_MODE === 'local') {

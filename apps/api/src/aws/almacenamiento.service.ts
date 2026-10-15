@@ -82,6 +82,13 @@ export class AlmacenamientoService {
     }
   }
 
+  /** Bytes del objeto. Solo lo usa el pipeline inline para leer la foto con Claude. */
+  async descargar(clave: string): Promise<Uint8Array> {
+    const objeto = await this.s3.send(new GetObjectCommand({ Bucket: this.bucket(), Key: clave }));
+    if (!objeto.Body) throw new Error(`El objeto ${clave} no tiene contenido`);
+    return objeto.Body.transformToByteArray();
+  }
+
   /** Guarda el texto escrito como objeto, para que el pipeline lo procese igual que un archivo. */
   async guardarTexto(idCaptura: string, texto: string): Promise<string> {
     const clave = claveCaptura(idCaptura, 'txt');

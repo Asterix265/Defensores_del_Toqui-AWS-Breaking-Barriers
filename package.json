@@ -7,14 +7,14 @@
     "node": ">=24 <25"
   },
   "scripts": {
-    "setup": "pnpm install && pnpm --filter @toqui/shared build && pnpm --filter @toqui/api prisma:generate",
-    "dev": "pnpm --filter @toqui/shared build && pnpm --parallel --filter @toqui/api --filter @toqui/web dev",
+    "setup": "pnpm install && pnpm --filter \"@toqui/ia...\" build && pnpm --filter @toqui/api prisma:generate",
+    "dev": "pnpm --filter \"@toqui/ia...\" build && pnpm --parallel --filter @toqui/api --filter @toqui/web dev",
     "db:up": "docker compose up -d --wait",
     "db:down": "docker compose down",
     "db:deploy": "pnpm --filter @toqui/api prisma:deploy",
-    "db:seed": "pnpm --filter @toqui/shared build && pnpm --filter @toqui/api build && pnpm --filter @toqui/api seed",
+    "db:seed": "pnpm --filter \"@toqui/ia...\" build && pnpm --filter @toqui/api build && pnpm --filter @toqui/api seed",
     "db:migrate": "pnpm --filter @toqui/api prisma:migrate",
-    "contract": "pnpm --filter @toqui/shared build && pnpm --filter @toqui/api openapi && pnpm --filter @toqui/web contract",
+    "contract": "pnpm --filter \"@toqui/ia...\" build && pnpm --filter @toqui/api openapi && pnpm --filter @toqui/web contract",
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",

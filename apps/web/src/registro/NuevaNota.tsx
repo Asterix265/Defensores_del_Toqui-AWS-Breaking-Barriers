@@ -361,7 +361,7 @@ function Grabando({
 
 /**
  * Foto del post-it: abre la cámara del celular (o el selector de archivos en un PC) y prepara la
- * imagen como JPEG o PNG de hasta 10 MB.
+ * imagen como JPEG o PNG de hasta 3,75 MB, lo que Claude puede leer.
  */
 function Camara({
   onTomar,
@@ -774,7 +774,11 @@ function Revision({
   const ocupado = confirmar.isPending || descartar.isPending;
   const listo = manifestaciones.length > 0 && !ocupado;
   const error = confirmar.error ?? descartar.error;
-  const deEjemplo = formato !== 'texto';
+  // Audio o foto usan un texto de ejemplo salvo que la transcripción o la lectura se hayan hecho.
+  const normalizado = borrador?.procesamiento?.pasos.some(
+    (p) => (p.paso === 'transcripcion' || p.paso === 'lectura_imagen') && p.estado === 'completado',
+  );
+  const deEjemplo = formato !== 'texto' && !normalizado;
 
   const cambiarNivel = (n: number) => {
     setNivel(n);
@@ -849,7 +853,11 @@ function Revision({
             <Typography variant="caption" color="text.secondary">
               {deEjemplo
                 ? `Texto de ejemplo (no es ${formato === 'audio' ? 'tu audio' : 'tu foto'})`
-                : 'Tu nota'}
+                : formato === 'foto'
+                  ? 'Lo que se leyó en tu foto'
+                  : formato === 'audio'
+                    ? 'Transcripción de tu audio'
+                    : 'Tu nota'}
             </Typography>
             <Box
               sx={{

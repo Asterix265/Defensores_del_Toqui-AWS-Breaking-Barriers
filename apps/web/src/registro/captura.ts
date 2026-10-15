@@ -10,6 +10,9 @@ export const TAMANO_MAXIMO = 10 * 1024 * 1024;
 /** Lado mayor de la foto convertida: suficiente para leer un post-it y liviana para subir. */
 const LADO_MAXIMO_FOTO = 2000;
 
+/** Claude en Bedrock lee imágenes de hasta 3,75 MB: las fotos más pesadas se reducen. */
+export const TAMANO_MAXIMO_FOTO = 3.75 * 1024 * 1024;
+
 /** «audio/webm;codecs=opus» → «audio/webm». La firma de S3 lleva el tipo sin parámetros. */
 export function tipoBase(tipo: string): string {
   return tipo.split(';')[0]!.trim().toLowerCase();
@@ -68,12 +71,13 @@ export function motivoMicrofono(error: unknown): string {
 }
 
 /**
- * Deja la foto en JPEG o PNG de hasta 10 MB. Si viene en otro formato (HEIC, WebP) o es muy
- * grande, la redibuja como JPEG; si el navegador no puede leerla, avisa.
+ * Deja la foto en JPEG o PNG de hasta 3,75 MB, lo que Claude puede leer. Si viene en otro
+ * formato (HEIC, WebP) o es más pesada, la redibuja como JPEG; si el navegador no puede leerla,
+ * avisa.
  */
 export async function prepararFoto(archivo: File): Promise<File> {
   const tipo = tipoBase(archivo.type);
-  if (TIPOS_FOTO.includes(tipo) && archivo.size <= TAMANO_MAXIMO) return archivo;
+  if (TIPOS_FOTO.includes(tipo) && archivo.size <= TAMANO_MAXIMO_FOTO) return archivo;
 
   let imagen: ImageBitmap;
   try {

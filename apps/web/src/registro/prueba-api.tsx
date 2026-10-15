@@ -116,6 +116,13 @@ function observacionesIniciales(): Record<string, ObservacionTrayectoriaOutput[]
 let OBSERVACIONES = observacionesIniciales();
 const CAPTURAS = new Map<string, CapturaDetalleDtoOutput>();
 const SUBIDAS = new Set<string>();
+/** Con `IA_PROVIDER=bedrock` la foto se lee con Claude y la extracción es real. */
+let IA_REAL = false;
+
+/** Simula la API con Bedrock: la lectura de la foto y la extracción quedan completadas. */
+export function usarIaReal() {
+  IA_REAL = true;
+}
 
 /** Capturas creadas en la API falsa. */
 export function capturasCreadas() {
@@ -127,6 +134,7 @@ export function reiniciarApi() {
   OBSERVACIONES = observacionesIniciales();
   CAPTURAS.clear();
   SUBIDAS.clear();
+  IA_REAL = false;
 }
 
 /** Textos de ejemplo que devuelve la API falsa para audio y foto, como el proveedor `fake`. */
@@ -157,20 +165,28 @@ function borradorDe(c: CapturaDetalleDtoOutput, bytes: number, clave: string | n
       : []),
     ...(c.formato === 'foto'
       ? [
-          {
-            paso: 'lectura_imagen' as const,
-            estado: 'no_implementado' as const,
-            detalle: 'Se usa un texto de ejemplo.',
-          },
+          IA_REAL
+            ? {
+                paso: 'lectura_imagen' as const,
+                estado: 'completado' as const,
+                detalle: 'Claude leyó la foto.',
+              }
+            : {
+                paso: 'lectura_imagen' as const,
+                estado: 'no_implementado' as const,
+                detalle: 'Se usa un texto de ejemplo.',
+              },
         ]
       : []),
-    { paso: 'extraccion' as const, estado: 'simulado' as const, detalle: 'IA simulada.' },
+    IA_REAL
+      ? { paso: 'extraccion' as const, estado: 'completado' as const, detalle: 'Claude propuso.' }
+      : { paso: 'extraccion' as const, estado: 'simulado' as const, detalle: 'IA simulada.' },
   ];
   return {
     textoFuente: texto,
     nivelSugerido: codigo ? nivel : null,
     evidenciaInsuficiente: !codigo,
-    proveedor: 'fake',
+    proveedor: IA_REAL ? 'bedrock' : 'fake',
     manifestaciones: codigo
       ? [
           {
@@ -180,7 +196,7 @@ function borradorDe(c: CapturaDetalleDtoOutput, bytes: number, clave: string | n
         ]
       : [],
     procesamiento: {
-      simulado: true,
+      simulado: pasos.some((p) => p.estado !== 'completado'),
       entrada: {
         formato: c.formato,
         tipoArchivo: clave ? (c.formato === 'audio' ? 'audio/webm' : 'image/jpeg') : null,

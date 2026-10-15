@@ -5,6 +5,12 @@ import { CloudFormationClient, DescribeStacksCommand } from '@aws-sdk/client-clo
 export const REGION = 'us-east-1';
 export const STACK_DEV = 'ToquiDev';
 
+/** Stack objetivo: `--stack <nombre>` o TOQUI_STACK; por defecto el de desarrollo. */
+export function stackObjetivo(): string {
+  const i = process.argv.indexOf('--stack');
+  return (i >= 0 ? process.argv[i + 1] : undefined) ?? process.env['TOQUI_STACK'] ?? STACK_DEV;
+}
+
 /** Usuarios sintéticos de prueba; ninguno corresponde a una persona real. */
 export const USUARIOS_PRUEBA = [
   { email: 'educadora.jar0001@example.com', grupo: 'educadora', idJardin: 'JAR-0001' },
@@ -31,13 +37,18 @@ export function prepararCredenciales(): void {
   process.env['AWS_REGION'] ??= REGION;
 }
 
-/** Lee las salidas del stack ToquiDev, para no copiar IDs a mano. */
-export async function leerSalidas(): Promise<SalidasDev> {
+/** Todas las salidas de un stack, para no copiar IDs a mano. */
+export async function leerSalidasStack(stack: string): Promise<Record<string, string>> {
   const cfn = new CloudFormationClient({ region: REGION });
-  const { Stacks } = await cfn.send(new DescribeStacksCommand({ StackName: STACK_DEV }));
-  const salidas = Object.fromEntries(
+  const { Stacks } = await cfn.send(new DescribeStacksCommand({ StackName: stack }));
+  return Object.fromEntries(
     (Stacks?.[0]?.Outputs ?? []).map((o) => [o.OutputKey ?? '', o.OutputValue ?? '']),
   );
+}
+
+/** Salidas comunes de ToquiDev o ToquiApp (bucket, Cognito y Guardrail). */
+export async function leerSalidas(stack = stackObjetivo()): Promise<SalidasDev> {
+  const salidas = await leerSalidasStack(stack);
   const claves: (keyof SalidasDev)[] = [
     'BucketCapturas',
     'UserPoolId',
@@ -47,7 +58,7 @@ export async function leerSalidas(): Promise<SalidasDev> {
   ];
   const faltantes = claves.filter((clave) => !salidas[clave]);
   if (faltantes.length > 0) {
-    throw new Error(`El stack ${STACK_DEV} no expone: ${faltantes.join(', ')}. ¿Está desplegado?`);
+    throw new Error(`El stack ${stack} no expone: ${faltantes.join(', ')}. ¿Está desplegado?`);
   }
   return salidas as unknown as SalidasDev;
 }

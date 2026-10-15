@@ -27,7 +27,13 @@
     "aws:destroy": "pnpm --filter @toqui/infra aws:destroy",
     "aws:users": "pnpm --filter @toqui/infra aws:users",
     "aws:env": "pnpm --filter @toqui/infra aws:env",
-    "aws:smoke": "pnpm --filter @toqui/infra aws:smoke"
+    "aws:smoke": "pnpm --filter @toqui/infra aws:smoke",
+    "aws:prod:deploy": "pnpm --filter @toqui/shared build && pnpm --filter @toqui/pipeline build && pnpm --filter @toqui/web build && pnpm --filter @toqui/infra aws:prod:deploy",
+    "aws:prod:diff": "pnpm --filter @toqui/infra aws:prod:diff",
+    "aws:prod:destroy": "pnpm --filter @toqui/infra aws:prod:destroy",
+    "aws:prod:users": "pnpm --filter @toqui/infra aws:prod:users",
+    "aws:prod:env": "pnpm --filter @toqui/infra aws:prod:env",
+    "aws:prod:smoke": "pnpm --filter @toqui/infra aws:prod:smoke"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

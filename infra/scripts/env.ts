@@ -1,10 +1,10 @@
 // Imprime las variables de entorno de AWS para pegar en apps/api/.env.
-import { MODELOS, REGION, leerSalidas, prepararCredenciales } from './comun.js';
+import { MODELOS, REGION, leerSalidas, prepararCredenciales, stackObjetivo } from './comun.js';
 
 prepararCredenciales();
 const salidas = await leerSalidas();
 
-console.log(`# AWS de desarrollo (stack ToquiDev, ${new Date().toISOString().slice(0, 10)})
+console.log(`# AWS (stack ${stackObjetivo()}, ${new Date().toISOString().slice(0, 10)})
 AWS_PROFILE=${process.env['AWS_PROFILE']}
 AWS_REGION=${REGION}
 S3_BUCKET_CAPTURAS=${salidas.BucketCapturas}

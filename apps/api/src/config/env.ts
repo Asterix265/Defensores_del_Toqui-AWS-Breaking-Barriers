@@ -5,6 +5,8 @@ const EnvSchema = z.object({
   PORT: z.coerce.number().int().positive().default(3000),
   DATABASE_URL: z.url({ protocol: /^postgres(ql)?$/ }),
   AWS_REGION: z.string().min(1).default('us-east-1'),
+  /** Ruta al bundle de CA de RDS; si existe, la conexión a Postgres usa TLS verificado. */
+  DATABASE_SSL_CA: z.string().min(1).optional(),
 });
 
 export type Env = z.infer<typeof EnvSchema>;

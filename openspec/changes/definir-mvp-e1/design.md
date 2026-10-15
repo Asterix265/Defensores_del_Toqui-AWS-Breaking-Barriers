@@ -30,7 +30,7 @@ Estructura: `apps/web`, `apps/api`, `apps/pipeline`, `packages/shared`, `infra`,
 - *Alternativas:* varios repositorios (más coordinación de la que permite el plazo); Node 26 (no es LTS y Lambda podría no tener el runtime).
 
 ### D2. Frontend React + Vite + TypeScript como PWA
-Optimizado para móvil: la educadora graba y fotografía desde el celular. Login con el componente `Authenticator` de Amplify UI. Se despliega con Amplify Hosting.
+Optimizado para móvil: la educadora graba y fotografía desde el celular. Login con el componente `Authenticator` de Amplify UI. Se publica en S3 + CloudFront (decisión del 15-10-2026 en `levantar-arquitectura-aws`: un solo dominio HTTPS para la web y la API, todo en CDK).
 - *Alternativas:* app nativa (requiere publicar en tiendas); Next.js (no necesitamos renderizado en servidor).
 
 ### D3. Backend NestJS stateless en ECS Fargate detrás de un ALB
@@ -66,7 +66,7 @@ Siempre se registran la sugerencia y la decisión final (tabla `correccion`) y s
 - *Alternativa:* *fine-tuning* (lento, opaco y no reversible).
 
 ### D11. Infraestructura con AWS CDK en TypeScript, `us-east-1`
-Stacks: `datos` (VPC, Aurora, Secrets Manager), `almacenamiento` (S3 con cifrado KMS administrado, acceso público bloqueado, ciclo de vida de 7 días), `auth` (Cognito), `api` (Fargate, ALB), `pipeline` (Step Functions, Lambdas, Guardrail) y `web` (Amplify). Roles IAM de mínimo privilegio por componente. Se usa `us-east-1` por la disponibilidad de modelos con datos sintéticos; en producción habría que reevaluar la residencia de los datos.
+Stacks implementados en `levantar-arquitectura-aws`: `ToquiRed` (VPC), `ToquiDatos` (Aurora y Secrets Manager) y `ToquiApp` (S3, Cognito, Guardrail, Fargate + ALB, Step Functions + Lambda y web en S3 + CloudFront); ver `docs/arquitectura-aws.md`. Roles IAM de mínimo privilegio por componente. Se usa `us-east-1` por la disponibilidad de modelos con datos sintéticos; en producción habría que reevaluar la residencia de los datos.
 - *Costo esperado en el evento:* unos pocos dólares diarios (Fargate mínimo, ALB, Aurora 0,5 ACU, uso por demanda de Transcribe y Bedrock); hay que verificarlo con la calculadora antes de desplegar.
 - *Limpieza:* `cdk destroy` de todos los stacks; bucket y base configurados con `RemovalPolicy.DESTROY` solo en el entorno de la hackatón.
 

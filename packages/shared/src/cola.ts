@@ -35,11 +35,14 @@ export const MensajeCapturaSchema = z.discriminatedUnion('formato', [
     /** Clave en el bucket de capturas: `capturas/<id>.<ext>`. */
     archivoClave: z.string().min(1),
     archivoTipo: TipoAudioSchema,
+    /** Tamaño comprobado en S3 al avisar la subida; se declara en `procesamiento`. */
+    archivoBytes: z.number().int().nonnegative().optional(),
   }),
   MensajeBaseSchema.extend({
     formato: z.literal('foto'),
     archivoClave: z.string().min(1),
     archivoTipo: TipoFotoSchema,
+    archivoBytes: z.number().int().nonnegative().optional(),
   }),
 ]);
 export type MensajeCaptura = z.infer<typeof MensajeCapturaSchema>;

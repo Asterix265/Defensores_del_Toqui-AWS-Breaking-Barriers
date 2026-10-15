@@ -1,5 +1,6 @@
 import type { BorradorEntrante, EstadoCaptura, MensajeCaptura } from '@toqui/shared';
 import { normalizar } from './normalizacion.js';
+import { declararProcesamiento } from './procesamiento.js';
 import type { Contexto, Dependencias } from './puertos.js';
 import { describirError, type Log } from './registro-log.js';
 import { borradorSinEvidencia, validarClasificacion } from './validacion.js';
@@ -50,12 +51,16 @@ export async function procesarCaptura(
     ms: medir(),
   });
 
-  const borrador = await clasificar(mensaje, textoFuente, contexto, deps, log);
+  const borrador = {
+    ...(await clasificar(mensaje, textoFuente, contexto, deps, log)),
+    procesamiento: declararProcesamiento(mensaje, normalizado, deps.clasificador),
+  };
   log('info', 'Borrador listo', {
     ...base,
     proveedor: borrador.proveedor,
     evidenciaInsuficiente: borrador.evidenciaInsuficiente,
     manifestaciones: borrador.manifestaciones.length,
+    simulado: borrador.procesamiento.simulado,
     ms: medir(),
   });
 

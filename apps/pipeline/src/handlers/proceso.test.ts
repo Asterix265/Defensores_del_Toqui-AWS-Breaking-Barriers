@@ -49,6 +49,12 @@ describe('handler proceso', () => {
         { idManifestacion: 'M-4-MF-1', cita: 'Apiló cinco bloques sin ayuda y sonrió.' },
       ],
       proveedor: 'fake',
+      // Con el proveedor fake la web muestra el aviso de procesamiento simulado.
+      procesamiento: {
+        simulado: true,
+        entrada: { formato: 'texto', tipoArchivo: null, bytes: 41, claveS3: null },
+        pasos: [{ paso: 'extraccion', estado: 'simulado', detalle: expect.any(String) }],
+      },
     });
     expect(deps.avisador.avisar).toHaveBeenCalledWith('sub-educadora-1', {
       idCaptura: ID_CAPTURA,

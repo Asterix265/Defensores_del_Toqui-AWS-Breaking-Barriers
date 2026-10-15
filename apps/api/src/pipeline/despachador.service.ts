@@ -45,7 +45,7 @@ export class DespachadorService {
       return;
     }
     try {
-      await this.cola.enviar(await this.mensaje(idCaptura));
+      await this.cola.enviar(await this.mensaje(idCaptura, archivo));
     } catch (error) {
       this.logger.error(`No se pudo encolar ${idCaptura}`, error as Error);
       await this.prisma.captura.updateMany({
@@ -57,7 +57,7 @@ export class DespachadorService {
   }
 
   /** Mensaje de la cola: lo justo para procesar, sin `id_nino`, nombres ni RUT. */
-  private async mensaje(idCaptura: string): Promise<MensajeCaptura> {
+  private async mensaje(idCaptura: string, archivo?: ArchivoSubido): Promise<MensajeCaptura> {
     const c = await this.prisma.captura.findUniqueOrThrow({
       where: { id: idCaptura },
       select: {
@@ -97,6 +97,7 @@ export class DespachadorService {
         formato: c.formato,
         archivoClave: c.archivoClave ?? '',
         archivoTipo: (c.archivoTipo ?? '') as TipoArchivo,
+        ...(archivo && { archivoBytes: archivo.bytes }),
       } as MensajeCaptura;
     }
     throw new Error(`Formato sin procesamiento: ${c.formato}`);

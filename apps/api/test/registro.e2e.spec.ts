@@ -863,6 +863,7 @@ describe('API de registro (e2e)', () => {
         formato: 'audio',
         archivoClave: `capturas/${id}.webm`,
         archivoTipo: 'audio/webm',
+        archivoBytes: 50_000,
       });
     });
 

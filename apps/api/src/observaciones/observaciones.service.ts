@@ -111,10 +111,11 @@ export class ObservacionesService {
 
   /** El registrador confirma (mismo criterio que la IA) o corrige. Cerrada si ya fue validada. */
   async revisar(identidad: Identidad, id: string, criterioId: string): Promise<ObservacionDetalle> {
+    const alcance = this.alcance(identidad, id);
     await this.exigirCriterio(criterioId);
     await this.prisma.$transaction(async (tx) => {
       const actual = await tx.observacion.findFirst({
-        where: this.alcance(identidad, id),
+        where: alcance,
         select: { estado: true, criterioPropuestoId: true },
       });
       if (!actual) throw this.noEncontrada();
@@ -148,10 +149,11 @@ export class ObservacionesService {
 
   /** El supervisor valida o corrige; la observación queda validada y cerrada para el registrador. */
   async validar(identidad: Identidad, id: string, criterioId: string): Promise<ObservacionDetalle> {
+    const alcance = this.alcance(identidad, id);
     await this.exigirCriterio(criterioId);
     await this.prisma.$transaction(async (tx) => {
       const actual = await tx.observacion.findFirst({
-        where: this.alcance(identidad, id),
+        where: alcance,
         select: { estado: true, criterioPropuestoId: true },
       });
       if (!actual) throw this.noEncontrada();
@@ -198,14 +200,15 @@ export class ObservacionesService {
 
   /**
    * Un registrador solo alcanza sus observaciones; el supervisor, todas.
-   * Las ajenas se tratan como inexistentes (404) para no revelar que existen.
+   * Las ajenas y los ids que no son UUID se tratan como inexistentes (404): no revelan
+   * que existen, y un id inválido no llega a la columna UUID (Postgres respondería 500).
    */
   private alcance(identidad: Identidad, id: string): Prisma.ObservacionWhereInput {
+    if (!z.uuid().safeParse(id).success) throw this.noEncontrada();
     return identidad.rol === 'supervisor' ? { id } : { id, usuarioId: identidad.id };
   }
 
   private async buscar(identidad: Identidad, id: string): Promise<ObservacionConRelaciones> {
-    if (!z.uuid().safeParse(id).success) throw this.noEncontrada();
     const observacion = await this.prisma.observacion.findFirst({
       where: this.alcance(identidad, id),
       include: INCLUIR_RELACIONES,
@@ -234,6 +237,11 @@ export class ObservacionesService {
     if (!clave.startsWith(carpeta) || clave.includes('..')) {
       throw new UnprocessableEntityException('Archivo no válido');
     }
+    const usada = await this.prisma.observacion.findFirst({
+      where: { archivoClave: clave },
+      select: { id: true },
+    });
+    if (usada) throw new UnprocessableEntityException('El archivo ya pertenece a otra observación');
     const tipoArchivo = await this.almacenamiento.tipoDe(clave);
     if (!tipoArchivo) throw new UnprocessableEntityException('El archivo aún no se ha subido');
     const esperado = TIPOS_ARCHIVO[tipoArchivo as keyof typeof TIPOS_ARCHIVO]?.captura;

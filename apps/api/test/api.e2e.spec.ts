@@ -228,6 +228,9 @@ describe('API de observaciones (e2e)', () => {
       await enviar('subidas/ana/falta.webm').expect(422);
       almacenamiento.tipoDe.mockResolvedValueOnce('image/png');
       await enviar('subidas/ana/foto.png', 'audio').expect(422);
+      // La clave ya usada en «acepta un audio ya subido a la carpeta propia».
+      almacenamiento.tipoDe.mockResolvedValueOnce('audio/webm');
+      await enviar('subidas/ana/a.webm').expect(422);
       expect(cola.encolar).not.toHaveBeenCalled();
     });
 
@@ -323,6 +326,19 @@ describe('API de observaciones (e2e)', () => {
       await revisar(ANA, 'no-existe').expect(422);
       await revisar(ANA, 'retirado').expect(422);
       await revisar(BETO, 'lenguaje').expect(404);
+    });
+
+    it('404 (no 500) con un id que no es UUID en revisión y validación', async () => {
+      await http()
+        .post('/observaciones/no-es-uuid/revision')
+        .set('Authorization', ANA)
+        .send({ criterioId: 'lenguaje' })
+        .expect(404);
+      await http()
+        .post('/observaciones/no-es-uuid/validacion')
+        .set('Authorization', SUPER)
+        .send({ criterioId: 'lenguaje' })
+        .expect(404);
     });
 
     it('validada por el supervisor queda cerrada para el registrador (409)', async () => {

@@ -80,7 +80,18 @@ La Lambda API (`apps/api`, entrada `src/lambda.ts`) solo valida, autoriza, firma
 - El rol sale del grupo de Cognito del token (`registrador` o `supervisor`); otro rol recibe 403. Las observaciones ajenas responden 404.
 - En local, `AUTH_MODO=dev` acepta `Authorization: Bearer dev:registrador:ana` (o `dev:supervisor:...`). La configuración rechaza ese modo en producción.
 - Sin `S3_BUCKET` las subidas responden 503; sin `SQS_QUEUE_URL` las observaciones quedan pendientes. Ver `.env.example`.
-- La tabla `criterios` no tiene datos: la lista fija aún no está definida.
+- Una observación en `error` no se reencola: el registrador o el supervisor eligen el criterio a mano.
+- La tabla `criterios` no tiene datos porque la lista fija aún no está definida. Mientras tanto, toda revisión o validación responde 422.
+- `GET /me` toma nombre y teléfono del token de id. Con un token de acceso (que no los trae) devuelve los guardados.
+
+Para probar el flujo completo en local sin la Lambda de proceso, carga criterios de prueba y simula la propuesta:
+
+```sh
+docker exec toqui-postgres psql -U toqui -d toqui -c "INSERT INTO criterios (id,nombre,orden) VALUES ('prueba-a','Prueba A',1),('prueba-b','Prueba B',2);"
+# Crear una observación (POST /observaciones con Bearer dev:registrador:ana) y usar su id:
+docker exec toqui-postgres psql -U toqui -d toqui -c "UPDATE observaciones SET estado='propuesta', criterio_propuesto_id='prueba-a', criterio_id='prueba-a', confianza=0.9 WHERE id='<ID>';"
+```
+
 - `pnpm test` incluye pruebas e2e que crean la base `toqui_test` en el Postgres local (`pnpm db:up` antes).
 
 ## Materiales del desafío

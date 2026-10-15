@@ -37,7 +37,7 @@ La API SHALL exigir un token válido de Cognito en todas las rutas excepto `/hea
 - **THEN** recibe 201 con el id y estado `pendiente`, y la observación se encola
 
 #### Scenario: Archivo ajeno o no subido
-- **WHEN** la clave está fuera de `subidas/<sub>/`, no existe en S3 o su tipo no corresponde
+- **WHEN** la clave está fuera de `subidas/<sub>/`, no existe en S3, su tipo no corresponde o ya pertenece a otra observación
 - **THEN** la API responde 422 y no encola nada
 
 #### Scenario: Cola caída
@@ -50,6 +50,10 @@ La API SHALL exigir un token válido de Cognito en todas las rutas excepto `/hea
 #### Scenario: Observación ajena
 - **WHEN** un registrador pide una observación de otra persona o un id inválido
 - **THEN** la API responde 404, sin revelar si existe
+
+#### Scenario: Id inválido en cualquier ruta
+- **WHEN** el id no es un UUID en consulta, revisión, validación o archivo
+- **THEN** la API responde 404
 
 #### Scenario: Supervisor
 - **WHEN** un supervisor pide cualquier observación
@@ -65,6 +69,10 @@ La API SHALL exigir un token válido de Cognito en todas las rutas excepto `/hea
 #### Scenario: Ya validada
 - **WHEN** el supervisor ya validó la observación
 - **THEN** la API responde 409 y la observación no cambia
+
+#### Scenario: Observación en error
+- **WHEN** el procesamiento falló y la observación está en `error`
+- **THEN** el registrador puede elegir el criterio a mano y la observación queda `corregida`; la API no ofrece reencolarla
 
 ### Requirement: Validación del supervisor
 `POST /observaciones/:id/validacion` SHALL dejar la observación `validada` con el criterio elegido, SHALL registrar quién y cuándo validó, y SHALL guardar un ejemplo del supervisor con más peso que el del registrador.

@@ -43,8 +43,8 @@ export class AuthGuard implements CanActivate {
       throw new ForbiddenException('No tiene permiso para esta acción');
     }
 
-    await this.usuarios.sincronizar(resultado.identidad);
-    req.identidad = resultado.identidad;
+    // El rol sale del token; nombre y teléfono se completan con lo guardado si el token no los trae.
+    req.identidad = await this.usuarios.sincronizar(resultado.identidad);
     return true;
   }
 }

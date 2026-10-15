@@ -246,6 +246,32 @@ export function notasDeEjemplo(ahora: Date): Nota[] {
       texto: 'Dijo “agua” y apuntó a la botella cuando tuvo sed.',
       area: 'lenguaje_comunicacion',
     },
+    // Martina tiene notas en cuatro áreas y ninguna de Motor grueso: la ficha muestra ambos casos.
+    {
+      ninoId: 'demo-1',
+      educadora: 'Mercedes',
+      formato: 'texto',
+      creada: diasAtras(ahora, 3, 11, 5),
+      texto: 'Le ofreció su peluche a un compañero que lloraba y se quedó a su lado.',
+      area: 'socioemocional',
+    },
+    {
+      ninoId: 'demo-1',
+      educadora: 'Mercedes',
+      formato: 'audio',
+      creada: diasAtras(ahora, 6, 9, 40),
+      duracion: 18,
+      texto: 'Buscó el autito que tapé con el pañal y lo encontró al primer intento.',
+      area: 'cognitivo',
+    },
+    {
+      ninoId: 'demo-1',
+      educadora: 'Mercedes',
+      formato: 'foto',
+      creada: diasAtras(ahora, 12, 12, 15),
+      texto: 'Tomó trocitos de pan con los dedos índice y pulgar durante la colación.',
+      area: 'motor_fino',
+    },
   ];
   return ejemplos.map((n, i) => ({
     ...n,

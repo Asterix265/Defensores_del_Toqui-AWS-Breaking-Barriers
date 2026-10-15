@@ -40,7 +40,7 @@ pnpm db:deploy                      # aplica las migraciones versionadas
 pnpm dev                            # web en http://localhost:5173 y API en http://localhost:3000
 ```
 
-La web abre «Registro Simple», un mock con datos sintéticos y notas en memoria que aún no usa la API: en el celular muestra el flujo de la tía y en pantallas anchas el panel de notas de las salas. El estado de la API queda en http://localhost:5173/estado. Swagger está en http://localhost:3000/docs. Se usan los puertos por defecto (web 5173, API 3000, Postgres 5432): si otro servicio local ya los ocupa, hay que detenerlo antes de levantar el proyecto.
+La web abre «Registro Simple», un mock con datos sintéticos y notas en memoria que aún no usa la API: en el celular muestra el flujo de la tía (registrar, «Mi sala» con la ficha de cada niño o niña y sus notas por área, y «Mis notas»; el botón de grabar de la ficha asocia la nota a ese niño o niña, mientras que Grabar de la barra inferior siempre pide elegirlo) y en pantallas anchas el panel de notas de las salas. El estado de la API queda en http://localhost:5173/estado. Swagger está en http://localhost:3000/docs. Se usan los puertos por defecto (web 5173, API 3000, Postgres 5432): si otro servicio local ya los ocupa, hay que detenerlo antes de levantar el proyecto.
 
 | Comando | Qué hace |
 | --- | --- |

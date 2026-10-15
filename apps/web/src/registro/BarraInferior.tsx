@@ -3,6 +3,8 @@ import ButtonBase from '@mui/material/ButtonBase';
 import type { SvgIconComponent } from '@mui/icons-material';
 import EventNoteOutlined from '@mui/icons-material/EventNoteOutlined';
 import EventNoteRounded from '@mui/icons-material/EventNoteRounded';
+import GroupsOutlined from '@mui/icons-material/GroupsOutlined';
+import GroupsRounded from '@mui/icons-material/GroupsRounded';
 import HomeOutlined from '@mui/icons-material/HomeOutlined';
 import HomeRounded from '@mui/icons-material/HomeRounded';
 import MicRounded from '@mui/icons-material/MicRounded';
@@ -26,12 +28,14 @@ function ItemBarra({
       onClick={onClick}
       aria-current={activo ? 'page' : undefined}
       sx={{
-        width: 84,
+        minWidth: 64,
+        minHeight: 56,
+        px: 0.5,
         py: 0.5,
         borderRadius: '12px',
         flexDirection: 'column',
         gap: 0.25,
-        fontSize: 14,
+        fontSize: 13,
         fontWeight: 700,
         color: activo ? 'primary.main' : 'text.secondary',
       }}
@@ -42,15 +46,21 @@ function ItemBarra({
   );
 }
 
-/** Barra inferior: Inicio · botón rojo central «Grabar» · Mis notas. */
+/**
+ * Barra inferior: Inicio · Mi sala · botón rojo central «Grabar» · Mis notas.
+ * Grabar va centrado (a la altura del pulgar) y abre siempre el registro general: no recibe
+ * al niño o niña de la pantalla en curso, para que una nota rápida no quede a nombre de otro.
+ */
 export function BarraInferior({
   activa,
   onInicio,
+  onSala,
   onGrabar,
   onNotas,
 }: {
-  activa: 'inicio' | 'notas';
+  activa: 'inicio' | 'sala' | 'notas';
   onInicio: () => void;
+  onSala: () => void;
   onGrabar: () => void;
   onNotas: () => void;
 }) {
@@ -62,10 +72,10 @@ export function BarraInferior({
         position: 'sticky',
         bottom: 0,
         mt: 'auto',
-        display: 'flex',
-        alignItems: 'flex-end',
-        justifyContent: 'space-around',
-        px: 1.5,
+        display: 'grid',
+        gridTemplateColumns: '1fr auto 1fr',
+        alignItems: 'end',
+        px: 1,
         pt: 1,
         pb: 'calc(14px + env(safe-area-inset-bottom))',
         bgcolor: '#fff',
@@ -73,17 +83,27 @@ export function BarraInferior({
         borderColor: 'divider',
       }}
     >
-      <ItemBarra
-        etiqueta="Inicio"
-        activo={activa === 'inicio'}
-        Icono={HomeRounded}
-        IconoInactivo={HomeOutlined}
-        onClick={onInicio}
-      />
+      <Box sx={{ display: 'flex', justifyContent: 'space-evenly' }}>
+        <ItemBarra
+          etiqueta="Inicio"
+          activo={activa === 'inicio'}
+          Icono={HomeRounded}
+          IconoInactivo={HomeOutlined}
+          onClick={onInicio}
+        />
+        <ItemBarra
+          etiqueta="Mi sala"
+          activo={activa === 'sala'}
+          Icono={GroupsRounded}
+          IconoInactivo={GroupsOutlined}
+          onClick={onSala}
+        />
+      </Box>
       <ButtonBase
         onClick={onGrabar}
         sx={{
           mt: '-34px',
+          mx: 1,
           borderRadius: '16px',
           flexDirection: 'column',
           gap: 0.5,
@@ -107,13 +127,15 @@ export function BarraInferior({
         </Box>
         Grabar
       </ButtonBase>
-      <ItemBarra
-        etiqueta="Mis notas"
-        activo={activa === 'notas'}
-        Icono={EventNoteRounded}
-        IconoInactivo={EventNoteOutlined}
-        onClick={onNotas}
-      />
+      <Box sx={{ display: 'flex', justifyContent: 'space-evenly' }}>
+        <ItemBarra
+          etiqueta="Mis notas"
+          activo={activa === 'notas'}
+          Icono={EventNoteRounded}
+          IconoInactivo={EventNoteOutlined}
+          onClick={onNotas}
+        />
+      </Box>
     </Box>
   );
 }

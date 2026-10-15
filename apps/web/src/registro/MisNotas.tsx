@@ -23,7 +23,7 @@ export function MisNotas({ notas, ahora }: { notas: Nota[]; ahora: Date }) {
       <Encabezado titulo="Mis notas" />
       {grupos.size === 0 && (
         <Typography color="text.secondary" sx={{ px: 2.5, pt: 2 }}>
-          Aún no tienes notas. Toca «Grabar» para hacer la primera.
+          Aún no tienes notas. Presiona «Grabar» para hacer la primera.
         </Typography>
       )}
       {[...grupos].map(([etiqueta, delDia]) => (

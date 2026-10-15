@@ -251,6 +251,8 @@ model Borrador {
   evidenciaInsuficiente Boolean  @map("evidencia_insuficiente")
   proveedor             String
   modelo                String?
+  /// Entrada procesada y estado de cada paso (ver `ProcesamientoSchema`); null en borradores antiguos.
+  procesamiento         Json?
   creadoEn              DateTime @default(now()) @map("creado_en")
 
   captura Captura @relation(fields: [idCaptura], references: [id])

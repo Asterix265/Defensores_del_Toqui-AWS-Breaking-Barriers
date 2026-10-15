@@ -12,19 +12,18 @@ import ExpandMoreRounded from '@mui/icons-material/ExpandMoreRounded';
 import { etiquetaSala, useObservacionesDe } from './api';
 import { areasSinNotas, registrosDe, resumenAreas } from './areas';
 import { NinoAvatar, Pantalla } from './componentes';
-import type { Nino, Nota } from './datos';
+import type { Nino } from './datos';
 import { colores } from './tema';
 
 /**
  * Niños y niñas de la sala elegida, con cuántas áreas siguen sin registros en 30 días
- * (observaciones de la API más las notas de esta sesión).
+ * (observaciones de la API: del dataset y confirmadas en la app).
  * La sala se cambia desde el subtítulo: no suma filas ni controles a la pantalla.
  */
 export function MiSala({
   ninos,
   salas,
   salaPropia,
-  notas,
   ahora,
   sala,
   onCambiarSala,
@@ -34,7 +33,6 @@ export function MiSala({
   ninos: Nino[];
   salas: string[];
   salaPropia: string;
-  notas: Nota[];
   ahora: Date;
   sala: string;
   onCambiarSala: (sala: string) => void;
@@ -60,7 +58,7 @@ export function MiSala({
           const consulta = observaciones[i];
           // Mientras carga no se muestra la cuenta, para no anunciar áreas «sin notas» por error.
           const sinNotas = consulta?.isSuccess
-            ? areasSinNotas(resumenAreas(registrosDe(nino.id, consulta.data, notas), ahora))
+            ? areasSinNotas(resumenAreas(registrosDe(consulta.data), ahora))
             : 0;
           return (
             <li key={nino.id}>

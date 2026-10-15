@@ -1,10 +1,13 @@
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { fireEvent, screen, within } from '@testing-library/react';
-import { conProveedores, servidor } from './prueba-api';
+import { conProveedores, instalarMicrofono, reiniciarApi, servidor } from './prueba-api';
 import { RegistroApp } from './RegistroApp';
 
 beforeAll(() => servidor.listen({ onUnhandledFrame: 'error' }));
-afterEach(() => servidor.resetHandlers());
+afterEach(() => {
+  servidor.resetHandlers();
+  reiniciarApi();
+});
 afterAll(() => servidor.close());
 
 async function abrirMiSala() {
@@ -68,21 +71,30 @@ describe('Mi sala', () => {
 });
 
 describe('Grabar con y sin niño o niña', () => {
-  beforeEach(() => localStorage.clear());
+  beforeEach(() => {
+    localStorage.clear();
+    instalarMicrofono();
+  });
+
+  async function grabarYRevisar() {
+    fireEvent.click(await screen.findByRole('button', { name: 'Terminar grabación' }));
+  }
 
   it('desde la ficha la nota queda para ese niño o niña sin elegirlo y vuelve a su ficha', async () => {
     await abrirFicha('Martina P.');
     fireEvent.click(boton('Grabar nota de Martina P.'));
-    fireEvent.click(boton('Terminar grabación'));
+    await grabarYRevisar();
 
     expect(screen.queryByText('¿De quién es?')).not.toBeInTheDocument();
-    expect(screen.getByText('Esto entendimos de tu audio')).toBeInTheDocument();
+    expect(await screen.findByText('Esto entendimos de tu audio')).toBeInTheDocument();
     fireEvent.click(boton('Está bien'));
 
-    expect(screen.getByText('Nota guardada para Martina P.')).toBeInTheDocument();
+    expect(await screen.findByText('Nota guardada para Martina P.')).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Martina P.' })).toBeInTheDocument();
-    expect(screen.getAllByRole('article')[0]).toHaveTextContent(/Buscó el autito/);
-    expect(screen.getAllByRole('article')[0]).toHaveTextContent('Tía Mercedes');
+    // La observación confirmada vuelve por la trayectoria de la API.
+    await screen.findByText(/Registrada en la app/);
+    expect(screen.getAllByRole('article')[0]).toHaveTextContent('Prueba LC 7');
+    expect(screen.getAllByRole('article')[0]).toHaveTextContent('Registrada en la app');
   });
 
   it('al cancelar desde la ficha vuelve a ella sin guardar', async () => {
@@ -97,21 +109,24 @@ describe('Grabar con y sin niño o niña', () => {
   it('Grabar de la barra con una ficha abierta pide elegir sin nadie preseleccionado', async () => {
     await abrirFicha('Martina P.');
     fireEvent.click(boton('Grabar'));
-    fireEvent.click(boton('Terminar grabación'));
+    await grabarYRevisar();
 
-    expect(screen.getByText('¿De quién es?')).toBeInTheDocument();
+    expect(await screen.findByText('¿De quién es?')).toBeInTheDocument();
     expect(boton('Elige un niño o niña')).toBeDisabled();
     fireEvent.click(boton('Tomás A.'));
     fireEvent.click(boton('Seguir con Tomás A.'));
-    fireEvent.click(boton('Está bien'));
+    fireEvent.click(await screen.findByRole('button', { name: 'Está bien' }));
 
-    expect(screen.getByText('Nota guardada para Tomás A.')).toBeInTheDocument();
+    expect(await screen.findByText('Nota guardada para Tomás A.')).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Hola, Mercedes' })).toBeInTheDocument();
   });
 });
 
 describe('Cambiar de sala', () => {
-  beforeEach(() => localStorage.clear());
+  beforeEach(() => {
+    localStorage.clear();
+    instalarMicrofono();
+  });
 
   function elegirSala(sala: string) {
     fireEvent.click(boton(/Cambiar sala/));
@@ -147,15 +162,17 @@ describe('Cambiar de sala', () => {
     elegirSala('Sala B');
     fireEvent.click(boton(/Vicente/));
     fireEvent.click(await screen.findByRole('button', { name: 'Grabar nota de Vicente P.' }));
-    fireEvent.click(boton('Terminar grabación'));
+    fireEvent.click(await screen.findByRole('button', { name: 'Terminar grabación' }));
     // 31 meses → nivel 9.
-    expect(screen.getByRole('status', { name: 'Nivel estimado' })).toHaveTextContent('Nivel 9');
+    expect(await screen.findByRole('status', { name: 'Nivel estimado' })).toHaveTextContent(
+      'Nivel 9',
+    );
     fireEvent.click(boton('Está bien'));
-    expect(screen.getByText('Nota guardada para Vicente P.')).toBeInTheDocument();
+    expect(await screen.findByText('Nota guardada para Vicente P.')).toBeInTheDocument();
 
     fireEvent.click(boton('Grabar'));
-    fireEvent.click(boton('Terminar grabación'));
-    expect(boton('Martina P.')).toBeInTheDocument();
+    fireEvent.click(await screen.findByRole('button', { name: 'Terminar grabación' }));
+    expect(await screen.findByRole('button', { name: 'Martina P.' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Vicente P.' })).not.toBeInTheDocument();
   });
 });

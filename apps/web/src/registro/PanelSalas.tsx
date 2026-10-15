@@ -1,16 +1,18 @@
 import { useState } from 'react';
+import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Typography from '@mui/material/Typography';
 import AddRounded from '@mui/icons-material/AddRounded';
 import DownloadRounded from '@mui/icons-material/DownloadRounded';
 import type { Manifestacion, NivelRuta } from './api';
-import type { Nino, Nota } from './datos';
+import type { Nino } from './datos';
 import { NuevaNotaEscritorio } from './NuevaNotaEscritorio';
 import { CabeceraPanel } from './panel/CabeceraPanel';
 import { FiltrosPanel } from './panel/FiltrosPanel';
 import { ETIQUETA_PERIODO, desde, type Periodo } from './panel/periodo';
 import { TablaNotas } from './panel/TablaNotas';
+import { useNotas, type NotaGuardada } from './registrar';
 import { descargarCsv, notasACsv } from './reporte';
 
 /**
@@ -21,28 +23,28 @@ export function PanelSalas({
   ninos,
   salas,
   catalogo,
-  notas,
   ahora,
   nombre,
-  onGuardar,
+  onGuardada,
 }: {
   ninos: Nino[];
   salas: string[];
   catalogo: { niveles: NivelRuta[]; manifestaciones: Manifestacion[] };
-  notas: Nota[];
   ahora: Date;
   nombre: string;
-  onGuardar: (nota: Nota) => void;
+  onGuardada: (nino: Nino) => void;
 }) {
   const [sala, setSala] = useState<string | null>(null);
   const [cargando, setCargando] = useState(false);
   const [periodo, setPeriodo] = useState<Periodo>('7dias');
 
+  // Solo las notas confirmadas: son las observaciones que quedan en el registro del jardín.
+  const consulta = useNotas(ninos, { estado: 'confirmada' });
   const limite = desde(periodo, ahora);
-  const delPeriodo = notas
+  const delPeriodo = (consulta.data ?? [])
     .filter((n) => !limite || n.creada >= limite)
     .sort((a, b) => b.creada.getTime() - a.creada.getTime());
-  const salaDe = (nota: Nota) => nota.nino.sala;
+  const salaDe = (nota: NotaGuardada) => nota.nino.sala;
   const visibles = sala ? delPeriodo.filter((n) => salaDe(n) === sala) : delPeriodo;
 
   const descargar = () => {
@@ -100,18 +102,21 @@ export function PanelSalas({
           onPeriodo={setPeriodo}
         />
 
+        {consulta.isError && (
+          <Alert severity="error" sx={{ mt: 2.5, borderRadius: '14px' }}>
+            No se pudieron cargar las notas. Revisa que la API esté levantada.
+          </Alert>
+        )}
         <TablaNotas notas={visibles} ahora={ahora} />
       </Box>
       {cargando && (
         <NuevaNotaEscritorio
           ninos={ninos}
           catalogo={catalogo}
-          semilla={notas.length}
-          educadora={nombre}
           onCerrar={() => setCargando(false)}
-          onGuardar={(nota) => {
+          onGuardada={(nino) => {
             setCargando(false);
-            onGuardar(nota);
+            onGuardada(nino);
           }}
         />
       )}

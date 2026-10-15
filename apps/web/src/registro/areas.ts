@@ -1,5 +1,5 @@
 import type { ObservacionApi } from './api';
-import { DOMINIOS, dominiosDe, type Dominio, type Formato, type Nota } from './datos';
+import { DOMINIOS, type Dominio, type Formato } from './datos';
 
 /** Ventana de los huecos de evidencia (la que propone `definir-mvp-e1`). */
 export const DIAS_PERIODO = 30;
@@ -10,7 +10,7 @@ export interface ResumenArea {
   ultima: Date | null;
 }
 
-/** Registro de un niño o niña: observación de la API o nota guardada en esta sesión. */
+/** Observación registrada de un niño o niña: del dataset o confirmada en la app. */
 export interface Registro {
   id: string;
   creada: Date;
@@ -20,8 +20,7 @@ export interface Registro {
   detalle: string | null;
   dominios: Dominio[];
   formato: Formato | 'video';
-  /** Quién registró; null para el dataset, que no trae nombres. */
-  autor: string | null;
+  origen: 'dataset' | 'app';
 }
 
 /** «2026-10-13» → fecha local a mediodía, para no cambiar de día por la zona horaria. */
@@ -38,32 +37,15 @@ export function registroDeObservacion(o: ObservacionApi): Registro {
     detalle: o.notaBreve,
     dominios: [...new Set(o.manifestaciones.map((m) => m.dominio as Dominio))],
     formato: o.formato,
-    autor: null,
+    origen: o.origen,
   };
 }
 
-export function registroDeNota(n: Nota): Registro {
-  return {
-    id: n.id,
-    creada: n.creada,
-    texto: n.texto,
-    detalle: null,
-    dominios: dominiosDe(n.manifestaciones),
-    formato: n.formato,
-    autor: n.educadora,
-  };
-}
-
-/** Registros de la API y de la sesión, del más reciente al más antiguo. */
-export function registrosDe(
-  ninoId: string,
-  observaciones: ObservacionApi[],
-  notas: Nota[],
-): Registro[] {
-  return [
-    ...notas.filter((n) => n.nino.id === ninoId).map(registroDeNota),
-    ...observaciones.map(registroDeObservacion),
-  ].sort((a, b) => b.creada.getTime() - a.creada.getTime());
+/** Observaciones de la API, de la más reciente a la más antigua. */
+export function registrosDe(observaciones: ObservacionApi[]): Registro[] {
+  return observaciones
+    .map(registroDeObservacion)
+    .sort((a, b) => b.creada.getTime() - a.creada.getTime());
 }
 
 /**

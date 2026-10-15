@@ -307,6 +307,100 @@ export function useListarCapturas<
   return withQueryKey(query, queryOptions.queryKey);
 }
 
+export type avisarSubidaResponse200 = {
+  data: CapturaDetalleDtoOutput;
+  status: 200;
+};
+
+export type avisarSubidaResponseSuccess = avisarSubidaResponse200 & {
+  headers: Headers;
+};
+export type avisarSubidaResponse = avisarSubidaResponseSuccess;
+
+export const getAvisarSubidaUrl = (id: string) => {
+  return `/api/capturas/${id}/subida`;
+};
+
+/**
+ * @summary Avisa que el audio o la foto ya está en S3; en modo inline, lo comprueba y lo procesa
+ */
+export const avisarSubida = async (
+  id: string,
+  options?: RequestInit,
+): Promise<avisarSubidaResponse> => {
+  const res = await fetch(getAvisarSubidaUrl(id), {
+    ...options,
+    method: 'POST',
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: avisarSubidaResponse['data'] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as avisarSubidaResponse;
+};
+
+export const getAvisarSubidaMutationKey = () => ['avisarSubida'] as const;
+
+export const getAvisarSubidaMutationOptions = <TError = unknown, TContext = unknown>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof avisarSubida>>,
+    TError,
+    AvisarSubidaMutationVariables,
+    TContext
+  >;
+  fetch?: RequestInit;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof avisarSubida>>,
+  TError,
+  AvisarSubidaMutationVariables,
+  TContext
+> => {
+  const mutationKey = getAvisarSubidaMutationKey();
+  const { mutation: mutationOptions, fetch: fetchOptions } = options
+    ? options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, fetch: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof avisarSubida>>,
+    AvisarSubidaMutationVariables
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return avisarSubida(id, fetchOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AvisarSubidaMutationResult = NonNullable<Awaited<ReturnType<typeof avisarSubida>>>;
+
+export type AvisarSubidaMutationError = unknown;
+export type AvisarSubidaMutationVariables = { id: string };
+
+/**
+ * @summary Avisa que el audio o la foto ya está en S3; en modo inline, lo comprueba y lo procesa
+ */
+export const useAvisarSubida = <TError = unknown, TContext = unknown>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof avisarSubida>>,
+      TError,
+      AvisarSubidaMutationVariables,
+      TContext
+    >;
+    fetch?: RequestInit;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof avisarSubida>>,
+  TError,
+  AvisarSubidaMutationVariables,
+  TContext
+> => {
+  return useMutation(getAvisarSubidaMutationOptions(options), queryClient);
+};
 export type obtenerCapturaResponse200 = {
   data: CapturaDetalleDtoOutput;
   status: 200;

@@ -108,6 +108,7 @@ describe('API de registro (e2e)', () => {
     firmarSubida: jest.fn(),
     guardarTexto: jest.fn(),
     firmarLectura: jest.fn(),
+    inspeccionar: jest.fn(),
   };
   const http = () => request(app.getHttpServer());
 
@@ -356,6 +357,11 @@ describe('API de registro (e2e)', () => {
               cita: 'Apiló cuatro bloques solo y aplaudió.',
             },
           ],
+          procesamiento: {
+            simulado: true,
+            entrada: { formato: 'texto', tipoArchivo: null, claveS3: null },
+            pasos: [{ paso: 'extraccion', estado: 'simulado' }],
+          },
         },
       });
       const eventos = await prisma.eventoTiempo.findMany({ where: { idCaptura: captura.id } });
@@ -388,6 +394,90 @@ describe('API de registro (e2e)', () => {
         cabeceras: { 'Content-Type': 'audio/webm' },
       });
       expect(res.body.captura.tieneArchivo).toBe(true);
+    });
+
+    describe('aviso de subida (audio y foto)', () => {
+      async function crearArchivo(formato: 'audio' | 'foto', tipo: string) {
+        const res = await http()
+          .post('/capturas')
+          .send({ idNino: 'NINO-00001', formato, archivo: { tipo, tamano: 50_000 } })
+          .expect(201);
+        return res.body.captura.id as string;
+      }
+
+      it('no procesa hasta que la web avisa la subida', async () => {
+        const id = await crearArchivo('audio', 'audio/webm');
+        await new Promise((r) => setTimeout(r, 200));
+        const res = await http().get(`/capturas/${id}`).expect(200);
+        expect(res.body).toMatchObject({ estado: 'procesando', borrador: null });
+      });
+
+      it('409 si el archivo aún no está en S3, y la captura sigue procesando', async () => {
+        const id = await crearArchivo('audio', 'audio/webm');
+        almacenamiento.inspeccionar.mockResolvedValue(null);
+        await http().post(`/capturas/${id}/subida`).expect(409);
+        expect(almacenamiento.inspeccionar).toHaveBeenCalledWith(`capturas/${id}.webm`);
+        const res = await http().get(`/capturas/${id}`).expect(200);
+        expect(res.body.estado).toBe('procesando');
+      });
+
+      it('422 si el tipo en S3 no es el declarado', async () => {
+        const id = await crearArchivo('foto', 'image/jpeg');
+        almacenamiento.inspeccionar.mockResolvedValue({ tipo: 'image/png', bytes: 50_000 });
+        await http().post(`/capturas/${id}/subida`).expect(422);
+      });
+
+      it('audio en S3: borrador con texto de ejemplo y transcripción no implementada', async () => {
+        const id = await crearArchivo('audio', 'audio/webm');
+        almacenamiento.inspeccionar.mockResolvedValue({ tipo: 'audio/webm', bytes: 48_213 });
+        await http().post(`/capturas/${id}/subida`).expect(200);
+
+        const captura = await esperarBorrador(id);
+        expect(captura.estado).toBe('borrador_listo');
+        expect(captura.borrador.procesamiento).toEqual({
+          simulado: true,
+          entrada: {
+            formato: 'audio',
+            tipoArchivo: 'audio/webm',
+            bytes: 48_213,
+            claveS3: `capturas/${id}.webm`,
+          },
+          pasos: [
+            {
+              paso: 'transcripcion',
+              estado: 'no_implementado',
+              detalle: expect.stringContaining('texto de ejemplo'),
+            },
+            { paso: 'extraccion', estado: 'simulado', detalle: expect.any(String) },
+          ],
+        });
+
+        // Un segundo aviso no vuelve a procesar.
+        almacenamiento.inspeccionar.mockClear();
+        await http().post(`/capturas/${id}/subida`).expect(200);
+        expect(almacenamiento.inspeccionar).not.toHaveBeenCalled();
+      });
+
+      it('foto en S3: lectura de la imagen no implementada', async () => {
+        const id = await crearArchivo('foto', 'image/jpeg');
+        almacenamiento.inspeccionar.mockResolvedValue({ tipo: 'image/jpeg', bytes: 50_000 });
+        await http().post(`/capturas/${id}/subida`).expect(200);
+        const captura = await esperarBorrador(id);
+        expect(captura.borrador.procesamiento.pasos.map((p: { paso: string }) => p.paso)).toEqual([
+          'lectura_imagen',
+          'extraccion',
+        ]);
+      });
+
+      it('422 para una captura de texto; 403 si la avisa otra educadora', async () => {
+        const texto = await crearTexto();
+        await http().post(`/capturas/${texto}/subida`).expect(422);
+        const id = await crearArchivo('audio', 'audio/webm');
+        await http()
+          .post(`/capturas/${id}/subida`)
+          .set('Authorization', OTRA_EDUCADORA)
+          .expect(403);
+      });
     });
 
     it('valida el cuerpo, el jardín y el grupo', async () => {
@@ -464,6 +554,11 @@ describe('API de registro (e2e)', () => {
         .post(`/capturas/${id}/confirmacion`)
         .send({ nivel: 7, manifestaciones: [{ idManifestacion: 'MAN-L07-MF-01' }] })
         .expect(409);
+      const lista = await http().get(`/capturas?mias=true&estado=confirmada`).expect(200);
+      expect(lista.body.items.find((c: { id: string }) => c.id === id)).toMatchObject({
+        nivel: 7,
+        dominios: ['motor_fino'],
+      });
     });
 
     it('corregir conserva la sugerencia original de la IA', async () => {
@@ -673,6 +768,7 @@ describe('API de registro (e2e)', () => {
       expect(item).toMatchObject({
         estado: 'borrador_listo',
         dominios: ['motor_fino'],
+        nivel: null,
         nino: { sala: 'SG-A' },
       });
     });

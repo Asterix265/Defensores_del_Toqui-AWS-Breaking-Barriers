@@ -41,8 +41,27 @@ export class CapturasController {
   @ZodResponse({ status: 201, type: CrearCapturaResponseDto })
   async crear(@IdentidadActual() identidad: Identidad, @Body() body: CrearCapturaRequestDto) {
     const { id, subida } = await this.capturas.crear(identidad, body);
-    if (this.pipeline.activo) this.pipeline.programar(id);
+    // Audio y foto se procesan cuando la web avisa que el archivo llegó a S3.
+    if (this.pipeline.activo && !subida) this.pipeline.programar(id);
     return { captura: await this.capturas.detalle(identidad, id), subida };
+  }
+
+  @Post(':id/subida')
+  @HttpCode(200)
+  @Grupos('educadora')
+  @ApiOperation({
+    operationId: 'avisarSubida',
+    summary:
+      'Avisa que el audio o la foto ya está en S3; en modo inline, lo comprueba y lo procesa',
+  })
+  @ZodResponse({ status: 200, type: CapturaDetalleDto })
+  async subida(@IdentidadActual() identidad: Identidad, @Param('id') id: string) {
+    // En modo aws el pipeline lo dispara EventBridge al llegar el objeto: aquí no se hace nada.
+    if (this.pipeline.activo) {
+      const verificada = await this.capturas.verificarSubida(identidad, id);
+      if (verificada.procesar) this.pipeline.programar(id, verificada.archivo);
+    }
+    return this.capturas.detalle(identidad, id);
   }
 
   @Get()

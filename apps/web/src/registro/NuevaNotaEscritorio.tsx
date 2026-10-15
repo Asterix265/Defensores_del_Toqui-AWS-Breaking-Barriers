@@ -2,7 +2,7 @@ import { useState } from 'react';
 import Dialog from '@mui/material/Dialog';
 import { CabeceraConCerrar, Pantalla } from './componentes';
 import type { Manifestacion, NivelRuta } from './api';
-import type { Formato, Nino, Nota } from './datos';
+import type { Formato, Nino } from './datos';
 import { BotonesFormato } from './Inicio';
 import { NuevaNota } from './NuevaNota';
 
@@ -16,16 +16,12 @@ const DETALLE_PC: Record<Formato, string> = {
 export function NuevaNotaEscritorio({
   ninos,
   catalogo,
-  semilla,
-  educadora,
-  onGuardar,
+  onGuardada,
   onCerrar,
 }: {
   ninos: Nino[];
   catalogo: { niveles: NivelRuta[]; manifestaciones: Manifestacion[] };
-  semilla: number;
-  educadora: string;
-  onGuardar: (nota: Nota) => void;
+  onGuardada: (nino: Nino) => void;
   onCerrar: () => void;
 }) {
   const [formato, setFormato] = useState<Formato | null>(null);
@@ -53,12 +49,10 @@ export function NuevaNotaEscritorio({
       {formato ? (
         <NuevaNota
           formato={formato}
-          semilla={semilla}
-          educadora={educadora}
           escritorio
           ninos={ninos}
           catalogo={catalogo}
-          onGuardar={onGuardar}
+          onGuardada={onGuardada}
           onCancelar={onCerrar}
         />
       ) : (

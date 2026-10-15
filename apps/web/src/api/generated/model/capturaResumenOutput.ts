@@ -22,4 +22,5 @@ export interface CapturaResumenOutput {
   creadoEn: string;
   extracto: TextoNuloOutput | null;
   dominios: CapturaResumenOutputDominiosItem[];
+  nivel: number | null;
 }

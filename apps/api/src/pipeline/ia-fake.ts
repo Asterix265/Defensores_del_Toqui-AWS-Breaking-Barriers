@@ -1,4 +1,4 @@
-import type { BorradorEntrante, Dominio, Manifestacion } from '@toqui/shared';
+import type { BorradorEntrante, Dominio, Manifestacion, Procesamiento } from '@toqui/shared';
 
 /** Mismas palabras clave que el mock de la web (`apps/web/src/registro/datos.ts`). */
 const PALABRAS_CLAVE: Record<Dominio, string[]> = {
@@ -102,5 +102,49 @@ export function extraerFake(
     evidenciaInsuficiente: false,
     manifestaciones: [{ idManifestacion: manifestacion.id, cita: citaDe(textoFuente) }],
     proveedor: 'fake',
+  };
+}
+
+/**
+ * Lo que declara el modo inline: la entrada recibida y que la transcripción y la lectura de la
+ * foto no están implementadas (se usa un texto de ejemplo) y que la extracción es simulada.
+ */
+export function procesamientoFake(
+  formato: 'texto' | 'audio' | 'foto',
+  texto: string | null,
+  archivo?: { clave: string; tipo: string; bytes: number },
+): Procesamiento {
+  const pasos: Procesamiento['pasos'] = [];
+  if (formato === 'audio') {
+    pasos.push({
+      paso: 'transcripcion',
+      estado: 'no_implementado',
+      detalle:
+        'Amazon Transcribe aún no está conectado: en vez de la transcripción del audio se usa un texto de ejemplo.',
+    });
+  }
+  if (formato === 'foto') {
+    pasos.push({
+      paso: 'lectura_imagen',
+      estado: 'no_implementado',
+      detalle:
+        'La lectura de imágenes aún no está conectada: en vez de lo escrito en la foto se usa un texto de ejemplo.',
+    });
+  }
+  pasos.push({
+    paso: 'extraccion',
+    estado: 'simulado',
+    detalle:
+      'IA simulada (proveedor fake): propone el nivel esperado para la edad y una manifestación según palabras clave; no usa Bedrock.',
+  });
+  return {
+    simulado: true,
+    entrada: {
+      formato,
+      tipoArchivo: archivo?.tipo ?? null,
+      bytes: archivo?.bytes ?? Buffer.byteLength(texto ?? '', 'utf8'),
+      claveS3: archivo?.clave ?? null,
+    },
+    pasos,
   };
 }

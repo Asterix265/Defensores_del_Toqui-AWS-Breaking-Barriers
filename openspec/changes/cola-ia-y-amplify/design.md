@@ -46,7 +46,7 @@ Se eliminan `guardarTexto` y la regla de EventBridge, así que el texto ya no pa
 ### D2. Cuándo se encola
 
 - **Texto:** al crear la captura.
-- **Audio y foto:** en el endpoint nuevo `POST /capturas/:id/subida-completa`. La API comprueba con `HeadObject` que el `Content-Type` y el `Content-Length` sean los declarados.
+- **Audio y foto:** en `POST /capturas/:id/subida` (el aviso de subida de `persistir-capturas`, que ya usa la web). La API comprueba con `HeadObject` que el objeto exista (409 si aún no llega) y que su tipo sea el declarado (422); el tamaño ya lo exige la firma del `PUT`.
 - **Idempotencia:** una columna nueva `capturas.encolada_en` se actualiza con un `updateMany` condicionado a `encolada_en IS NULL`. Solo quien logra el cambio encola.
 - **Si `SendMessage` falla:** la captura pasa a `error` y la API responde 503, igual que en el patrón actual.
 

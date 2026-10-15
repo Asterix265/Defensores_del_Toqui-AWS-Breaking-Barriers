@@ -7,10 +7,11 @@ import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import ChevronLeftRounded from '@mui/icons-material/ChevronLeftRounded';
 import MicRounded from '@mui/icons-material/MicRounded';
-import { DIAS_PERIODO, resumenAreas, type ResumenArea } from './areas';
+import { useObservaciones } from './api';
+import { DIAS_PERIODO, registrosDe, resumenAreas, type ResumenArea } from './areas';
 import { ChipArea, ICONO_DOMINIO, NinoAvatar, Pantalla } from './componentes';
-import { COLOR_DOMINIO, ETIQUETA_DOMINIO, type Nino, type Nota } from './datos';
-import { diaCorto, formatoCuando } from './formato';
+import { COLOR_DOMINIO, ETIQUETA_DOMINIO, type Nino } from './datos';
+import { diaCorto } from './formato';
 import { colores } from './tema';
 
 const NOTAS_VISIBLES = 3;
@@ -22,19 +23,18 @@ const titulo = {
 } as const;
 
 /**
- * Ficha del niño o niña (diseño B, «áreas primero»): notas por área en los últimos 30 días,
- * con las áreas sin notas primero como sugerencia de observación, y sus últimas notas.
+ * Ficha del niño o niña (diseño B, «áreas primero»): registros por área en los últimos 30 días,
+ * con las áreas sin registros primero como sugerencia de observación, y sus últimos registros.
+ * Las observaciones vienen de la API: las del dataset y las confirmadas en la app.
  * No muestra niveles ni comparaciones con la edad: cuenta registros, no logros.
  */
 export function FichaNino({
   nino,
-  notas,
   ahora,
   onVolver,
   onGrabar,
 }: {
   nino: Nino;
-  notas: Nota[];
   ahora: Date;
   onVolver: () => void;
   /** Graba una nota ya asociada a este niño o niña. */
@@ -82,12 +82,11 @@ export function FichaNino({
       </Stack>
 
       <Box sx={{ px: 2, pt: 2.5 }}>
-        <AreasNino nino={nino} notas={notas} ahora={ahora} />
+        <AreasNino nino={nino} ahora={ahora} />
       </Box>
       <Box sx={{ px: 2, pt: 3, pb: 3 }}>
         <UltimasNotas
           nino={nino}
-          notas={notas}
           ahora={ahora}
           sinNotas="Presiona el micrófono para registrar la primera."
         />
@@ -100,8 +99,9 @@ export function FichaNino({
  * Áreas del niño o niña en los últimos 30 días: las sin notas apiladas primero (invitación a
  * observar) y las demás en grilla. La comparten la ficha del celular y la de escritorio.
  */
-export function AreasNino({ nino, notas, ahora }: { nino: Nino; notas: Nota[]; ahora: Date }) {
-  const resumen = resumenAreas(notas, nino.id, ahora);
+export function AreasNino({ nino, ahora }: { nino: Nino; ahora: Date }) {
+  const observaciones = useObservaciones(nino.id);
+  const resumen = resumenAreas(registrosDe(observaciones.data ?? []), ahora);
   const sinNotas = resumen.filter((r) => r.cantidad === 0);
   const conNotas = resumen.filter((r) => r.cantidad > 0);
   return (
@@ -109,13 +109,20 @@ export function AreasNino({ nino, notas, ahora }: { nino: Nino; notas: Nota[]; a
       <Typography variant="h2" sx={titulo}>
         Últimos {DIAS_PERIODO} días
       </Typography>
-      {sinNotas.map((r) => (
-        <AreaSinNotas key={r.area} resumen={r} />
-      ))}
+      {observaciones.isPending && (
+        <Typography role="status" color="text.secondary" sx={{ px: 0.5 }}>
+          Cargando registros…
+        </Typography>
+      )}
+      {observaciones.isError && (
+        <Typography role="alert" color="error" sx={{ px: 0.5 }}>
+          No se pudieron cargar los registros. Revisa que la API esté levantada.
+        </Typography>
+      )}
+      {!observaciones.isPending && sinNotas.map((r) => <AreaSinNotas key={r.area} resumen={r} />)}
       <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 1.25 }}>
-        {conNotas.map((r) => (
-          <AreaConNotas key={r.area} resumen={r} ahora={ahora} />
-        ))}
+        {!observaciones.isPending &&
+          conNotas.map((r) => <AreaConNotas key={r.area} resumen={r} ahora={ahora} />)}
       </Box>
     </Stack>
   );
@@ -124,34 +131,31 @@ export function AreasNino({ nino, notas, ahora }: { nino: Nino; notas: Nota[]; a
 /** Notas del niño o niña, de la más reciente a la más antigua: 3 visibles y «Ver las N». */
 export function UltimasNotas({
   nino,
-  notas,
   ahora,
   sinNotas,
 }: {
   nino: Nino;
-  notas: Nota[];
   ahora: Date;
   /** Cómo registrar la primera nota en este dispositivo. */
   sinNotas: string;
 }) {
   const [verTodas, setVerTodas] = useState(false);
-  const delNino = notas
-    .filter((n) => n.ninoId === nino.id)
-    .sort((a, b) => b.creada.getTime() - a.creada.getTime());
+  const observaciones = useObservaciones(nino.id);
+  const delNino = registrosDe(observaciones.data ?? []);
   const visibles = verTodas ? delNino : delNino.slice(0, NOTAS_VISIBLES);
   return (
     <Stack sx={{ gap: 1.25 }}>
       <Typography variant="h2" sx={titulo}>
         Últimas notas
       </Typography>
-      {delNino.length === 0 && (
+      {!observaciones.isPending && delNino.length === 0 && (
         <Typography color="text.secondary" sx={{ px: 0.5 }}>
           Aún no hay notas de {nino.nombre}. {sinNotas}
         </Typography>
       )}
-      {visibles.map((nota) => (
+      {visibles.map((registro) => (
         <Stack
-          key={nota.id}
+          key={registro.id}
           component="article"
           sx={{
             p: 1.75,
@@ -162,11 +166,19 @@ export function UltimasNotas({
             borderRadius: '16px',
           }}
         >
-          <Typography sx={{ fontSize: 16, lineHeight: '24px' }}>{nota.texto}</Typography>
+          <Typography sx={{ fontSize: 16, lineHeight: '24px' }}>{registro.texto}</Typography>
+          {registro.detalle && (
+            <Typography variant="body2" color="text.secondary">
+              {registro.detalle}
+            </Typography>
+          )}
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-            <ChipArea area={nota.area} compacto />
+            {registro.dominios.map((d) => (
+              <ChipArea key={d} area={d} compacto />
+            ))}
             <Typography variant="caption" color="text.secondary" sx={{ ml: 'auto' }}>
-              {formatoCuando(nota.creada, ahora)} · Tía {nota.educadora}
+              {diaCorto(registro.creada, ahora)} ·{' '}
+              {registro.origen === 'app' ? 'Registrada en la app' : 'Registro del jardín'}
             </Typography>
           </Box>
         </Stack>

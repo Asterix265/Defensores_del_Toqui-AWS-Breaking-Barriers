@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import Dialog from '@mui/material/Dialog';
 import { CabeceraConCerrar, Pantalla } from './componentes';
-import type { Formato, Nota } from './datos';
+import type { Manifestacion, NivelRuta } from './api';
+import type { Formato, Nino } from './datos';
 import { BotonesFormato } from './Inicio';
 import { NuevaNota } from './NuevaNota';
 
@@ -16,16 +17,16 @@ const DETALLE_PC: Record<Formato, string> = {
  * Con `ninoId` (desde la ficha) la nota ya tiene dueño y se salta la elección.
  */
 export function NuevaNotaEscritorio({
+  ninos,
+  catalogo,
   ninoId,
-  semilla,
-  educadora,
-  onGuardar,
+  onGuardada,
   onCerrar,
 }: {
+  ninos: Nino[];
+  catalogo: { niveles: NivelRuta[]; manifestaciones: Manifestacion[] };
   ninoId?: string;
-  semilla: number;
-  educadora: string;
-  onGuardar: (nota: Nota) => void;
+  onGuardada: (nino: Nino) => void;
   onCerrar: () => void;
 }) {
   const [formato, setFormato] = useState<Formato | null>(null);
@@ -53,11 +54,11 @@ export function NuevaNotaEscritorio({
       {formato ? (
         <NuevaNota
           formato={formato}
-          semilla={semilla}
-          educadora={educadora}
           escritorio
-          ninoId={ninoId}
-          onGuardar={onGuardar}
+          ninos={ninos}
+          ninoFijo={ninos.find((n) => n.id === ninoId)}
+          catalogo={catalogo}
+          onGuardada={onGuardada}
           onCancelar={onCerrar}
         />
       ) : (

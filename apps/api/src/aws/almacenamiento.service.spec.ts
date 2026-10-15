@@ -33,7 +33,7 @@ describe('AlmacenamientoService.comprobarBucket', () => {
   });
 });
 
-describe('AlmacenamientoService.describirArchivo', () => {
+describe('AlmacenamientoService.inspeccionar', () => {
   // Espía propio: el del bloque anterior se restaura en su afterAll.
   let send: jest.SpiedFunction<S3Client['send']>;
 
@@ -50,9 +50,9 @@ describe('AlmacenamientoService.describirArchivo', () => {
 
   it('devuelve el tipo y el tamaño del objeto', async () => {
     send.mockResolvedValueOnce({ ContentType: 'audio/webm', ContentLength: 50_000 } as never);
-    await expect(servicio.describirArchivo('capturas/x.webm')).resolves.toEqual({
+    await expect(servicio.inspeccionar('capturas/x.webm')).resolves.toEqual({
       tipo: 'audio/webm',
-      tamano: 50_000,
+      bytes: 50_000,
     });
     const [comando] = send.mock.calls[0]!;
     expect(comando).toBeInstanceOf(HeadObjectCommand);
@@ -64,11 +64,11 @@ describe('AlmacenamientoService.describirArchivo', () => {
 
   it('null si el archivo todavía no existe', async () => {
     send.mockRejectedValueOnce(new NotFound({ message: 'NotFound', $metadata: {} }) as never);
-    await expect(servicio.describirArchivo('capturas/y.webm')).resolves.toBeNull();
+    await expect(servicio.inspeccionar('capturas/y.webm')).resolves.toBeNull();
   });
 
   it('propaga otros errores de S3', async () => {
     send.mockRejectedValueOnce(new Error('Forbidden') as never);
-    await expect(servicio.describirArchivo('capturas/z.webm')).rejects.toThrow('Forbidden');
+    await expect(servicio.inspeccionar('capturas/z.webm')).rejects.toThrow('Forbidden');
   });
 });

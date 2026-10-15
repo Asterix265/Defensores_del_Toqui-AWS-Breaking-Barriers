@@ -80,7 +80,7 @@ Desplegado y verificado el 15-10-2026 con `pnpm aws:prod:smoke` (5/5): web y rut
 
 Tiempos del primer despliegue: `ToquiRed` 38 s, `ToquiDatos` 7 min, `ToquiApp` 8 min.
 
-**En el código, sin desplegar** (cambio `cola-ia-y-amplify`): la cola, la DLQ, la Lambda `toqui-prod-proceso` y el secreto del token reemplazan a EventBridge, Step Functions y la Lambda `eco`. Los adaptadores de la Lambda (Transcribe, Textract y Guardrail) se probaron el 15-10-2026 contra `ToquiDev` con datos sintéticos. La API encola en modo `PIPELINE_MODE=cola` (texto al crear, audio y foto con `POST /capturas/:id/subida-completa`), con el catálogo completo de manifestaciones en el mensaje. La clasificación de la Lambda sigue con el proveedor `fake` hasta integrar Claude.
+**En el código, sin desplegar** (cambio `cola-ia-y-amplify`): la cola, la DLQ, la Lambda `toqui-prod-proceso` y el secreto del token reemplazan a EventBridge, Step Functions y la Lambda `eco`. Los adaptadores de la Lambda (Transcribe, Textract y Guardrail) se probaron el 15-10-2026 contra `ToquiDev` con datos sintéticos. La API encola en modo `PIPELINE_MODE=cola` (texto al crear, audio y foto con `POST /capturas/:id/subida`), con el catálogo completo de manifestaciones en el mensaje. La clasificación de la Lambda sigue con el proveedor `fake` hasta integrar Claude.
 
 ## Pendiente
 

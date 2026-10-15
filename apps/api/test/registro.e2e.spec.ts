@@ -108,9 +108,9 @@ describe('API de registro (e2e)', () => {
   let dirDataset: string;
   const almacenamiento = {
     firmarSubida: jest.fn(),
-    describirArchivo: jest.fn(),
     firmarLectura: jest.fn(),
     comprobarBucket: jest.fn(),
+    inspeccionar: jest.fn(),
   };
   const cola = { enviar: jest.fn(), comprobar: jest.fn() };
   const http = () => request(app.getHttpServer());
@@ -170,7 +170,6 @@ describe('API de registro (e2e)', () => {
         expiraEn: new Date().toISOString(),
       },
     }));
-    almacenamiento.describirArchivo.mockResolvedValue({ tipo: 'audio/webm', tamano: 50_000 });
     almacenamiento.firmarLectura.mockImplementation(async (clave: string) => ({
       url: `https://s3.example.com/${clave}?lectura=1`,
       expiraEn: new Date().toISOString(),
@@ -269,6 +268,17 @@ describe('API de registro (e2e)', () => {
     });
   });
 
+  it('niveles de la ruta con su rango de edad', async () => {
+    const res = await http().get('/niveles').expect(200);
+    expect(res.body).toHaveLength(9);
+    expect(res.body[6]).toEqual({
+      nivel: 7,
+      nombre: 'Nivel 7',
+      edadMinMeses: 18,
+      edadMaxMeses: 24,
+    });
+  });
+
   describe('trayectoria', () => {
     it('por dominio, con «sin registros» y evidencia limitada', async () => {
       const res = await http().get('/ninos/NINO-00001/trayectoria').expect(200);
@@ -288,11 +298,34 @@ describe('API de registro (e2e)', () => {
         (d: { dominio: string }) => d.dominio === 'motor_grueso',
       );
       expect(motor).toEqual({ dominio: 'motor_grueso', sinRegistros: true, puntos: [] });
+      expect(res.body.observaciones).toEqual([
+        {
+          id: 'OBS-0000001',
+          fecha: sumarDias(HOY, -10),
+          formato: 'texto',
+          origen: 'dataset',
+          nivelEstimado: 6,
+          notaBreve: null,
+          manifestaciones: [
+            {
+              id: 'MAN-L06-CO-01',
+              nivel: 6,
+              dominio: 'cognitivo',
+              textoObservable: 'Manifestación de prueba CO 6.',
+            },
+          ],
+        },
+      ]);
 
       const amplio = await http()
         .get(`/ninos/NINO-00001/trayectoria?desde=${sumarDias(HOY, -500)}`)
         .expect(200);
       expect(amplio.body.totalObservaciones).toBe(2);
+      // De la más reciente a la más antigua.
+      expect(amplio.body.observaciones.map((o: { id: string }) => o.id)).toEqual([
+        'OBS-0000001',
+        'OBS-0000002',
+      ]);
     });
 
     it('403 para otro jardín y 404 si no existe', async () => {
@@ -329,6 +362,11 @@ describe('API de registro (e2e)', () => {
               cita: 'Apiló cuatro bloques solo y aplaudió.',
             },
           ],
+          procesamiento: {
+            simulado: true,
+            entrada: { formato: 'texto', tipoArchivo: null, claveS3: null },
+            pasos: [{ paso: 'extraccion', estado: 'simulado' }],
+          },
         },
       });
       const eventos = await prisma.eventoTiempo.findMany({ where: { idCaptura: captura.id } });
@@ -363,61 +401,95 @@ describe('API de registro (e2e)', () => {
       expect(res.body.captura.tieneArchivo).toBe(true);
     });
 
-    /** Audio recién creado: queda en `procesando` hasta que la web confirme la subida. */
-    async function crearAudio(token?: string): Promise<string> {
-      const req = http().post('/capturas');
-      const res = await (token ? req.set('Authorization', token) : req)
-        .send({
-          idNino: 'NINO-00001',
-          formato: 'audio',
-          archivo: { tipo: 'audio/webm', tamano: 50_000 },
-        })
-        .expect(201);
-      return res.body.captura.id as string;
-    }
+    describe('aviso de subida (audio y foto)', () => {
+      async function crearArchivo(formato: 'audio' | 'foto', tipo: string) {
+        const res = await http()
+          .post('/capturas')
+          .send({ idNino: 'NINO-00001', formato, archivo: { tipo, tamano: 50_000 } })
+          .expect(201);
+        return res.body.captura.id as string;
+      }
 
-    it('audio: se procesa recién al confirmar la subida, y una sola vez', async () => {
-      const id = await crearAudio();
-      await new Promise((r) => setTimeout(r, 200));
-      await expect(prisma.captura.findUnique({ where: { id } })).resolves.toMatchObject({
-        estado: 'procesando',
-        encoladaEn: null,
+      it('no procesa hasta que la web avisa la subida', async () => {
+        const id = await crearArchivo('audio', 'audio/webm');
+        await new Promise((r) => setTimeout(r, 200));
+        const res = await http().get(`/capturas/${id}`).expect(200);
+        expect(res.body).toMatchObject({ estado: 'procesando', borrador: null });
+        await expect(prisma.captura.findUnique({ where: { id } })).resolves.toMatchObject({
+          encoladaEn: null,
+        });
       });
 
-      await http().post(`/capturas/${id}/subida-completa`).expect(200);
-      expect(almacenamiento.describirArchivo).toHaveBeenCalledWith(`capturas/${id}.webm`);
-      const captura = await esperarBorrador(id);
-      expect(captura).toMatchObject({ estado: 'borrador_listo', borrador: { proveedor: 'fake' } });
-
-      // Un aviso repetido no vuelve a procesar ni falla.
-      const repetido = await http().post(`/capturas/${id}/subida-completa`).expect(200);
-      expect(repetido.body.estado).toBe('borrador_listo');
-    });
-
-    it('409 si el archivo no está en S3 o tiene otro tipo; la captura sigue esperando', async () => {
-      const id = await crearAudio();
-      almacenamiento.describirArchivo.mockResolvedValueOnce(null);
-      await http().post(`/capturas/${id}/subida-completa`).expect(409);
-      almacenamiento.describirArchivo.mockResolvedValueOnce({ tipo: 'image/png', tamano: 10 });
-      await http().post(`/capturas/${id}/subida-completa`).expect(409);
-      await expect(prisma.captura.findUnique({ where: { id } })).resolves.toMatchObject({
-        estado: 'procesando',
-        encoladaEn: null,
+      it('409 si el archivo aún no está en S3, y la captura sigue procesando', async () => {
+        const id = await crearArchivo('audio', 'audio/webm');
+        almacenamiento.inspeccionar.mockResolvedValue(null);
+        await http().post(`/capturas/${id}/subida`).expect(409);
+        expect(almacenamiento.inspeccionar).toHaveBeenCalledWith(`capturas/${id}.webm`);
+        const res = await http().get(`/capturas/${id}`).expect(200);
+        expect(res.body.estado).toBe('procesando');
       });
-    });
 
-    it('subida completa: 409 para una nota de texto, 403 si no es tuya, 404 si es de otro jardín', async () => {
-      const texto = await crearTexto();
-      await http().post(`/capturas/${texto}/subida-completa`).expect(409);
-      const audio = await crearAudio();
-      await http()
-        .post(`/capturas/${audio}/subida-completa`)
-        .set('Authorization', OTRA_EDUCADORA)
-        .expect(403);
-      await http()
-        .post(`/capturas/${audio}/subida-completa`)
-        .set('Authorization', 'Bearer local:educadora:JAR-0002')
-        .expect(404);
+      it('422 si el tipo en S3 no es el declarado', async () => {
+        const id = await crearArchivo('foto', 'image/jpeg');
+        almacenamiento.inspeccionar.mockResolvedValue({ tipo: 'image/png', bytes: 50_000 });
+        await http().post(`/capturas/${id}/subida`).expect(422);
+      });
+
+      it('audio en S3: borrador con texto de ejemplo y transcripción no implementada', async () => {
+        const id = await crearArchivo('audio', 'audio/webm');
+        almacenamiento.inspeccionar.mockResolvedValue({ tipo: 'audio/webm', bytes: 48_213 });
+        await http().post(`/capturas/${id}/subida`).expect(200);
+
+        const captura = await esperarBorrador(id);
+        expect(captura.estado).toBe('borrador_listo');
+        expect(captura.borrador.procesamiento).toEqual({
+          simulado: true,
+          entrada: {
+            formato: 'audio',
+            tipoArchivo: 'audio/webm',
+            bytes: 48_213,
+            claveS3: `capturas/${id}.webm`,
+          },
+          pasos: [
+            {
+              paso: 'transcripcion',
+              estado: 'no_implementado',
+              detalle: expect.stringContaining('texto de ejemplo'),
+            },
+            { paso: 'extraccion', estado: 'simulado', detalle: expect.any(String) },
+          ],
+        });
+
+        // Un segundo aviso no vuelve a procesar.
+        almacenamiento.inspeccionar.mockClear();
+        await http().post(`/capturas/${id}/subida`).expect(200);
+        expect(almacenamiento.inspeccionar).not.toHaveBeenCalled();
+      });
+
+      it('foto en S3: lectura de la imagen no implementada', async () => {
+        const id = await crearArchivo('foto', 'image/jpeg');
+        almacenamiento.inspeccionar.mockResolvedValue({ tipo: 'image/jpeg', bytes: 50_000 });
+        await http().post(`/capturas/${id}/subida`).expect(200);
+        const captura = await esperarBorrador(id);
+        expect(captura.borrador.procesamiento.pasos.map((p: { paso: string }) => p.paso)).toEqual([
+          'lectura_imagen',
+          'extraccion',
+        ]);
+      });
+
+      it('422 para una captura de texto; 403 si la avisa otra educadora', async () => {
+        const texto = await crearTexto();
+        await http().post(`/capturas/${texto}/subida`).expect(422);
+        const id = await crearArchivo('audio', 'audio/webm');
+        await http()
+          .post(`/capturas/${id}/subida`)
+          .set('Authorization', OTRA_EDUCADORA)
+          .expect(403);
+        await http()
+          .post(`/capturas/${id}/subida`)
+          .set('Authorization', 'Bearer local:educadora:JAR-0002')
+          .expect(404);
+      });
     });
 
     it('valida el cuerpo, el jardín y el grupo', async () => {
@@ -494,6 +566,11 @@ describe('API de registro (e2e)', () => {
         .post(`/capturas/${id}/confirmacion`)
         .send({ nivel: 7, manifestaciones: [{ idManifestacion: 'MAN-L07-MF-01' }] })
         .expect(409);
+      const lista = await http().get(`/capturas?mias=true&estado=confirmada`).expect(200);
+      expect(lista.body.items.find((c: { id: string }) => c.id === id)).toMatchObject({
+        nivel: 7,
+        dominios: ['motor_fino'],
+      });
     });
 
     it('corregir conserva la sugerencia original de la IA', async () => {
@@ -703,6 +780,7 @@ describe('API de registro (e2e)', () => {
       expect(item).toMatchObject({
         estado: 'borrador_listo',
         dominios: ['motor_fino'],
+        nivel: null,
         nino: { sala: 'SG-A' },
       });
     });
@@ -776,8 +854,9 @@ describe('API de registro (e2e)', () => {
         .expect(201);
       const id = res.body.captura.id as string;
       expect(cola.enviar).not.toHaveBeenCalled();
-      await request(appCola.getHttpServer()).post(`/capturas/${id}/subida-completa`).expect(200);
-      await request(appCola.getHttpServer()).post(`/capturas/${id}/subida-completa`).expect(200);
+      almacenamiento.inspeccionar.mockResolvedValue({ tipo: 'audio/webm', bytes: 50_000 });
+      await request(appCola.getHttpServer()).post(`/capturas/${id}/subida`).expect(200);
+      await request(appCola.getHttpServer()).post(`/capturas/${id}/subida`).expect(200);
       expect(cola.enviar).toHaveBeenCalledTimes(1);
       expect(cola.enviar.mock.calls[0]![0]).toMatchObject({
         idCaptura: id,

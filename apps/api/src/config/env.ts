@@ -62,7 +62,9 @@ export type Env = z.infer<typeof EnvSchema>;
 
 /** Valida las variables de entorno y termina con un mensaje claro si alguna falta o es inválida. */
 export function loadEnv(source: NodeJS.ProcessEnv = process.env): Env {
-  const result = EnvSchema.safeParse(source);
+  // Una variable vacía (`S3_BUCKET_CAPTURAS=` en `.env.example`) cuenta como no definida.
+  const definidas = Object.fromEntries(Object.entries(source).filter(([, valor]) => valor !== ''));
+  const result = EnvSchema.safeParse(definidas);
   if (!result.success) {
     const detail = result.error.issues
       .map((issue) => `  - ${issue.path.join('.') || '(raíz)'}: ${issue.message}`)

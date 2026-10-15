@@ -41,22 +41,22 @@ export class CapturasController {
   @ZodResponse({ status: 201, type: CrearCapturaResponseDto })
   async crear(@IdentidadActual() identidad: Identidad, @Body() body: CrearCapturaRequestDto) {
     const { id, subida } = await this.capturas.crear(identidad, body);
-    // El texto se procesa de inmediato; audio y foto, cuando la web confirma la subida.
-    if (body.formato === 'texto') await this.despachador.programar(id);
+    // El texto se procesa de inmediato; audio y foto, cuando la web avisa que el archivo llegó a S3.
+    if (!subida) await this.despachador.programar(id);
     return { captura: await this.capturas.detalle(identidad, id), subida };
   }
 
-  @Post(':id/subida-completa')
+  @Post(':id/subida')
   @HttpCode(200)
   @Grupos('educadora')
   @ApiOperation({
-    operationId: 'confirmarSubidaCaptura',
-    summary: 'La web terminó de subir el audio o la foto: la captura se manda a procesar',
+    operationId: 'avisarSubida',
+    summary: 'Avisa que el audio o la foto ya está en S3: lo comprueba y lo manda a procesar',
   })
   @ZodResponse({ status: 200, type: CapturaDetalleDto })
-  async subidaCompleta(@IdentidadActual() identidad: Identidad, @Param('id') id: string) {
-    await this.capturas.verificarSubida(identidad, id);
-    await this.despachador.programar(id);
+  async subida(@IdentidadActual() identidad: Identidad, @Param('id') id: string) {
+    const verificada = await this.capturas.verificarSubida(identidad, id);
+    if (verificada.procesar) await this.despachador.programar(id, verificada.archivo);
     return this.capturas.detalle(identidad, id);
   }
 

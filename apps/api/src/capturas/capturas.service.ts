@@ -8,6 +8,7 @@ import {
   UnprocessableEntityException,
 } from '@nestjs/common';
 import { z } from 'zod';
+import { ProcesamientoSchema } from '@toqui/shared';
 import type {
   ArchivoResponse,
   BorradorEntrante,
@@ -47,6 +48,13 @@ const INCLUIR = {
 
 type CapturaCompleta = Prisma.CapturaGetPayload<{ include: typeof INCLUIR }>;
 
+/** Archivo de una captura ya comprobado en S3. */
+export interface ArchivoSubido {
+  clave: string;
+  tipo: string;
+  bytes: number;
+}
+
 /** Estados desde los que la educadora puede confirmar o descartar. */
 const DECIDIBLES: EstadoCaptura[] = ['borrador_listo', 'error'];
 const LARGO_EXTRACTO = 140;
@@ -62,7 +70,7 @@ export class CapturasService {
 
   /**
    * Crea la captura en `procesando`. Audio y foto devuelven el PUT firmado: se mandan a procesar
-   * cuando la web confirma la subida (`subidaCompleta`). El texto lo despacha el controlador.
+   * cuando la web avisa la subida (`verificarSubida`). El texto lo despacha el controlador.
    */
   async crear(
     identidad: Identidad,
@@ -92,25 +100,6 @@ export class CapturasService {
       },
     });
     return { id, subida: firmada?.subida ?? null };
-  }
-
-  /**
-   * La web informa que terminó el PUT a S3. Solo la dueña de la captura, y solo si el archivo existe
-   * con el tipo declarado (el tamaño ya lo exige la firma del PUT); si no, 409 y no se procesa.
-   * Si la captura ya se despachó o dejó `procesando`, no hace nada: el aviso repetido es inofensivo.
-   */
-  async verificarSubida(identidad: Identidad, id: string): Promise<void> {
-    const captura = await this.buscarPropia(identidad, id);
-    if (!captura.archivoClave || !captura.archivoTipo) {
-      throw new ConflictException('La captura no tiene archivo que subir');
-    }
-    if (captura.estado !== 'procesando' || captura.encoladaEn) return;
-
-    const archivo = await this.almacenamiento.describirArchivo(captura.archivoClave);
-    if (!archivo) throw new ConflictException('El archivo todavía no está en el almacenamiento');
-    if (archivo.tipo !== captura.archivoTipo || archivo.tamano <= 0) {
-      throw new ConflictException('El archivo subido no coincide con el tipo declarado');
-    }
   }
 
   async detalle(identidad: Identidad, id: string): Promise<CapturaDetalle> {
@@ -243,6 +232,33 @@ export class CapturasService {
   }
 
   /**
+   * La web avisa que subió el archivo. Comprueba que el objeto está en S3 con el tipo declarado
+   * y dice si hay que procesar: no, si la captura ya tiene borrador o dejó de estar procesando.
+   * 409 si el objeto aún no llega; 422 si la captura no tiene archivo o el tipo no coincide.
+   */
+  async verificarSubida(
+    identidad: Identidad,
+    id: string,
+  ): Promise<{ procesar: false } | { procesar: true; archivo: ArchivoSubido }> {
+    const captura = await this.buscarPropia(identidad, id);
+    if (!captura.archivoClave || !captura.archivoTipo) {
+      throw new UnprocessableEntityException('La captura no tiene archivo');
+    }
+    if (captura.estado !== 'procesando' || captura.borrador) return { procesar: false };
+    const objeto = await this.almacenamiento.inspeccionar(captura.archivoClave);
+    if (!objeto) throw new ConflictException('El archivo aún no está en S3');
+    if (objeto.tipo.split(';')[0] !== captura.archivoTipo) {
+      throw new UnprocessableEntityException(
+        `El archivo en S3 es ${objeto.tipo}, no ${captura.archivoTipo}`,
+      );
+    }
+    return {
+      procesar: true,
+      archivo: { clave: captura.archivoClave, tipo: captura.archivoTipo, bytes: objeto.bytes },
+    };
+  }
+
+  /**
    * Recibe el borrador del pipeline. Idempotente por captura: si ya hay uno, no cambia nada
    * (los reintentos de Step Functions no duplican borradores).
    */
@@ -272,6 +288,7 @@ export class CapturasService {
             manifestaciones: b.manifestaciones,
             proveedor: b.proveedor,
             modelo: b.modelo ?? null,
+            procesamiento: b.procesamiento ?? Prisma.DbNull,
           },
         });
         await tx.captura.update({
@@ -422,6 +439,7 @@ export class CapturasService {
       nivelSugerido: c.borrador.nivelSugerido,
       evidenciaInsuficiente: c.borrador.evidenciaInsuficiente,
       proveedor: c.borrador.proveedor,
+      procesamiento: ProcesamientoSchema.nullable().catch(null).parse(c.borrador.procesamiento),
       manifestaciones: CitasSchema.parse(c.borrador.manifestaciones).flatMap((m) => {
         const manifestacion = catalogo.get(m.idManifestacion);
         return manifestacion ? [{ manifestacion, cita: m.cita }] : [];
@@ -463,6 +481,7 @@ export class CapturasService {
       ...this.base(c),
       extracto: texto ? texto.slice(0, LARGO_EXTRACTO) : null,
       dominios: [...new Set(dominios)],
+      nivel: c.observacion?.nivelEstimado ?? null,
     };
   }
 

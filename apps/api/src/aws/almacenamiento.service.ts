@@ -71,13 +71,15 @@ export class AlmacenamientoService {
   }
 
   /**
-   * Tipo y tamaño del archivo subido, con `HeadObject`; `null` si todavía no existe.
-   * Permite confirmar que la subida del navegador terminó antes de encolar la captura.
+   * Tipo y tamaño del objeto con `HeadObject`, o null si aún no existe en el bucket. Confirma que
+   * la subida del navegador terminó antes de mandar la captura a procesar.
    */
-  async describirArchivo(clave: string): Promise<{ tipo: string; tamano: number } | null> {
+  async inspeccionar(clave: string): Promise<{ tipo: string; bytes: number } | null> {
     try {
-      const r = await this.s3.send(new HeadObjectCommand({ Bucket: this.bucket(), Key: clave }));
-      return { tipo: r.ContentType ?? '', tamano: r.ContentLength ?? 0 };
+      const objeto = await this.s3.send(
+        new HeadObjectCommand({ Bucket: this.bucket(), Key: clave }),
+      );
+      return { tipo: objeto.ContentType ?? '', bytes: objeto.ContentLength ?? 0 };
     } catch (error) {
       if (error instanceof NotFound) return null;
       throw error;

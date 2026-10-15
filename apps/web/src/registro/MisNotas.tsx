@@ -4,15 +4,25 @@ import Typography from '@mui/material/Typography';
 import CheckCircleRounded from '@mui/icons-material/CheckCircleRounded';
 import { ChipArea, Encabezado, ICONO_FORMATO, NinoAvatar, Pantalla } from './componentes';
 import { etiquetaDia, formatoHora } from './formato';
-import { NINOS, SALA, type Nota } from './datos';
+import type { Nino } from './datos';
+import { useNotas, type NotaGuardada } from './registrar';
 import { colores } from './tema';
 
-/** Notas de la sala de la tía, agrupadas por día (diseño 1d). */
-export function MisNotas({ notas, ahora }: { notas: Nota[]; ahora: Date }) {
-  const ordenadas = notas
-    .filter((n) => NINOS.find((nino) => nino.id === n.ninoId)?.sala === SALA)
+const ESTADO: Record<NotaGuardada['estado'], { texto: string; color: string } | null> = {
+  confirmada: { texto: 'Guardada', color: colores.verde },
+  borrador_listo: { texto: 'Sin revisar', color: colores.amarilloTinta },
+  procesando: { texto: 'Procesando', color: colores.amarilloTinta },
+  error: { texto: 'Con error', color: colores.rojo },
+  descartada: null,
+};
+
+/** Notas que registró la tía (guardadas en la API), agrupadas por día (diseño 1d). */
+export function MisNotas({ ninos, ahora }: { ninos: Nino[]; ahora: Date }) {
+  const consulta = useNotas(ninos, { mias: 'true' });
+  const ordenadas = (consulta.data ?? [])
+    .filter((n) => n.estado !== 'descartada')
     .sort((a, b) => b.creada.getTime() - a.creada.getTime());
-  const grupos = new Map<string, Nota[]>();
+  const grupos = new Map<string, NotaGuardada[]>();
   for (const nota of ordenadas) {
     const etiqueta = etiquetaDia(nota.creada, ahora);
     grupos.set(etiqueta, [...(grupos.get(etiqueta) ?? []), nota]);
@@ -21,7 +31,17 @@ export function MisNotas({ notas, ahora }: { notas: Nota[]; ahora: Date }) {
   return (
     <Pantalla>
       <Encabezado titulo="Mis notas" />
-      {grupos.size === 0 && (
+      {consulta.isPending && (
+        <Typography role="status" color="text.secondary" sx={{ px: 2.5, pt: 2 }}>
+          Cargando tus notas…
+        </Typography>
+      )}
+      {consulta.isError && (
+        <Typography role="alert" color="error" sx={{ px: 2.5, pt: 2 }}>
+          No se pudieron cargar tus notas. Revisa que la API esté levantada.
+        </Typography>
+      )}
+      {consulta.isSuccess && grupos.size === 0 && (
         <Typography color="text.secondary" sx={{ px: 2.5, pt: 2 }}>
           Aún no tienes notas. Presiona «Grabar» para hacer la primera.
         </Typography>
@@ -47,8 +67,9 @@ export function MisNotas({ notas, ahora }: { notas: Nota[]; ahora: Date }) {
   );
 }
 
-function TarjetaNota({ nota }: { nota: Nota }) {
-  const nino = NINOS.find((n) => n.id === nota.ninoId);
+function TarjetaNota({ nota }: { nota: NotaGuardada }) {
+  const { nino } = nota;
+  const estado = ESTADO[nota.estado];
   const Icono = ICONO_FORMATO[nota.formato];
   return (
     <Stack
@@ -63,10 +84,8 @@ function TarjetaNota({ nota }: { nota: Nota }) {
       }}
     >
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25 }}>
-        {nino && <NinoAvatar nino={nino} />}
-        <Typography sx={{ fontSize: 17, fontWeight: 700 }}>
-          {nino?.nombre ?? 'Sin nombre'}
-        </Typography>
+        <NinoAvatar nino={nino} />
+        <Typography sx={{ fontSize: 17, fontWeight: 700 }}>{nino.nombre}</Typography>
         <Box
           sx={{
             ml: 'auto',
@@ -92,24 +111,28 @@ function TarjetaNota({ nota }: { nota: Nota }) {
           overflow: 'hidden',
         }}
       >
-        {nota.texto}
+        {nota.texto ?? 'Sin texto'}
       </Typography>
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-        <ChipArea area={nota.area} compacto />
-        <Box
-          sx={{
-            ml: 'auto',
-            display: 'flex',
-            alignItems: 'center',
-            gap: 0.5,
-            fontSize: 14,
-            fontWeight: 700,
-            color: colores.verde,
-          }}
-        >
-          <CheckCircleRounded sx={{ fontSize: 20 }} />
-          Guardada
-        </Box>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+        {nota.dominios.map((d) => (
+          <ChipArea key={d} area={d} compacto />
+        ))}
+        {estado && (
+          <Box
+            sx={{
+              ml: 'auto',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 0.5,
+              fontSize: 14,
+              fontWeight: 700,
+              color: estado.color,
+            }}
+          >
+            {nota.estado === 'confirmada' && <CheckCircleRounded sx={{ fontSize: 20 }} />}
+            {estado.texto}
+          </Box>
+        )}
       </Box>
     </Stack>
   );

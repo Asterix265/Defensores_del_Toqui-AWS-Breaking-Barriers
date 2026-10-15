@@ -307,58 +307,55 @@ export function useListarCapturas<
   return withQueryKey(query, queryOptions.queryKey);
 }
 
-export type confirmarSubidaCapturaResponse200 = {
+export type avisarSubidaResponse200 = {
   data: CapturaDetalleDtoOutput;
   status: 200;
 };
 
-export type confirmarSubidaCapturaResponseSuccess = confirmarSubidaCapturaResponse200 & {
+export type avisarSubidaResponseSuccess = avisarSubidaResponse200 & {
   headers: Headers;
 };
-export type confirmarSubidaCapturaResponse = confirmarSubidaCapturaResponseSuccess;
+export type avisarSubidaResponse = avisarSubidaResponseSuccess;
 
-export const getConfirmarSubidaCapturaUrl = (id: string) => {
-  return `/api/capturas/${id}/subida-completa`;
+export const getAvisarSubidaUrl = (id: string) => {
+  return `/api/capturas/${id}/subida`;
 };
 
 /**
- * @summary La web terminó de subir el audio o la foto: la captura se manda a procesar
+ * @summary Avisa que el audio o la foto ya está en S3: lo comprueba y lo manda a procesar
  */
-export const confirmarSubidaCaptura = async (
+export const avisarSubida = async (
   id: string,
   options?: RequestInit,
-): Promise<confirmarSubidaCapturaResponse> => {
-  const res = await fetch(getConfirmarSubidaCapturaUrl(id), {
+): Promise<avisarSubidaResponse> => {
+  const res = await fetch(getAvisarSubidaUrl(id), {
     ...options,
     method: 'POST',
   });
 
   const body = [204, 205, 304].includes(res.status) ? null : await res.text();
 
-  const data: confirmarSubidaCapturaResponse['data'] = body ? JSON.parse(body) : {};
-  return { data, status: res.status, headers: res.headers } as confirmarSubidaCapturaResponse;
+  const data: avisarSubidaResponse['data'] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as avisarSubidaResponse;
 };
 
-export const getConfirmarSubidaCapturaMutationKey = () => ['confirmarSubidaCaptura'] as const;
+export const getAvisarSubidaMutationKey = () => ['avisarSubida'] as const;
 
-export const getConfirmarSubidaCapturaMutationOptions = <
-  TError = unknown,
-  TContext = unknown,
->(options?: {
+export const getAvisarSubidaMutationOptions = <TError = unknown, TContext = unknown>(options?: {
   mutation?: UseMutationOptions<
-    Awaited<ReturnType<typeof confirmarSubidaCaptura>>,
+    Awaited<ReturnType<typeof avisarSubida>>,
     TError,
-    ConfirmarSubidaCapturaMutationVariables,
+    AvisarSubidaMutationVariables,
     TContext
   >;
   fetch?: RequestInit;
 }): UseMutationOptions<
-  Awaited<ReturnType<typeof confirmarSubidaCaptura>>,
+  Awaited<ReturnType<typeof avisarSubida>>,
   TError,
-  ConfirmarSubidaCapturaMutationVariables,
+  AvisarSubidaMutationVariables,
   TContext
 > => {
-  const mutationKey = getConfirmarSubidaCapturaMutationKey();
+  const mutationKey = getAvisarSubidaMutationKey();
   const { mutation: mutationOptions, fetch: fetchOptions } = options
     ? options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey
       ? options
@@ -366,45 +363,43 @@ export const getConfirmarSubidaCapturaMutationOptions = <
     : { mutation: { mutationKey }, fetch: undefined };
 
   const mutationFn: MutationFunction<
-    Awaited<ReturnType<typeof confirmarSubidaCaptura>>,
-    ConfirmarSubidaCapturaMutationVariables
+    Awaited<ReturnType<typeof avisarSubida>>,
+    AvisarSubidaMutationVariables
   > = (props) => {
     const { id } = props ?? {};
 
-    return confirmarSubidaCaptura(id, fetchOptions);
+    return avisarSubida(id, fetchOptions);
   };
 
   return { mutationFn, ...mutationOptions };
 };
 
-export type ConfirmarSubidaCapturaMutationResult = NonNullable<
-  Awaited<ReturnType<typeof confirmarSubidaCaptura>>
->;
+export type AvisarSubidaMutationResult = NonNullable<Awaited<ReturnType<typeof avisarSubida>>>;
 
-export type ConfirmarSubidaCapturaMutationError = unknown;
-export type ConfirmarSubidaCapturaMutationVariables = { id: string };
+export type AvisarSubidaMutationError = unknown;
+export type AvisarSubidaMutationVariables = { id: string };
 
 /**
- * @summary La web terminó de subir el audio o la foto: la captura se manda a procesar
+ * @summary Avisa que el audio o la foto ya está en S3: lo comprueba y lo manda a procesar
  */
-export const useConfirmarSubidaCaptura = <TError = unknown, TContext = unknown>(
+export const useAvisarSubida = <TError = unknown, TContext = unknown>(
   options?: {
     mutation?: UseMutationOptions<
-      Awaited<ReturnType<typeof confirmarSubidaCaptura>>,
+      Awaited<ReturnType<typeof avisarSubida>>,
       TError,
-      ConfirmarSubidaCapturaMutationVariables,
+      AvisarSubidaMutationVariables,
       TContext
     >;
     fetch?: RequestInit;
   },
   queryClient?: QueryClient,
 ): UseMutationResult<
-  Awaited<ReturnType<typeof confirmarSubidaCaptura>>,
+  Awaited<ReturnType<typeof avisarSubida>>,
   TError,
-  ConfirmarSubidaCapturaMutationVariables,
+  AvisarSubidaMutationVariables,
   TContext
 > => {
-  return useMutation(getConfirmarSubidaCapturaMutationOptions(options), queryClient);
+  return useMutation(getAvisarSubidaMutationOptions(options), queryClient);
 };
 export type obtenerCapturaResponse200 = {
   data: CapturaDetalleDtoOutput;

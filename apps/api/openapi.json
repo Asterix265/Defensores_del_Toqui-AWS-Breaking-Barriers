@@ -202,6 +202,36 @@
         ]
       }
     },
+    "/niveles": {
+      "get": {
+        "operationId": "listarNiveles",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/NivelRutaDto_Output"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Niveles de la ruta sintética con su rango de edad en meses",
+        "tags": [
+          "catalogo"
+        ]
+      }
+    },
     "/capturas": {
       "post": {
         "operationId": "crearCaptura",
@@ -352,9 +382,9 @@
         ]
       }
     },
-    "/capturas/{id}/subida-completa": {
+    "/capturas/{id}/subida": {
       "post": {
-        "operationId": "confirmarSubidaCaptura",
+        "operationId": "avisarSubida",
         "parameters": [
           {
             "name": "id",
@@ -382,7 +412,7 @@
             "bearer": []
           }
         ],
-        "summary": "La web terminó de subir el audio o la foto: la captura se manda a procesar",
+        "summary": "Avisa que el audio o la foto ya está en S3: lo comprueba y lo manda a procesar",
         "tags": [
           "capturas"
         ]
@@ -791,6 +821,92 @@
         ],
         "additionalProperties": false
       },
+      "ObservacionTrayectoria_Output": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "fecha": {
+            "type": "string",
+            "format": "date",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+          },
+          "formato": {
+            "type": "string",
+            "enum": [
+              "texto",
+              "audio",
+              "foto",
+              "video"
+            ]
+          },
+          "origen": {
+            "type": "string",
+            "enum": [
+              "dataset",
+              "app"
+            ]
+          },
+          "nivelEstimado": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9
+          },
+          "notaBreve": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "manifestaciones": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "nivel": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 9
+                },
+                "dominio": {
+                  "type": "string",
+                  "enum": [
+                    "motor_grueso",
+                    "motor_fino",
+                    "lenguaje_comunicacion",
+                    "socioemocional",
+                    "cognitivo"
+                  ]
+                },
+                "textoObservable": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id",
+                "nivel",
+                "dominio",
+                "textoObservable"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "id",
+          "fecha",
+          "formato",
+          "origen",
+          "nivelEstimado",
+          "notaBreve",
+          "manifestaciones"
+        ],
+        "additionalProperties": false
+      },
       "TrayectoriaResponseDto_Output": {
         "type": "object",
         "properties": {
@@ -909,6 +1025,12 @@
               ],
               "additionalProperties": false
             }
+          },
+          "observaciones": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ObservacionTrayectoria_Output"
+            }
           }
         },
         "required": [
@@ -917,7 +1039,8 @@
           "hasta",
           "totalObservaciones",
           "evidenciaLimitada",
-          "dominios"
+          "dominios",
+          "observaciones"
         ],
         "additionalProperties": false
       },
@@ -951,6 +1074,36 @@
           "nivel",
           "dominio",
           "textoObservable"
+        ],
+        "additionalProperties": false
+      },
+      "NivelRutaDto_Output": {
+        "type": "object",
+        "properties": {
+          "nivel": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9
+          },
+          "nombre": {
+            "type": "string"
+          },
+          "edadMinMeses": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "edadMaxMeses": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "nivel",
+          "nombre",
+          "edadMinMeses",
+          "edadMaxMeses"
         ],
         "additionalProperties": false
       },
@@ -1059,6 +1212,16 @@
           },
           "proveedor": {
             "type": "string"
+          },
+          "procesamiento": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Procesamiento_Output"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "required": [
@@ -1066,7 +1229,8 @@
           "nivelSugerido",
           "evidenciaInsuficiente",
           "manifestaciones",
-          "proveedor"
+          "proveedor",
+          "procesamiento"
         ],
         "additionalProperties": false
       },
@@ -1116,6 +1280,90 @@
         "required": [
           "manifestacion",
           "cita"
+        ],
+        "additionalProperties": false
+      },
+      "Procesamiento_Output": {
+        "type": "object",
+        "properties": {
+          "simulado": {
+            "type": "boolean"
+          },
+          "entrada": {
+            "type": "object",
+            "properties": {
+              "formato": {
+                "type": "string",
+                "enum": [
+                  "texto",
+                  "audio",
+                  "foto"
+                ]
+              },
+              "tipoArchivo": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "bytes": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "claveS3": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "formato",
+              "tipoArchivo",
+              "bytes",
+              "claveS3"
+            ],
+            "additionalProperties": false
+          },
+          "pasos": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "paso": {
+                  "type": "string",
+                  "enum": [
+                    "transcripcion",
+                    "lectura_imagen",
+                    "extraccion"
+                  ]
+                },
+                "estado": {
+                  "type": "string",
+                  "enum": [
+                    "no_implementado",
+                    "simulado",
+                    "completado"
+                  ]
+                },
+                "detalle": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "paso",
+                "estado",
+                "detalle"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "simulado",
+          "entrada",
+          "pasos"
         ],
         "additionalProperties": false
       },
@@ -1420,6 +1668,18 @@
                 "cognitivo"
               ]
             }
+          },
+          "nivel": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "required": [
@@ -1430,7 +1690,8 @@
           "estado",
           "creadoEn",
           "extracto",
-          "dominios"
+          "dominios",
+          "nivel"
         ],
         "additionalProperties": false
       },
@@ -1525,6 +1786,87 @@
         ],
         "additionalProperties": false
       },
+      "Procesamiento": {
+        "type": "object",
+        "properties": {
+          "simulado": {
+            "type": "boolean"
+          },
+          "entrada": {
+            "type": "object",
+            "properties": {
+              "formato": {
+                "type": "string",
+                "enum": [
+                  "texto",
+                  "audio",
+                  "foto"
+                ]
+              },
+              "tipoArchivo": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "bytes": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "claveS3": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "formato",
+              "tipoArchivo",
+              "bytes",
+              "claveS3"
+            ]
+          },
+          "pasos": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "paso": {
+                  "type": "string",
+                  "enum": [
+                    "transcripcion",
+                    "lectura_imagen",
+                    "extraccion"
+                  ]
+                },
+                "estado": {
+                  "type": "string",
+                  "enum": [
+                    "no_implementado",
+                    "simulado",
+                    "completado"
+                  ]
+                },
+                "detalle": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "paso",
+                "estado",
+                "detalle"
+              ]
+            }
+          }
+        },
+        "required": [
+          "simulado",
+          "entrada",
+          "pasos"
+        ]
+      },
       "BorradorEntranteDto": {
         "type": "object",
         "properties": {
@@ -1575,6 +1917,9 @@
           "modelo": {
             "type": "string",
             "minLength": 1
+          },
+          "procesamiento": {
+            "$ref": "#/components/schemas/Procesamiento"
           }
         },
         "required": [

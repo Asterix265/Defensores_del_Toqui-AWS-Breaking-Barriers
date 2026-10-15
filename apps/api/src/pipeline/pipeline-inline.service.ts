@@ -1,10 +1,8 @@
-import { Inject, Injectable, Logger } from '@nestjs/common';
-import { CapturasService } from '../capturas/capturas.service';
+import { Injectable, Logger } from '@nestjs/common';
+import { CapturasService, type ArchivoSubido } from '../capturas/capturas.service';
 import { desdeColumnaFecha, edadEnMeses } from '../comun/fechas';
-import { ENV } from '../config/config.module';
-import type { Env } from '../config/env';
 import { PrismaService } from '../prisma/prisma.service';
-import { extraerFake, normalizarFake } from './ia-fake';
+import { extraerFake, normalizarFake, procesamientoFake } from './ia-fake';
 import { nivelEsperado } from './nivel';
 
 /**
@@ -17,19 +15,14 @@ export class PipelineInlineService {
   private readonly logger = new Logger(PipelineInlineService.name);
 
   constructor(
-    @Inject(ENV) private readonly env: Env,
     private readonly prisma: PrismaService,
     private readonly capturas: CapturasService,
   ) {}
 
-  get activo(): boolean {
-    return this.env.PIPELINE_MODE === 'inline';
-  }
-
-  /** Procesa en segundo plano, sin demorar la respuesta. */
-  programar(idCaptura: string): void {
+  /** Procesa en segundo plano, sin demorar la respuesta. Audio y foto llegan con su archivo en S3. */
+  programar(idCaptura: string, archivo?: ArchivoSubido): void {
     setImmediate(() => {
-      this.procesar(idCaptura).catch(async (error: unknown) => {
+      this.procesar(idCaptura, archivo).catch(async (error: unknown) => {
         this.logger.error(`Falló el pipeline inline de ${idCaptura}`, error as Error);
         await this.capturas
           .registrarErrorPipeline(idCaptura, 'Falló el procesamiento simulado')
@@ -38,7 +31,7 @@ export class PipelineInlineService {
     });
   }
 
-  async procesar(idCaptura: string): Promise<void> {
+  async procesar(idCaptura: string, archivo?: ArchivoSubido): Promise<void> {
     const captura = await this.prisma.captura.findUniqueOrThrow({
       where: { id: idCaptura },
       select: {
@@ -59,6 +52,9 @@ export class PipelineInlineService {
       where: { nivel },
       select: { id: true, nivel: true, dominio: true, textoObservable: true },
     });
-    await this.capturas.registrarBorrador(idCaptura, extraerFake(textoFuente, nivel, catalogo));
+    await this.capturas.registrarBorrador(idCaptura, {
+      ...extraerFake(textoFuente, nivel, catalogo),
+      procesamiento: procesamientoFake(formato, captura.texto, archivo),
+    });
   }
 }

@@ -26,6 +26,5 @@ new AppStack(app, 'ToquiApp', {
   env,
   vpc: red.vpc,
   cluster: datos.cluster,
-  secretoApp: datos.secretoApp,
   description: 'Defensores del Toqui: web, API, pipeline e identidad',
 });

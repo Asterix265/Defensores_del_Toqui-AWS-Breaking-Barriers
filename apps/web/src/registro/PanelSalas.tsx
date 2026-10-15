@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import Box from '@mui/material/Box';
-import { NINOS, type Nota } from './datos';
+import type { Manifestacion, NivelRuta } from './api';
+import type { Nino } from './datos';
 import { NuevaNotaEscritorio } from './NuevaNotaEscritorio';
 import { CabeceraPanel, type Seccion } from './panel/CabeceraPanel';
 import { FichaEscritorio } from './panel/FichaEscritorio';
@@ -13,15 +14,21 @@ import { SalaEscritorio } from './panel/SalaEscritorio';
  * ambas pestañas. «Nueva nota» solo viene con niño o niña cuando se abre desde su ficha.
  */
 export function PanelSalas({
-  notas,
+  ninos,
+  salas,
+  salaPropia,
+  catalogo,
   ahora,
   nombre,
-  onGuardar,
+  onGuardada,
 }: {
-  notas: Nota[];
+  ninos: Nino[];
+  salas: string[];
+  salaPropia: string;
+  catalogo: { niveles: NivelRuta[]; manifestaciones: Manifestacion[] };
   ahora: Date;
   nombre: string;
-  onGuardar: (nota: Nota) => void;
+  onGuardada: (nino: Nino) => void;
 }) {
   const [seccion, setSeccion] = useState<Seccion>('notas');
   const [sala, setSala] = useState<string | null>(null);
@@ -33,13 +40,14 @@ export function PanelSalas({
     setNinoAbierto(null);
   };
   const nuevaGeneral = () => setNueva({});
-  const ficha = seccion === 'sala' ? NINOS.find((n) => n.id === ninoAbierto) : undefined;
+  const ficha = seccion === 'sala' ? ninos.find((n) => n.id === ninoAbierto) : undefined;
 
   let contenido;
   if (seccion === 'notas') {
     contenido = (
       <NotasSalas
-        notas={notas}
+        ninos={ninos}
+        salas={salas}
         ahora={ahora}
         sala={sala}
         onSala={setSala}
@@ -50,7 +58,7 @@ export function PanelSalas({
     contenido = (
       <FichaEscritorio
         nino={ficha}
-        notas={notas}
+        salaPropia={salaPropia}
         ahora={ahora}
         onVolver={() => setNinoAbierto(null)}
         onNuevaNota={() => setNueva({ ninoId: ficha.id })}
@@ -59,7 +67,9 @@ export function PanelSalas({
   } else {
     contenido = (
       <SalaEscritorio
-        notas={notas}
+        ninos={ninos}
+        salas={salas}
+        salaPropia={salaPropia}
         ahora={ahora}
         sala={sala}
         onSala={setSala}
@@ -77,13 +87,13 @@ export function PanelSalas({
       </Box>
       {nueva && (
         <NuevaNotaEscritorio
+          ninos={ninos}
+          catalogo={catalogo}
           ninoId={nueva.ninoId}
-          semilla={notas.length}
-          educadora={nombre}
           onCerrar={() => setNueva(null)}
-          onGuardar={(nota) => {
+          onGuardada={(nino) => {
             setNueva(null);
-            onGuardar(nota);
+            onGuardada(nino);
           }}
         />
       )}

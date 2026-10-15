@@ -41,7 +41,7 @@ pnpm db:seed                        # carga el dataset E-1 desde DATASET_DIR (un
 pnpm dev                            # web en http://localhost:5173 y API en http://localhost:3000
 ```
 
-La web abre «Registro Simple», un mock con datos sintéticos y notas en memoria que aún no usa la API: en el celular muestra el flujo de la tía (registrar, «Mi sala» con la ficha de cada niño o niña y sus notas por área, con un selector para consultar otra sala del jardín, y «Mis notas»; el botón de grabar de la ficha asocia la nota a ese niño o niña, mientras que Grabar de la barra inferior siempre pide elegirlo) y en pantallas anchas el panel con las pestañas «Mi sala» (niños y niñas por sala y su ficha, con «Nueva nota» para ese niño o niña) y «Mis notas» (tabla de notas de las salas y reporte), con el filtro de sala compartido entre ambas. El estado de la API queda en http://localhost:5173/estado. Swagger está en http://localhost:3000/docs. Se usan los puertos por defecto (web 5173, API 3000, Postgres 5432): si otro servicio local ya los ocupa, hay que detenerlo antes de levantar el proyecto.
+La web abre «Registro Simple». Los niños y niñas, el catálogo, los niveles y los registros vienen de la API (requiere `pnpm db:seed`), y las notas se guardan en ella: texto, audio grabado con el micrófono y foto tomada con la cámara; audio y foto se suben a S3 (requiere `S3_BUCKET_CAPTURAS` y el perfil `toqui` en `apps/api/.env`). La transcripción del audio, la lectura de la foto y la IA aún no están implementadas: la API usa un texto de ejemplo y una propuesta simulada, y la revisión lo avisa. El ingreso también es simulado. Graben solo audios y fotos sintéticos. En el celular muestra el flujo de la tía (registrar, «Mi sala» con la ficha de cada niño o niña y sus notas por área, con un selector para consultar otra sala del jardín, y «Mis notas»; el botón de grabar de la ficha asocia la nota a ese niño o niña, mientras que Grabar de la barra inferior siempre pide elegirlo) y en pantallas anchas el panel con las pestañas «Mi sala» (niños y niñas por sala y su ficha, con «Nueva nota» para ese niño o niña) y «Mis notas» (tabla de notas confirmadas de las salas y reporte), con el filtro de sala compartido entre ambas. El estado de la API queda en http://localhost:5173/estado. Swagger está en http://localhost:3000/docs. Se usan los puertos por defecto (web 5173, API 3000, Postgres 5432): si otro servicio local ya los ocupa, hay que detenerlo antes de levantar el proyecto.
 
 | Comando | Qué hace |
 | --- | --- |
@@ -78,13 +78,13 @@ API NestJS en Fargate (`apps/api`), según `definir-mvp-e1`. Contrato completo e
 | `POST /capturas/:id/confirmacion` | educadora | Confirma o corrige (1 a 5 manifestaciones del nivel elegido); guarda la corrección |
 | `POST /capturas/:id/descarte` | educadora | Descarta sin crear observación |
 | `GET /capturas/:id/archivo` | ambos | URL temporal del original (S3 lo borra a los 7 días) |
-| `POST /capturas/:id/subida-completa` | educadora | Terminó la subida del audio o la foto: la captura se manda a procesar |
+| `POST /capturas/:id/subida` | educadora | El audio o la foto ya está en S3: la API lo comprueba y manda la captura a procesar |
 | `POST /interno/capturas/:id/borrador` · `/error` | pipeline | Entrega idempotente del borrador; cabecera `x-pipeline-token` = `PIPELINE_TOKEN` |
 
 - Todo queda dentro del jardín del token (`custom:id_jardin`). Un niño o niña de otro jardín responde 403; una captura de otro jardín, 404.
 - Solo quien registró una captura la confirma o la descarta.
 - **Local** (`.env.example`): `AUTH_MODE=local` usa la educadora fija de `JAR-0001` sin token. Para otros usuarios: `Authorization: Bearer local:directora:JAR-0001`. `PIPELINE_MODE=inline` (por defecto) con `IA_PROVIDER=fake` produce borradores deterministas sin AWS. Audio y foto necesitan `S3_BUCKET_CAPTURAS` (el bucket de `ToquiDev`).
-- **AWS** (`PIPELINE_MODE=cola` con `SQS_URL_CAPTURAS`): la API encola cada captura en `toqui-prod-capturas` y la Lambda `toqui-prod-proceso` entrega el borrador al endpoint interno. El texto se encola al crearlo; el audio y la foto, cuando la web llama a `POST /capturas/:id/subida-completa` después del `PUT` a S3 (la API comprueba que el archivo exista y sea del tipo declarado; si no, 409). Cada captura se encola una sola vez, y si la cola falla queda en `error` con 503.
+- **AWS** (`PIPELINE_MODE=cola` con `SQS_URL_CAPTURAS`): la API encola cada captura en `toqui-prod-capturas` y la Lambda `toqui-prod-proceso` entrega el borrador al endpoint interno. El texto se encola al crearlo; el audio y la foto, cuando la web llama a `POST /capturas/:id/subida` después del `PUT` a S3 (la API comprueba el archivo: 409 si aún no llega, 422 si el tipo no coincide). Cada captura se encola una sola vez, y si la cola falla queda en `error` con 503.
 - `pnpm test` incluye pruebas e2e que crean la base `toqui_test` en el Postgres local (`pnpm db:up` antes).
 
 ## AWS de desarrollo

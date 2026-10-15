@@ -1,6 +1,7 @@
 import { Inject, Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
 import type { MensajeCaptura, TipoArchivo } from '@toqui/shared';
 import { ColaService } from '../aws/cola.service';
+import type { ArchivoSubido } from '../capturas/capturas.service';
 import { desdeColumnaFecha, edadEnMeses } from '../comun/fechas';
 import { ENV } from '../config/config.module';
 import type { Env } from '../config/env';
@@ -28,9 +29,11 @@ export class DespachadorService {
 
   /**
    * Idempotente por captura (D2): solo la primera llamada sobre una captura en `procesando` la
-   * despacha. Si el envío falla, la captura pasa a `error` y responde 503.
+   * despacha. Si el envío falla, la captura pasa a `error` y responde 503. `archivo` es el que
+   * comprobó `verificarSubida`: el modo inline lo usa para declarar el procesamiento; la cola
+   * no lo necesita, porque el mensaje se arma desde la base.
    */
-  async programar(idCaptura: string): Promise<void> {
+  async programar(idCaptura: string, archivo?: ArchivoSubido): Promise<void> {
     const { count } = await this.prisma.captura.updateMany({
       where: { id: idCaptura, estado: 'procesando', encoladaEn: null },
       data: { encoladaEn: new Date() },
@@ -38,7 +41,7 @@ export class DespachadorService {
     if (count === 0) return;
 
     if (this.env.PIPELINE_MODE === 'inline') {
-      this.inline.programar(idCaptura);
+      this.inline.programar(idCaptura, archivo);
       return;
     }
     try {

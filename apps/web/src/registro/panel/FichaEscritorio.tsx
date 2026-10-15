@@ -2,8 +2,9 @@ import Box from '@mui/material/Box';
 import ButtonBase from '@mui/material/ButtonBase';
 import Typography from '@mui/material/Typography';
 import ChevronLeftRounded from '@mui/icons-material/ChevronLeftRounded';
+import { etiquetaSala } from '../api';
 import { NinoAvatar } from '../componentes';
-import { SALA, type Nino, type Nota } from '../datos';
+import type { Nino } from '../datos';
 import { AreasNino, UltimasNotas } from '../FichaNino';
 import { BotonNuevaNota } from './TituloVista';
 
@@ -13,13 +14,13 @@ import { BotonNuevaNota } from './TituloVista';
  */
 export function FichaEscritorio({
   nino,
-  notas,
+  salaPropia,
   ahora,
   onVolver,
   onNuevaNota,
 }: {
   nino: Nino;
-  notas: Nota[];
+  salaPropia: string;
   ahora: Date;
   onVolver: () => void;
   /** Abre «Nueva nota» ya asociada a este niño o niña. */
@@ -51,8 +52,8 @@ export function FichaEscritorio({
             {nino.nombre}
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            {nino.sala}
-            {nino.sala === SALA && ' · Tu sala'}
+            {etiquetaSala(nino.sala)}
+            {nino.sala === salaPropia && ' · Tu sala'}
           </Typography>
         </Box>
         <Box sx={{ ml: 'auto' }}>
@@ -69,11 +70,10 @@ export function FichaEscritorio({
           gap: 4,
         }}
       >
-        <AreasNino nino={nino} notas={notas} ahora={ahora} />
+        <AreasNino nino={nino} ahora={ahora} />
         <UltimasNotas
           key={nino.id}
           nino={nino}
-          notas={notas}
           ahora={ahora}
           sinNotas={`Usa «Nueva nota para ${nino.nombre}» para registrar la primera.`}
         />

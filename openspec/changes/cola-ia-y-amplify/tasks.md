@@ -9,18 +9,18 @@
 - [ ] 2.1 En `packages/shared`:
   - agregar `MensajeCapturaSchema` (D3) y `ejemplosUsados` a `BorradorEntranteSchema` y `BorradorSchema`;
   - ampliar `HealthResponse.dependencies` a `{ database, storage, queue }`;
-  - agregar el esquema de respuesta de `subida-completa`.
+  - respuesta del aviso de subida: `CapturaDetalle`, sin esquema propio.
 
   Verificar con pruebas unitarias de los esquemas, incluido que se rechaza un mensaje con `idNino`
   - Hecho: `MensajeCapturaSchema` (unión por formato, `version: 1`, tipos de archivo por formato) y `AvisoCapturaSchema` en `packages/shared/src/cola.ts`. La Lambda lo valida en cada mensaje.
-  - Pendiente: `ejemplosUsados`, el esquema de `subida-completa` y las pruebas de los esquemas (incluido el rechazo de `idNino`).
+  - Pendiente: `ejemplosUsados` y las pruebas de los esquemas (incluido el rechazo de `idNino`).
 - [ ] 2.2 Agregar la migración Prisma con `capturas.encolada_en` (nullable) y `borradores.ejemplos_usados` (por defecto 0). Verificar con `pnpm db:deploy` en local
 
 ## 3. API: despachador, cola y salud
 
 - [x] 3.1 Implementar `Despachador` con las variantes `cola` (SQS `SendMessage`) e `inline` (servicio actual), cambiar `PIPELINE_MODE` a `cola | inline` y exigir `SQS_URL_CAPTURAS` en modo `cola`. Eliminar `guardarTexto`. Actualizar `env.spec.ts` y `.env.example`
 - [x] 3.2 Armar el mensaje en la API: edad, nivel esperado y catálogo completo de manifestaciones (decisión del 15-10-2026: sin ventana ±1), sin datos personales. Encolar el texto al crear la captura, y si falla, pasarla a `error` y responder 503. Verificar con una prueba e2e que el mensaje cumple el esquema y no contiene `idNino`
-- [x] 3.3 Implementar `POST /capturas/:id/subida-completa`:
+- [x] 3.3 Implementar el aviso de subida (`POST /capturas/:id/subida`, unificado el 15-10-2026 con el de `persistir-capturas`):
   - solo la dueña de la captura;
   - `HeadObject` con el tipo y el tamaño declarados, y 409 si no coinciden;
   - encolado idempotente con `encolada_en`.

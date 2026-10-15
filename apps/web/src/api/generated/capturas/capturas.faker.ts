@@ -68,6 +68,40 @@ export const getCrearCapturaResponseMock = (
           ]),
         })),
         proveedor: faker.string.alpha({ length: { min: 10, max: 20 } }),
+        procesamiento: faker.helpers.arrayElement([
+          {
+            simulado: faker.datatype.boolean(),
+            entrada: {
+              formato: faker.helpers.arrayElement(['texto', 'audio', 'foto'] as const),
+              tipoArchivo: faker.helpers.arrayElement([
+                faker.string.alpha({ length: { min: 10, max: 20 } }),
+                null,
+              ]),
+              bytes: faker.number.int({ min: 0, max: 9007199254740991 }),
+              claveS3: faker.helpers.arrayElement([
+                faker.string.alpha({ length: { min: 10, max: 20 } }),
+                null,
+              ]),
+            },
+            pasos: Array.from(
+              { length: faker.number.int({ min: 1, max: 10 }) },
+              (_, i) => i + 1,
+            ).map(() => ({
+              paso: faker.helpers.arrayElement([
+                'transcripcion',
+                'lectura_imagen',
+                'extraccion',
+              ] as const),
+              estado: faker.helpers.arrayElement([
+                'no_implementado',
+                'simulado',
+                'completado',
+              ] as const),
+              detalle: faker.string.alpha({ length: { min: 10, max: 20 } }),
+            })),
+          },
+          null,
+        ]),
       },
       null,
     ]),
@@ -147,6 +181,7 @@ export const getListarCapturasResponseMock = (
       'socioemocional',
       'cognitivo',
     ] as const),
+    nivel: faker.helpers.arrayElement([faker.number.int({ min: 1, max: 9 }), null]),
   })),
   total: faker.number.int({ min: -9007199254740991, max: 9007199254740991 }),
   pagina: faker.number.int({ min: -9007199254740991, max: 9007199254740991 }),
@@ -154,7 +189,7 @@ export const getListarCapturasResponseMock = (
   ...overrideResponse,
 });
 
-export const getConfirmarSubidaCapturaResponseMock = (
+export const getAvisarSubidaResponseMock = (
   overrideResponse: Partial<Extract<CapturaDetalleDtoOutput, object>> = {},
 ): CapturaDetalleDtoOutput => ({
   id: faker.string.uuid(),
@@ -207,6 +242,39 @@ export const getConfirmarSubidaCapturaResponseMock = (
         ]),
       })),
       proveedor: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      procesamiento: faker.helpers.arrayElement([
+        {
+          simulado: faker.datatype.boolean(),
+          entrada: {
+            formato: faker.helpers.arrayElement(['texto', 'audio', 'foto'] as const),
+            tipoArchivo: faker.helpers.arrayElement([
+              faker.string.alpha({ length: { min: 10, max: 20 } }),
+              null,
+            ]),
+            bytes: faker.number.int({ min: 0, max: 9007199254740991 }),
+            claveS3: faker.helpers.arrayElement([
+              faker.string.alpha({ length: { min: 10, max: 20 } }),
+              null,
+            ]),
+          },
+          pasos: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+            () => ({
+              paso: faker.helpers.arrayElement([
+                'transcripcion',
+                'lectura_imagen',
+                'extraccion',
+              ] as const),
+              estado: faker.helpers.arrayElement([
+                'no_implementado',
+                'simulado',
+                'completado',
+              ] as const),
+              detalle: faker.string.alpha({ length: { min: 10, max: 20 } }),
+            }),
+          ),
+        },
+        null,
+      ]),
     },
     null,
   ]),
@@ -295,6 +363,39 @@ export const getObtenerCapturaResponseMock = (
         ]),
       })),
       proveedor: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      procesamiento: faker.helpers.arrayElement([
+        {
+          simulado: faker.datatype.boolean(),
+          entrada: {
+            formato: faker.helpers.arrayElement(['texto', 'audio', 'foto'] as const),
+            tipoArchivo: faker.helpers.arrayElement([
+              faker.string.alpha({ length: { min: 10, max: 20 } }),
+              null,
+            ]),
+            bytes: faker.number.int({ min: 0, max: 9007199254740991 }),
+            claveS3: faker.helpers.arrayElement([
+              faker.string.alpha({ length: { min: 10, max: 20 } }),
+              null,
+            ]),
+          },
+          pasos: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+            () => ({
+              paso: faker.helpers.arrayElement([
+                'transcripcion',
+                'lectura_imagen',
+                'extraccion',
+              ] as const),
+              estado: faker.helpers.arrayElement([
+                'no_implementado',
+                'simulado',
+                'completado',
+              ] as const),
+              detalle: faker.string.alpha({ length: { min: 10, max: 20 } }),
+            }),
+          ),
+        },
+        null,
+      ]),
     },
     null,
   ]),
@@ -383,6 +484,39 @@ export const getConfirmarCapturaResponseMock = (
         ]),
       })),
       proveedor: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      procesamiento: faker.helpers.arrayElement([
+        {
+          simulado: faker.datatype.boolean(),
+          entrada: {
+            formato: faker.helpers.arrayElement(['texto', 'audio', 'foto'] as const),
+            tipoArchivo: faker.helpers.arrayElement([
+              faker.string.alpha({ length: { min: 10, max: 20 } }),
+              null,
+            ]),
+            bytes: faker.number.int({ min: 0, max: 9007199254740991 }),
+            claveS3: faker.helpers.arrayElement([
+              faker.string.alpha({ length: { min: 10, max: 20 } }),
+              null,
+            ]),
+          },
+          pasos: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+            () => ({
+              paso: faker.helpers.arrayElement([
+                'transcripcion',
+                'lectura_imagen',
+                'extraccion',
+              ] as const),
+              estado: faker.helpers.arrayElement([
+                'no_implementado',
+                'simulado',
+                'completado',
+              ] as const),
+              detalle: faker.string.alpha({ length: { min: 10, max: 20 } }),
+            }),
+          ),
+        },
+        null,
+      ]),
     },
     null,
   ]),
@@ -471,6 +605,39 @@ export const getDescartarCapturaResponseMock = (
         ]),
       })),
       proveedor: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      procesamiento: faker.helpers.arrayElement([
+        {
+          simulado: faker.datatype.boolean(),
+          entrada: {
+            formato: faker.helpers.arrayElement(['texto', 'audio', 'foto'] as const),
+            tipoArchivo: faker.helpers.arrayElement([
+              faker.string.alpha({ length: { min: 10, max: 20 } }),
+              null,
+            ]),
+            bytes: faker.number.int({ min: 0, max: 9007199254740991 }),
+            claveS3: faker.helpers.arrayElement([
+              faker.string.alpha({ length: { min: 10, max: 20 } }),
+              null,
+            ]),
+          },
+          pasos: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+            () => ({
+              paso: faker.helpers.arrayElement([
+                'transcripcion',
+                'lectura_imagen',
+                'extraccion',
+              ] as const),
+              estado: faker.helpers.arrayElement([
+                'no_implementado',
+                'simulado',
+                'completado',
+              ] as const),
+              detalle: faker.string.alpha({ length: { min: 10, max: 20 } }),
+            }),
+          ),
+        },
+        null,
+      ]),
     },
     null,
   ]),

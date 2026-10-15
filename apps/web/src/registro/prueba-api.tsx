@@ -414,4 +414,17 @@ export function sembrarConfirmada(
       manifestaciones: [{ manifestacion: m, cita: null }],
     },
   });
+  // Como la API real: la observación confirmada también aparece en la trayectoria.
+  OBSERVACIONES[idNino] = [
+    {
+      id: `APP-${id}`,
+      fecha: haceDias(dias),
+      formato: 'texto',
+      origen: 'app',
+      nivelEstimado: m.nivel,
+      notaBreve: texto,
+      manifestaciones: [m],
+    },
+    ...(OBSERVACIONES[idNino] ?? []),
+  ];
 }

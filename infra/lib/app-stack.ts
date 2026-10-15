@@ -45,6 +45,9 @@ export const MODELOS = {
 /** Prefijo de las capturas que inician el pipeline. */
 export const PREFIJO_CAPTURAS = 'capturas/';
 
+/** Web en Amplify Hosting (app dgsos3g6dvh6h, rama main), autorizada para subir capturas. */
+export const ORIGEN_WEB_AMPLIFY = 'https://main.dgsos3g6dvh6h.amplifyapp.com';
+
 export interface AppStackProps extends StackProps {
   vpc: ec2.IVpc;
   cluster: rds.DatabaseCluster;
@@ -209,7 +212,7 @@ export class AppStack extends Stack {
     // --- Capturas: bucket con eventos hacia EventBridge ---
     const capturas = crearBucketCapturas(this, {
       nombre: `toqui-prod-capturas-${this.account}`,
-      origenes: [urlWeb],
+      origenes: [urlWeb, ORIGEN_WEB_AMPLIFY],
       eventBridge: true,
     });
 

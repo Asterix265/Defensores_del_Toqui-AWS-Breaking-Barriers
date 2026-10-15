@@ -31,7 +31,10 @@ El frontend sube el original con la URL firmada y nunca lo descarga: la vista pr
 ### 8. Ubicación en S3
 Los originales quedan en `capturas/<id_captura>.<ext>` (audio y foto juntos; «captura» es cualquier nota). Separarlos por formato (`capturas/audio/…`, `capturas/foto/…`) queda como decisión pendiente del equipo: solo cambia `claveCaptura()` en la API, la regla de EventBridge sigue sirviendo, y el pipeline de AWS deberá tomar el id desde el nombre del archivo.
 
-### 9. Listas y cachés
+### 9. Escritorio
+Al traer `main`, los componentes de `vista-nino-escritorio` (`NotasSalas`, `SalaEscritorio`, `FichaEscritorio`, y `AreasNino` y `UltimasNotas` compartidos con la ficha del celular) dejan de recibir las notas en memoria: `NotasSalas` consulta las capturas confirmadas y la ficha usa solo la trayectoria.
+
+### 10. Listas y cachés
 Tras confirmar o descartar se invalidan las consultas de capturas y la trayectoria del niño o niña. «Mis notas» muestra las capturas propias que no fueron descartadas, con su estado.
 
 ## Risks

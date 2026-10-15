@@ -1,11 +1,12 @@
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
-import { fireEvent, screen, within } from '@testing-library/react';
+import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { aNino, type Manifestacion } from './api';
 import { PanelSalas } from './PanelSalas';
 import {
   MANIFESTACIONES,
   NINOS,
   NIVELES,
+  capturasCreadas,
   conProveedores,
   reiniciarApi,
   sembrarConfirmada,
@@ -24,6 +25,7 @@ afterAll(() => servidor.close());
 const ninos = NINOS.map(aNino);
 const catalogo = { niveles: NIVELES, manifestaciones: MANIFESTACIONES as Manifestacion[] };
 
+/** Tres notas confirmadas en la API: dos de los últimos 7 días (Salas A y B) y una de hace 9. */
 function renderizar() {
   sembrarConfirmada('NINO-T001', 'Señaló el gato del cuento, con calma.', 'MAN-L07-LC-01', 0);
   sembrarConfirmada('NINO-T004', 'Subió la rampa sin ayuda.', 'MAN-L09-MG-01', 1);
@@ -32,6 +34,7 @@ function renderizar() {
     <PanelSalas
       ninos={ninos}
       salas={['SG-A', 'SG-B']}
+      salaPropia="SG-A"
       catalogo={catalogo}
       ahora={new Date()}
       nombre="Claudia"
@@ -93,6 +96,8 @@ describe('Nueva nota en PC', () => {
 
     expect(await screen.findByText('Últimos 7 días · 3 notas')).toBeInTheDocument();
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    // Las 3 sembradas + la nueva: una sola captura creada desde la web.
+    expect(capturasCreadas()).toHaveLength(4);
   });
 });
 
@@ -117,5 +122,108 @@ describe('notasACsv', () => {
     expect(csv[1]).toContain(
       'Sala A,Mercedes Rojas,NINO-T001,Martina Pérez Soto,texto,7,Lenguaje,"Señaló el gato del cuento, con calma."',
     );
+  });
+});
+
+describe('Pestañas de escritorio', () => {
+  const pestana = (nombre: string) => screen.getByRole('tab', { name: nombre });
+
+  function abrirMiSala() {
+    renderizar();
+    fireEvent.click(pestana('Mi sala'));
+  }
+
+  function escribirNota(dialogo: HTMLElement, texto: string) {
+    fireEvent.click(within(dialogo).getByRole('button', { name: /Escribir/ }));
+    fireEvent.change(screen.getByRole('textbox', { name: 'Texto de la nota' }), {
+      target: { value: texto },
+    });
+    fireEvent.click(boton('Listo'));
+  }
+
+  it('parte en Mis notas y cambia a Mi sala', () => {
+    renderizar();
+    expect(pestana('Mis notas')).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByRole('heading', { name: 'Notas de las salas' })).toBeInTheDocument();
+
+    fireEvent.click(pestana('Mi sala'));
+    expect(pestana('Mi sala')).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByRole('heading', { name: 'Mi sala' })).toBeInTheDocument();
+  });
+
+  it('agrupa por sala con «Todas las salas» e indica las áreas sin notas', async () => {
+    abrirMiSala();
+    const grupos = screen.getAllByRole('region').map((r) => r.getAttribute('aria-label'));
+    expect(grupos).toEqual(['Sala A', 'Sala B']);
+    expect(await screen.findByText('1 área sin notas')).toBeInTheDocument();
+    expect(boton(/Martina/)).toHaveTextContent('1 área sin notas');
+  });
+
+  it('filtra Mi sala y comparte la sala con Mis notas', async () => {
+    abrirMiSala();
+    fireEvent.click(boton(/Sala B/));
+    expect(boton(/Vicente/)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Martina/ })).not.toBeInTheDocument();
+
+    fireEvent.click(pestana('Mis notas'));
+    expect(boton(/Sala B/)).toHaveAttribute('aria-pressed', 'true');
+    await screen.findByText('Últimos 7 días · 1 nota');
+    expect(screen.getAllByRole('row').slice(1)).toHaveLength(1);
+  });
+
+  it('abre la ficha con las áreas sin notas primero, sin niveles, y permite ver todas', async () => {
+    abrirMiSala();
+    fireEvent.click(boton(/Martina/));
+
+    expect(screen.getByRole('heading', { name: 'Martina P.' })).toBeInTheDocument();
+    expect(
+      await screen.findByText('Sin notas aún. Buen momento para observar.'),
+    ).toBeInTheDocument();
+    const regiones = screen.getAllByRole('region').map((r) => r.getAttribute('aria-label'));
+    expect(regiones[0]).toBe('Motor grueso');
+    expect(screen.queryByText(/nivel|rezago/i)).not.toBeInTheDocument();
+
+    // 4 observaciones del dataset + 1 confirmada en la app.
+    expect(screen.getAllByRole('article')).toHaveLength(3);
+    expect(screen.getAllByRole('article')[0]).toHaveTextContent('Registrada en la app');
+    fireEvent.click(boton('Ver las 5'));
+    expect(screen.getAllByRole('article')).toHaveLength(5);
+  });
+
+  it('vuelve a Mi sala con la sala elegida, también desde la pestaña', () => {
+    abrirMiSala();
+    fireEvent.click(boton(/Sala B/));
+    fireEvent.click(boton(/Vicente/));
+    fireEvent.click(boton('Volver a Mi sala'));
+    expect(boton(/Sala B/)).toHaveAttribute('aria-pressed', 'true');
+    expect(boton(/Vicente/)).toBeInTheDocument();
+
+    fireEvent.click(boton(/Vicente/));
+    fireEvent.click(pestana('Mi sala'));
+    expect(screen.getByRole('heading', { name: 'Mi sala' })).toBeInTheDocument();
+  });
+
+  it('Nueva nota desde la ficha queda para ese niño o niña sin elegirlo', async () => {
+    abrirMiSala();
+    fireEvent.click(boton(/Vicente/));
+    fireEvent.click(boton('Nueva nota para Vicente P.'));
+    escribirNota(screen.getByRole('dialog'), 'Apiló cinco bloques y aplaudió.');
+
+    expect(screen.queryByText('¿De quién es?')).not.toBeInTheDocument();
+    fireEvent.click(await screen.findByRole('button', { name: 'Está bien' }));
+
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    expect(screen.getByRole('heading', { name: 'Vicente P.' })).toBeInTheDocument();
+    // La observación confirmada vuelve por la trayectoria de la API, con el texto como nota breve.
+    expect((await screen.findAllByText('Apiló cinco bloques y aplaudió.'))[0]).toBeInTheDocument();
+  });
+
+  it('Nueva nota de la cabecera pide elegir sin nadie preseleccionado', () => {
+    abrirMiSala();
+    fireEvent.click(boton('Nueva nota'));
+    escribirNota(screen.getByRole('dialog'), 'Apiló cinco bloques y aplaudió.');
+
+    expect(screen.getByText('¿De quién es?')).toBeInTheDocument();
+    expect(boton('Elige un niño o niña')).toBeDisabled();
   });
 });

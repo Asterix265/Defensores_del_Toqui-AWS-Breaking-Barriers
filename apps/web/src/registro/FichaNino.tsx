@@ -40,14 +40,6 @@ export function FichaNino({
   /** Graba una nota ya asociada a este niño o niña. */
   onGrabar: () => void;
 }) {
-  const [verTodas, setVerTodas] = useState(false);
-  const observaciones = useObservaciones(nino.id);
-  const delNino = registrosDe(observaciones.data ?? []);
-  const resumen = resumenAreas(delNino, ahora);
-  const sinNotas = resumen.filter((r) => r.cantidad === 0);
-  const conNotas = resumen.filter((r) => r.cantidad > 0);
-  const visibles = verTodas ? delNino : delNino.slice(0, NOTAS_VISIBLES);
-
   return (
     <Pantalla>
       <Stack sx={{ px: 2, pt: 2, gap: 1.5 }}>
@@ -89,73 +81,114 @@ export function FichaNino({
         </Box>
       </Stack>
 
-      <Stack sx={{ px: 2, pt: 2.5, gap: 1.25 }}>
-        <Typography variant="h2" sx={titulo}>
-          Últimos {DIAS_PERIODO} días
-        </Typography>
-        {observaciones.isPending && (
-          <Typography role="status" color="text.secondary" sx={{ px: 0.5 }}>
-            Cargando registros…
-          </Typography>
-        )}
-        {observaciones.isError && (
-          <Typography role="alert" color="error" sx={{ px: 0.5 }}>
-            No se pudieron cargar los registros. Revisa que la API esté levantada.
-          </Typography>
-        )}
-        {!observaciones.isPending && sinNotas.map((r) => <AreaSinNotas key={r.area} resumen={r} />)}
-        <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 1.25 }}>
-          {!observaciones.isPending &&
-            conNotas.map((r) => <AreaConNotas key={r.area} resumen={r} ahora={ahora} />)}
-        </Box>
-      </Stack>
-
-      <Stack sx={{ px: 2, pt: 3, pb: 3, gap: 1.25 }}>
-        <Typography variant="h2" sx={titulo}>
-          Últimas notas
-        </Typography>
-        {!observaciones.isPending && delNino.length === 0 && (
-          <Typography color="text.secondary" sx={{ px: 0.5 }}>
-            Aún no hay notas de {nino.nombre}. Presiona el micrófono para registrar la primera.
-          </Typography>
-        )}
-        {visibles.map((registro) => (
-          <Stack
-            key={registro.id}
-            component="article"
-            sx={{
-              p: 1.75,
-              gap: 1,
-              bgcolor: '#fff',
-              border: 1,
-              borderColor: 'divider',
-              borderRadius: '16px',
-            }}
-          >
-            <Typography sx={{ fontSize: 16, lineHeight: '24px' }}>{registro.texto}</Typography>
-            {registro.detalle && (
-              <Typography variant="body2" color="text.secondary">
-                {registro.detalle}
-              </Typography>
-            )}
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-              {registro.dominios.map((d) => (
-                <ChipArea key={d} area={d} compacto />
-              ))}
-              <Typography variant="caption" color="text.secondary" sx={{ ml: 'auto' }}>
-                {diaCorto(registro.creada, ahora)} ·{' '}
-                {registro.origen === 'app' ? 'Registrada en la app' : 'Registro del jardín'}
-              </Typography>
-            </Box>
-          </Stack>
-        ))}
-        {!verTodas && delNino.length > NOTAS_VISIBLES && (
-          <Button variant="text" onClick={() => setVerTodas(true)}>
-            Ver las {delNino.length}
-          </Button>
-        )}
-      </Stack>
+      <Box sx={{ px: 2, pt: 2.5 }}>
+        <AreasNino nino={nino} ahora={ahora} />
+      </Box>
+      <Box sx={{ px: 2, pt: 3, pb: 3 }}>
+        <UltimasNotas
+          nino={nino}
+          ahora={ahora}
+          sinNotas="Presiona el micrófono para registrar la primera."
+        />
+      </Box>
     </Pantalla>
+  );
+}
+
+/**
+ * Áreas del niño o niña en los últimos 30 días: las sin notas apiladas primero (invitación a
+ * observar) y las demás en grilla. La comparten la ficha del celular y la de escritorio.
+ */
+export function AreasNino({ nino, ahora }: { nino: Nino; ahora: Date }) {
+  const observaciones = useObservaciones(nino.id);
+  const resumen = resumenAreas(registrosDe(observaciones.data ?? []), ahora);
+  const sinNotas = resumen.filter((r) => r.cantidad === 0);
+  const conNotas = resumen.filter((r) => r.cantidad > 0);
+  return (
+    <Stack sx={{ gap: 1.25 }}>
+      <Typography variant="h2" sx={titulo}>
+        Últimos {DIAS_PERIODO} días
+      </Typography>
+      {observaciones.isPending && (
+        <Typography role="status" color="text.secondary" sx={{ px: 0.5 }}>
+          Cargando registros…
+        </Typography>
+      )}
+      {observaciones.isError && (
+        <Typography role="alert" color="error" sx={{ px: 0.5 }}>
+          No se pudieron cargar los registros. Revisa que la API esté levantada.
+        </Typography>
+      )}
+      {!observaciones.isPending && sinNotas.map((r) => <AreaSinNotas key={r.area} resumen={r} />)}
+      <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 1.25 }}>
+        {!observaciones.isPending &&
+          conNotas.map((r) => <AreaConNotas key={r.area} resumen={r} ahora={ahora} />)}
+      </Box>
+    </Stack>
+  );
+}
+
+/** Notas del niño o niña, de la más reciente a la más antigua: 3 visibles y «Ver las N». */
+export function UltimasNotas({
+  nino,
+  ahora,
+  sinNotas,
+}: {
+  nino: Nino;
+  ahora: Date;
+  /** Cómo registrar la primera nota en este dispositivo. */
+  sinNotas: string;
+}) {
+  const [verTodas, setVerTodas] = useState(false);
+  const observaciones = useObservaciones(nino.id);
+  const delNino = registrosDe(observaciones.data ?? []);
+  const visibles = verTodas ? delNino : delNino.slice(0, NOTAS_VISIBLES);
+  return (
+    <Stack sx={{ gap: 1.25 }}>
+      <Typography variant="h2" sx={titulo}>
+        Últimas notas
+      </Typography>
+      {!observaciones.isPending && delNino.length === 0 && (
+        <Typography color="text.secondary" sx={{ px: 0.5 }}>
+          Aún no hay notas de {nino.nombre}. {sinNotas}
+        </Typography>
+      )}
+      {visibles.map((registro) => (
+        <Stack
+          key={registro.id}
+          component="article"
+          sx={{
+            p: 1.75,
+            gap: 1,
+            bgcolor: '#fff',
+            border: 1,
+            borderColor: 'divider',
+            borderRadius: '16px',
+          }}
+        >
+          <Typography sx={{ fontSize: 16, lineHeight: '24px' }}>{registro.texto}</Typography>
+          {registro.detalle && (
+            <Typography variant="body2" color="text.secondary">
+              {registro.detalle}
+            </Typography>
+          )}
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+            {registro.dominios.map((d) => (
+              <ChipArea key={d} area={d} compacto />
+            ))}
+            <Typography variant="caption" color="text.secondary" sx={{ ml: 'auto' }}>
+              {diaCorto(registro.creada, ahora)} ·{' '}
+              {registro.origen === 'app' ? 'Registrada en la app' : 'Registro del jardín'}
+            </Typography>
+          </Box>
+        </Stack>
+      ))}
+      {!verTodas && delNino.length > NOTAS_VISIBLES && (
+        <Button variant="text" onClick={() => setVerTodas(true)}>
+          Ver las {delNino.length}
+        </Button>
+      )}
+    </Stack>
   );
 }
 

@@ -1,0 +1,23 @@
+# Build de la web en Amplify Hosting (app dgsos3g6dvh6h, rama main).
+# Monorepo: la app vive en apps/web; las dependencias se instalan desde la raíz con pnpm.
+# Reglas de reescritura y variables: `pnpm aws:prod:amplify` (ver openspec/changes/cola-ia-y-amplify, D10).
+version: 1
+applications:
+  - appRoot: apps/web
+    frontend:
+      phases:
+        preBuild:
+          commands:
+            - nvm install 24
+            - nvm use 24
+            - export COREPACK_ENABLE_DOWNLOAD_PROMPT=0
+            - corepack enable
+            - cd ../.. && pnpm install --frozen-lockfile --filter @toqui/web
+        build:
+          commands:
+            - nvm use 24
+            - cd ../.. && pnpm --filter @toqui/web build
+      artifacts:
+        baseDirectory: dist
+        files:
+          - '**/*'

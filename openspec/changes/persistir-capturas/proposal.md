@@ -32,4 +32,5 @@ La web ya muestra datos reales del jardín (`conectar-web-api`), pero la acción
 - API: migración `borradores.procesamiento`, esquemas `Procesamiento` y `CapturaResumen.nivel`, `POST /capturas/:id/subida`, inspección del objeto en S3, pipeline inline con pasos declarados. Contrato y cliente orval regenerados.
 - Web: grabación y foto reales, subida a S3, flujo de captura con la API, revisión con aviso de procesamiento simulado, listas desde la API.
 - Configuración local: `S3_BUCKET_CAPTURAS` (salida `BucketCapturas` de `ToquiDev`, con `pnpm aws:env`) y `AWS_PROFILE=toqui` en `apps/api/.env`.
-- Debe archivarse después de `conectar-web-api`.
+- Las vistas de escritorio de `vista-nino-escritorio` (pestañas «Mi sala» y «Mis notas», ficha y «Nueva nota» desde la ficha) también pasan a las notas guardadas: «Mis notas» muestra las confirmadas en la API y la ficha, las observaciones de la trayectoria. Sus requisitos no nombran la fuente de las notas, así que no cambian.
+- Debe archivarse después de `conectar-web-api` y de `vista-nino-escritorio`.

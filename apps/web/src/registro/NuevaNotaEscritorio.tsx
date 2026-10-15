@@ -12,15 +12,20 @@ const DETALLE_PC: Record<Formato, string> = {
   texto: 'Con el teclado',
 };
 
-/** «Nueva nota» en PC: el mismo flujo 1b dentro de un diálogo, con carga de archivos. */
+/**
+ * «Nueva nota» en PC: el mismo flujo 1b dentro de un diálogo, con carga de archivos.
+ * Con `ninoId` (desde la ficha) la nota ya tiene dueño y se salta la elección.
+ */
 export function NuevaNotaEscritorio({
   ninos,
   catalogo,
+  ninoId,
   onGuardada,
   onCerrar,
 }: {
   ninos: Nino[];
   catalogo: { niveles: NivelRuta[]; manifestaciones: Manifestacion[] };
+  ninoId?: string;
   onGuardada: (nino: Nino) => void;
   onCerrar: () => void;
 }) {
@@ -51,6 +56,7 @@ export function NuevaNotaEscritorio({
           formato={formato}
           escritorio
           ninos={ninos}
+          ninoFijo={ninos.find((n) => n.id === ninoId)}
           catalogo={catalogo}
           onGuardada={onGuardada}
           onCancelar={onCerrar}

@@ -26,9 +26,10 @@
 - [x] 4.1 Lint, formato, typecheck, pruebas y build
 - [x] 4.2 Flujo real de la API contra la base local y el bucket de `ToquiDev`: texto, audio y foto (crear, subir, avisar, borrador con el aviso, descartar)
 - [x] 4.3 Recorrer el flujo en el navegador: foto subida a S3 y confirmada desde la web
+- [x] 4.5 Integrar `main` (pestañas de escritorio de `vista-nino-escritorio`) con las notas guardadas en la API; pruebas del panel sobre la API falsa
 - [x] 4.4 Una sola captura por nota con StrictMode (prueba que falla sin la corrección)
 
 ## Workflow follow-up
 
 - Validar con `openspec validate persistir-capturas --strict --no-interactive`.
-- Archivar después de `conectar-web-api`.
+- Archivar después de `conectar-web-api` y de `vista-nino-escritorio`.

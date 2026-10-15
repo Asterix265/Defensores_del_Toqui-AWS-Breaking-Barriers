@@ -102,3 +102,66 @@ describe('Grabar con y sin niño o niña', () => {
     expect(screen.getByRole('heading', { name: 'Hola, Mercedes' })).toBeInTheDocument();
   });
 });
+
+describe('Cambiar de sala', () => {
+  beforeEach(() => localStorage.clear());
+
+  function elegirSala(sala: string) {
+    fireEvent.click(boton(/Cambiar sala/));
+    fireEvent.click(screen.getByRole('menuitem', { name: new RegExp(sala) }));
+  }
+
+  it('muestra las tres salas y marca la propia', () => {
+    abrirMiSala();
+    expect(boton(/Cambiar sala/)).toHaveTextContent('Sala Cuna Mayor');
+    fireEvent.click(boton(/Cambiar sala/));
+
+    const opciones = screen.getAllByRole('menuitem');
+    expect(opciones).toHaveLength(3);
+    expect(opciones[0]).toHaveTextContent(/Sala Cuna Mayor.*Tu sala/);
+    expect(opciones[2]).not.toHaveTextContent('Tu sala');
+  });
+
+  it('lista los niños y niñas de la sala elegida', () => {
+    abrirMiSala();
+    elegirSala('Medio Menor');
+
+    expect(boton(/Cambiar sala/)).toHaveTextContent('Medio Menor');
+    expect(boton(/Vicente/)).toBeInTheDocument();
+    expect(boton(/Florencia/)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Martina/ })).not.toBeInTheDocument();
+  });
+
+  it('mantiene la sala elegida al volver de una ficha', () => {
+    abrirMiSala();
+    elegirSala('Medio Menor');
+    fireEvent.click(boton(/Vicente/));
+    fireEvent.click(boton('Volver a Mi sala'));
+
+    expect(boton(/Cambiar sala/)).toHaveTextContent('Medio Menor');
+    expect(boton(/Vicente/)).toBeInTheDocument();
+  });
+
+  it('graba desde la ficha de un niño o niña de otra sala', () => {
+    abrirMiSala();
+    elegirSala('Medio Menor');
+    fireEvent.click(boton(/Vicente/));
+    fireEvent.click(boton('Grabar nota de Vicente'));
+    fireEvent.click(boton('Terminar grabación'));
+    fireEvent.click(boton('Está bien'));
+
+    expect(screen.getByText('Nota guardada para Vicente')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Vicente' })).toBeInTheDocument();
+  });
+
+  it('Grabar de la barra sigue ofreciendo la sala propia', () => {
+    abrirMiSala();
+    elegirSala('Medio Menor');
+    fireEvent.click(boton('Grabar'));
+    fireEvent.click(boton('Terminar grabación'));
+
+    expect(boton('Elige un niño o niña')).toBeDisabled();
+    expect(boton('Martina')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Vicente' })).not.toBeInTheDocument();
+  });
+});

@@ -103,7 +103,8 @@ export function NuevaNota({
   };
 
   const ninos = escritorio ? NINOS : NINOS_DE_MI_SALA;
-  const nino = ninos.find((n) => n.id === ninoId);
+  // Se busca en todas las salas: desde la ficha puede venir un niño o niña de otra sala.
+  const nino = NINOS.find((n) => n.id === ninoId);
 
   switch (etapa) {
     case 'grabando':

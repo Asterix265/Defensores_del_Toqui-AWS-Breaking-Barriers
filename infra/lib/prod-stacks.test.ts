@@ -1,7 +1,12 @@
 import { App } from 'aws-cdk-lib';
 import { Match, Template } from 'aws-cdk-lib/assertions';
 import { beforeAll, describe, it } from 'vitest';
-import { AppStack, PREFIJO_CAPTURAS, PREFIX_LIST_CLOUDFRONT } from './app-stack.js';
+import {
+  AppStack,
+  ORIGEN_WEB_AMPLIFY,
+  PREFIJO_CAPTURAS,
+  PREFIX_LIST_CLOUDFRONT,
+} from './app-stack.js';
 import { DatosStack } from './datos-stack.js';
 import { RedStack } from './red-stack.js';
 
@@ -64,6 +69,14 @@ describe('stacks de producción', () => {
       DistributionConfig: Match.objectLike({
         CacheBehaviors: [Match.objectLike({ PathPattern: '/api/*' })],
       }),
+    });
+  });
+
+  it('acepta subidas de capturas desde la web en Amplify', () => {
+    app.hasResourceProperties('AWS::S3::Bucket', {
+      CorsConfiguration: {
+        CorsRules: [Match.objectLike({ AllowedOrigins: Match.arrayWith([ORIGEN_WEB_AMPLIFY]) })],
+      },
     });
   });
 

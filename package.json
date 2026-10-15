@@ -34,7 +34,8 @@
     "aws:prod:destroy": "pnpm --filter @toqui/infra aws:prod:destroy",
     "aws:prod:users": "pnpm --filter @toqui/infra aws:prod:users",
     "aws:prod:env": "pnpm --filter @toqui/infra aws:prod:env",
-    "aws:prod:smoke": "pnpm --filter @toqui/infra aws:prod:smoke"
+    "aws:prod:smoke": "pnpm --filter @toqui/infra aws:prod:smoke",
+    "aws:prod:amplify": "pnpm --filter @toqui/infra aws:prod:amplify"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

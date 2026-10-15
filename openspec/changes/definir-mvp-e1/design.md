@@ -34,7 +34,7 @@ Optimizado para móvil: la educadora graba y fotografía desde el celular. Login
 - *Alternativas:* app nativa (requiere publicar en tiendas); Next.js (no necesitamos renderizado en servidor).
 
 ### D3. Backend NestJS stateless en ECS Fargate detrás de un ALB
-Módulos `ninos`, `capturas`, `observaciones`, `trayectoria`, `ia`, `metricas` y `auth`. Reglas stateless: sin disco local, sin sesiones ni caché en memoria, sin tareas programadas internas y configuración solo por entorno. Autoescalado por CPU o solicitudes.
+Módulos implementados: `auth` (identidad y grupos), `catalogo` (niños, manifestaciones y trayectoria), `capturas` (captura, borrador, confirmación y endpoint interno), `pipeline` (modo inline con `fake`) y `seed` (carga del dataset); `metricas` queda pendiente. Reglas stateless: sin disco local, sin sesiones ni caché en memoria, sin tareas programadas internas y configuración solo por entorno. Autoescalado por CPU o solicitudes.
 - *Alternativas:* FastAPI (el ecosistema de datos de Python no se aprovecha y obliga a dos lenguajes); NestJS en Lambda (*cold starts* y conexiones a Postgres más difíciles).
 
 ### D4. PostgreSQL con Prisma; Aurora Serverless v2 en AWS
@@ -48,7 +48,7 @@ Los esquemas zod en `packages/shared` son la fuente de verdad. La API usa `nestj
 - *Alternativas:* DTOs con class-validator (duplica tipos con el frontend); tRPC (amarra el cliente a TypeScript y no produce OpenAPI estándar para Integra).
 
 ### D6. Pipeline asíncrono: S3 → Step Functions → Lambdas TypeScript
-La carga en S3 dispara la ejecución. Pasos: normalizar a texto (Transcribe `es-US` para audio; Claude multimodal en Bedrock para foto, con imagen reducida mediante `sharp`) → extraer → validar → entregar el borrador a la API mediante un endpoint interno. Las Lambdas quedan fuera de la VPC y solo la API accede a la base. El nombre de ejecución es el `id_captura`, lo que garantiza la idempotencia.
+La carga en S3 dispara la ejecución: la clave es `capturas/<id_captura>.<ext>` y el texto escrito también se guarda ahí como `.txt`, para que todos los formatos entren por el mismo camino. Pasos: normalizar a texto (Transcribe `es-US` para audio; Claude multimodal en Bedrock para foto, con imagen reducida mediante `sharp`) → extraer → validar → entregar el borrador a la API mediante un endpoint interno (`POST /interno/capturas/:id/borrador` y `/error`), autorizado con el secreto compartido `PIPELINE_TOKEN` en la cabecera `x-pipeline-token`, ya que las Lambdas llegan por CloudFront sin token de Cognito. Las Lambdas quedan fuera de la VPC y solo la API accede a la base. El nombre de ejecución es el `id_captura`, lo que garantiza la idempotencia.
 - *Alternativas:* procesar dentro de la API (rompe el principio stateless y bloquea solicitudes); Lambdas dentro de la VPC (exige endpoints o NAT).
 
 ### D7. Extracción acotada al catálogo y validada con zod
@@ -56,10 +56,10 @@ El prompt recibe el texto, la edad en meses y las manifestaciones de los niveles
 - *Alternativas:* texto libre (no trazable); clasificación del nivel sin manifestaciones (no explicable).
 
 ### D8. Proveedores intercambiables
-La interfaz `IaProvider` tiene dos implementaciones: `fake` (respuestas deterministas a partir del catálogo) y `bedrock`. El pipeline local corre los mismos pasos en secuencia dentro del proceso de la API cuando `PIPELINE_MODE=inline`. Con esto, 4 de las 6 personas trabajan sin AWS.
+La interfaz `IaProvider` tiene dos implementaciones: `fake` (respuestas deterministas a partir del catálogo) y `bedrock`. El pipeline local corre los mismos pasos en secuencia dentro del proceso de la API cuando `PIPELINE_MODE=inline`; con `fake`, audio y foto usan lecturas simuladas y se procesan al crear la captura, sin esperar el archivo. Con esto, 4 de las 6 personas trabajan sin AWS.
 
 ### D9. Autenticación con Cognito
-User Pool con grupos `educadora` y `directora` y atributo `custom:id_jardin`. Un *guard* global de Nest con `aws-jwt-verify` valida los tokens, y un *guard* de recurso filtra por jardín. `AUTH_MODE=local` existe solo para desarrollo y bloquea el arranque fuera de él. Los usuarios de la demo son sintéticos y se crean con un script.
+User Pool con grupos `educadora` y `directora` y atributo `custom:id_jardin`. Un *guard* global de Nest con `aws-jwt-verify` valida los tokens, y un *guard* de recurso filtra por jardín. `AUTH_MODE=local` existe solo para desarrollo y bloquea el arranque fuera de él; sin token usa la educadora fija de `JAR-0001` y acepta `Bearer local:<grupo>:<JAR-XXXX>` para probar otros usuarios. Se exige el token de id (trae `custom:id_jardin`). Un niño o niña de otro jardín responde 403; una captura de otro jardín, 404. Solo quien registró una captura la confirma o la descarta. Los usuarios de la demo son sintéticos y se crean con un script.
 
 ### D10. Aprendizaje por correcciones sin reentrenar
 Siempre se registran la sugerencia y la decisión final (tabla `correccion`) y se calcula el acuerdo. Como opción, se agregan embeddings (Titan Embeddings) en pgvector y se recuperan hasta 5 correcciones similares del mismo jardín como ejemplos en el prompt.

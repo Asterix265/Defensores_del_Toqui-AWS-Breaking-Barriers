@@ -11,7 +11,7 @@ describe('GET /health', () => {
 
   beforeAll(async () => {
     process.env['DATABASE_URL'] = 'postgresql://test:test@localhost:5432/test';
-    process.env['AUTH_MODO'] = 'dev';
+    process.env['AUTH_MODE'] = 'local';
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] })
       .overrideProvider(PrismaService)
       .useValue(prisma)

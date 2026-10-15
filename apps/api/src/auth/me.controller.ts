@@ -7,12 +7,12 @@ import type { Identidad } from './identidad';
 
 class MeResponseDto extends createZodDto(MeResponseSchema) {}
 
-@ApiTags('comun')
+@ApiTags('auth')
 @ApiBearerAuth()
 @Controller('me')
 export class MeController {
   @Get()
-  @ApiOperation({ operationId: 'getMe', summary: 'Quién es el usuario y su rol' })
+  @ApiOperation({ operationId: 'getMe', summary: 'Quién es la persona, su grupo y su jardín' })
   @ZodResponse({ status: 200, type: MeResponseDto })
   me(@IdentidadActual() identidad: Identidad) {
     return identidad;

@@ -22,9 +22,9 @@
             "bearer": []
           }
         ],
-        "summary": "Quién es el usuario y su rol",
+        "summary": "Quién es la persona, su grupo y su jardín",
         "tags": [
-          "comun"
+          "auth"
         ]
       }
     },
@@ -50,10 +50,20 @@
         ]
       }
     },
-    "/criterios": {
+    "/ninos": {
       "get": {
-        "operationId": "listarCriterios",
-        "parameters": [],
+        "operationId": "listarNinos",
+        "parameters": [
+          {
+            "name": "sala",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minLength": 1,
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "",
@@ -62,7 +72,7 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/components/schemas/CriterioDto_Output"
+                    "$ref": "#/components/schemas/NinoDto_Output"
                   }
                 }
               }
@@ -74,89 +84,15 @@
             "bearer": []
           }
         ],
-        "summary": "Lista fija de criterios para los botones de corrección",
+        "summary": "Niños y niñas del jardín, por sala",
         "tags": [
-          "comun"
+          "ninos"
         ]
       }
     },
-    "/subidas": {
-      "post": {
-        "operationId": "crearSubida",
-        "parameters": [],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CrearSubidaRequestDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/CrearSubidaResponseDto_Output"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "bearer": []
-          }
-        ],
-        "summary": "URL temporal para subir un audio o foto a S3",
-        "tags": [
-          "registro"
-        ]
-      }
-    },
-    "/observaciones": {
-      "post": {
-        "operationId": "crearObservacion",
-        "parameters": [],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CrearObservacionRequestDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/CrearObservacionResponseDto_Output"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "bearer": []
-          }
-        ],
-        "summary": "Crea la observación como pendiente y la encola",
-        "tags": [
-          "registro"
-        ]
-      }
-    },
-    "/observaciones/{id}": {
+    "/ninos/{id}/trayectoria": {
       "get": {
-        "operationId": "obtenerObservacion",
+        "operationId": "obtenerTrayectoria",
         "parameters": [
           {
             "name": "id",
@@ -165,204 +101,9 @@
             "schema": {
               "type": "string"
             }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ObservacionDetalleDto_Output"
-                }
-              }
-            }
-          }
-        },
-        "security": [
+          },
           {
-            "bearer": []
-          }
-        ],
-        "summary": "Estado y propuesta de una observación",
-        "tags": [
-          "registro"
-        ]
-      }
-    },
-    "/observaciones/{id}/revision": {
-      "post": {
-        "operationId": "revisarObservacion",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/DecisionRequestDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ObservacionDetalleDto_Output"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "bearer": []
-          }
-        ],
-        "summary": "El registrador confirma o corrige el criterio",
-        "tags": [
-          "registro"
-        ]
-      }
-    },
-    "/observaciones/{id}/validacion": {
-      "post": {
-        "operationId": "validarObservacion",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/DecisionRequestDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ObservacionDetalleDto_Output"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "bearer": []
-          }
-        ],
-        "summary": "El supervisor valida o corrige el criterio",
-        "tags": [
-          "registro",
-          "supervision"
-        ]
-      }
-    },
-    "/observaciones/{id}/archivo": {
-      "get": {
-        "operationId": "obtenerArchivoObservacion",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ArchivoResponseDto_Output"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "bearer": []
-          }
-        ],
-        "summary": "URL temporal del audio o foto original",
-        "tags": [
-          "registro"
-        ]
-      }
-    },
-    "/mi-dia": {
-      "get": {
-        "operationId": "obtenerMiDia",
-        "parameters": [
-          {
-            "name": "fecha",
-            "required": false,
-            "in": "query",
-            "schema": {
-              "format": "date",
-              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/MiDiaResponseDto_Output"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "bearer": []
-          }
-        ],
-        "summary": "Observaciones propias del día con su estado",
-        "tags": [
-          "registro"
-        ]
-      }
-    },
-    "/panel/observaciones": {
-      "get": {
-        "operationId": "listarPanelObservaciones",
-        "parameters": [
-          {
-            "name": "fecha",
+            "name": "desde",
             "required": false,
             "in": "query",
             "schema": {
@@ -372,7 +113,156 @@
             }
           },
           {
-            "name": "usuarioId",
+            "name": "hasta",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "format": "date",
+              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrayectoriaResponseDto_Output"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Observaciones por dominio en el periodo (por defecto, 180 días)",
+        "tags": [
+          "ninos"
+        ]
+      }
+    },
+    "/manifestaciones": {
+      "get": {
+        "operationId": "listarManifestaciones",
+        "parameters": [
+          {
+            "name": "nivel",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 9,
+              "type": "integer"
+            }
+          },
+          {
+            "name": "dominio",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "motor_grueso",
+                "motor_fino",
+                "lenguaje_comunicacion",
+                "socioemocional",
+                "cognitivo"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ManifestacionDto_Output"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Catálogo de manifestaciones, filtrable por nivel y dominio",
+        "tags": [
+          "catalogo"
+        ]
+      }
+    },
+    "/capturas": {
+      "post": {
+        "operationId": "crearCaptura",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CrearCapturaRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CrearCapturaResponseDto_Output"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Registra una nota (texto, audio o foto) de un niño o niña del jardín",
+        "tags": [
+          "capturas"
+        ]
+      },
+      "get": {
+        "operationId": "listarCapturas",
+        "parameters": [
+          {
+            "name": "desde",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "format": "date",
+              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$",
+              "type": "string"
+            }
+          },
+          {
+            "name": "hasta",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "format": "date",
+              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$",
+              "type": "string"
+            }
+          },
+          {
+            "name": "sala",
             "required": false,
             "in": "query",
             "schema": {
@@ -381,7 +271,7 @@
             }
           },
           {
-            "name": "criterioId",
+            "name": "idNino",
             "required": false,
             "in": "query",
             "schema": {
@@ -396,13 +286,23 @@
             "schema": {
               "type": "string",
               "enum": [
-                "pendiente",
                 "procesando",
-                "propuesta",
+                "borrador_listo",
                 "confirmada",
-                "corregida",
-                "validada",
+                "descartada",
                 "error"
+              ]
+            }
+          },
+          {
+            "name": "mias",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "true",
+                "false"
               ]
             }
           },
@@ -435,7 +335,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PanelObservacionesResponseDto_Output"
+                  "$ref": "#/components/schemas/ListarCapturasResponseDto_Output"
                 }
               }
             }
@@ -446,23 +346,21 @@
             "bearer": []
           }
         ],
-        "summary": "Observaciones de todos, con filtros y paginadas",
+        "summary": "Notas del jardín, con filtros por fecha, sala, niño, estado y autoría",
         "tags": [
-          "supervision"
+          "capturas"
         ]
       }
     },
-    "/panel/resumen": {
+    "/capturas/{id}": {
       "get": {
-        "operationId": "obtenerPanelResumen",
+        "operationId": "obtenerCaptura",
         "parameters": [
           {
-            "name": "fecha",
-            "required": false,
-            "in": "query",
+            "name": "id",
+            "required": true,
+            "in": "path",
             "schema": {
-              "format": "date",
-              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$",
               "type": "string"
             }
           }
@@ -473,7 +371,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PanelResumenResponseDto_Output"
+                  "$ref": "#/components/schemas/CapturaDetalleDto_Output"
                 }
               }
             }
@@ -484,9 +382,225 @@
             "bearer": []
           }
         ],
-        "summary": "Totales del día por criterio, estado y persona",
+        "summary": "Estado, borrador y observación confirmada",
         "tags": [
-          "supervision"
+          "capturas"
+        ]
+      }
+    },
+    "/capturas/{id}/confirmacion": {
+      "post": {
+        "operationId": "confirmarCaptura",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConfirmacionRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CapturaDetalleDto_Output"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Confirma el borrador tal cual o corregido; guarda la corrección",
+        "tags": [
+          "capturas"
+        ]
+      }
+    },
+    "/capturas/{id}/descarte": {
+      "post": {
+        "operationId": "descartarCaptura",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CapturaDetalleDto_Output"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Descarta el borrador sin crear observación",
+        "tags": [
+          "capturas"
+        ]
+      }
+    },
+    "/capturas/{id}/archivo": {
+      "get": {
+        "operationId": "obtenerArchivoCaptura",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArchivoResponseDto_Output"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "URL temporal del audio o foto original",
+        "tags": [
+          "capturas"
+        ]
+      }
+    },
+    "/interno/capturas/{id}/borrador": {
+      "post": {
+        "operationId": "entregarBorrador",
+        "parameters": [
+          {
+            "name": "x-pipeline-token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BorradorEntranteDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CapturaEstadoResponseDto_Output"
+                }
+              }
+            }
+          }
+        },
+        "summary": "El pipeline entrega el borrador (idempotente por captura)",
+        "tags": [
+          "interno"
+        ]
+      }
+    },
+    "/interno/capturas/{id}/error": {
+      "post": {
+        "operationId": "informarErrorPipeline",
+        "parameters": [
+          {
+            "name": "x-pipeline-token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ErrorPipelineRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CapturaEstadoResponseDto_Output"
+                }
+              }
+            }
+          }
+        },
+        "summary": "El pipeline informa un fallo",
+        "tags": [
+          "interno"
         ]
       }
     }
@@ -520,25 +634,29 @@
           "id": {
             "type": "string"
           },
-          "rol": {
-            "type": "string",
-            "enum": [
-              "registrador",
-              "supervisor"
-            ]
+          "email": {
+            "$ref": "#/components/schemas/TextoNulo_Output"
           },
           "nombre": {
             "$ref": "#/components/schemas/TextoNulo_Output"
           },
-          "telefono": {
-            "$ref": "#/components/schemas/TextoNulo_Output"
+          "grupo": {
+            "type": "string",
+            "enum": [
+              "educadora",
+              "directora"
+            ]
+          },
+          "idJardin": {
+            "type": "string"
           }
         },
         "required": [
           "id",
-          "rol",
+          "email",
           "nombre",
-          "telefono"
+          "grupo",
+          "idJardin"
         ],
         "additionalProperties": false
       },
@@ -585,89 +703,213 @@
         ],
         "additionalProperties": false
       },
-      "CriterioDto_Output": {
+      "NinoDto_Output": {
         "type": "object",
         "properties": {
           "id": {
             "type": "string"
           },
-          "nombre": {
+          "nombres": {
             "type": "string"
           },
-          "descripcion": {
-            "$ref": "#/components/schemas/TextoNulo_Output"
+          "apellidos": {
+            "type": "string"
+          },
+          "sala": {
+            "type": "string"
+          },
+          "fechaNacimiento": {
+            "type": "string",
+            "format": "date",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+          },
+          "edadMeses": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
           }
         },
         "required": [
           "id",
-          "nombre",
-          "descripcion"
+          "nombres",
+          "apellidos",
+          "sala",
+          "fechaNacimiento",
+          "edadMeses"
         ],
         "additionalProperties": false
       },
-      "CrearSubidaRequestDto": {
+      "TrayectoriaResponseDto_Output": {
         "type": "object",
         "properties": {
-          "tipo": {
-            "type": "string",
-            "enum": [
-              "audio/webm",
-              "audio/ogg",
-              "audio/mp4",
-              "audio/mpeg",
-              "audio/wav",
-              "image/jpeg",
-              "image/png"
-            ]
+          "nino": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "nombres": {
+                "type": "string"
+              },
+              "apellidos": {
+                "type": "string"
+              },
+              "sala": {
+                "type": "string"
+              },
+              "fechaNacimiento": {
+                "type": "string",
+                "format": "date",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+              },
+              "edadMeses": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              }
+            },
+            "required": [
+              "id",
+              "nombres",
+              "apellidos",
+              "sala",
+              "fechaNacimiento",
+              "edadMeses"
+            ],
+            "additionalProperties": false
           },
-          "tamano": {
+          "desde": {
+            "type": "string",
+            "format": "date",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+          },
+          "hasta": {
+            "type": "string",
+            "format": "date",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+          },
+          "totalObservaciones": {
             "type": "integer",
-            "exclusiveMinimum": 0,
-            "maximum": 10485760
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "evidenciaLimitada": {
+            "type": "boolean"
+          },
+          "dominios": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "dominio": {
+                  "type": "string",
+                  "enum": [
+                    "motor_grueso",
+                    "motor_fino",
+                    "lenguaje_comunicacion",
+                    "socioemocional",
+                    "cognitivo"
+                  ]
+                },
+                "sinRegistros": {
+                  "type": "boolean"
+                },
+                "puntos": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "idObservacion": {
+                        "type": "string"
+                      },
+                      "fecha": {
+                        "type": "string",
+                        "format": "date",
+                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                      },
+                      "nivelEstimado": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 9
+                      },
+                      "origen": {
+                        "type": "string",
+                        "enum": [
+                          "dataset",
+                          "app"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "idObservacion",
+                      "fecha",
+                      "nivelEstimado",
+                      "origen"
+                    ],
+                    "additionalProperties": false
+                  }
+                }
+              },
+              "required": [
+                "dominio",
+                "sinRegistros",
+                "puntos"
+              ],
+              "additionalProperties": false
+            }
           }
         },
         "required": [
-          "tipo",
-          "tamano"
-        ]
+          "nino",
+          "desde",
+          "hasta",
+          "totalObservaciones",
+          "evidenciaLimitada",
+          "dominios"
+        ],
+        "additionalProperties": false
       },
-      "CrearSubidaResponseDto_Output": {
+      "ManifestacionDto_Output": {
         "type": "object",
         "properties": {
-          "url": {
-            "type": "string",
-            "format": "uri"
-          },
-          "campos": {
-            "type": "object",
-            "propertyNames": {
-              "type": "string"
-            },
-            "additionalProperties": {
-              "type": "string"
-            }
-          },
-          "clave": {
+          "id": {
             "type": "string"
           },
-          "expiraEn": {
+          "nivel": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9
+          },
+          "dominio": {
             "type": "string",
-            "format": "date-time",
-            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+            "enum": [
+              "motor_grueso",
+              "motor_fino",
+              "lenguaje_comunicacion",
+              "socioemocional",
+              "cognitivo"
+            ]
+          },
+          "textoObservable": {
+            "type": "string"
           }
         },
         "required": [
-          "url",
-          "campos",
-          "clave",
-          "expiraEn"
+          "id",
+          "nivel",
+          "dominio",
+          "textoObservable"
         ],
         "additionalProperties": false
       },
-      "CrearObservacionRequestDto": {
+      "CrearCapturaRequestDto": {
         "type": "object",
         "properties": {
-          "tipo": {
+          "idNino": {
+            "type": "string",
+            "minLength": 1
+          },
+          "formato": {
             "type": "string",
             "enum": [
               "texto",
@@ -680,235 +922,201 @@
             "minLength": 1,
             "maxLength": 5000
           },
-          "clave": {
-            "type": "string",
-            "minLength": 1
+          "archivo": {
+            "type": "object",
+            "properties": {
+              "tipo": {
+                "type": "string",
+                "enum": [
+                  "audio/webm",
+                  "audio/ogg",
+                  "audio/mp4",
+                  "audio/mpeg",
+                  "audio/wav",
+                  "image/jpeg",
+                  "image/png"
+                ]
+              },
+              "tamano": {
+                "type": "integer",
+                "exclusiveMinimum": 0,
+                "maximum": 10485760
+              }
+            },
+            "required": [
+              "tipo",
+              "tamano"
+            ]
           }
         },
         "required": [
-          "tipo"
+          "idNino",
+          "formato"
         ]
       },
-      "CrearObservacionResponseDto_Output": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid",
-            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-          },
-          "estado": {
-            "type": "string",
-            "enum": [
-              "pendiente",
-              "procesando",
-              "propuesta",
-              "confirmada",
-              "corregida",
-              "validada",
-              "error"
-            ]
-          }
-        },
-        "required": [
-          "id",
-          "estado"
-        ],
-        "additionalProperties": false
-      },
-      "UsuarioRef_Output": {
+      "NinoRef_Output": {
         "type": "object",
         "properties": {
           "id": {
             "type": "string"
           },
-          "nombre": {
-            "$ref": "#/components/schemas/TextoNulo_Output"
-          }
-        },
-        "required": [
-          "id",
-          "nombre"
-        ],
-        "additionalProperties": false
-      },
-      "CriterioRef_Output": {
-        "type": "object",
-        "properties": {
-          "id": {
+          "nombres": {
             "type": "string"
           },
-          "nombre": {
+          "apellidos": {
+            "type": "string"
+          },
+          "sala": {
             "type": "string"
           }
         },
         "required": [
           "id",
-          "nombre"
+          "nombres",
+          "apellidos",
+          "sala"
         ],
         "additionalProperties": false
       },
-      "ObservacionDetalleDto_Output": {
+      "Borrador_Output": {
+        "type": "object",
+        "properties": {
+          "textoFuente": {
+            "type": "string"
+          },
+          "nivelSugerido": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "evidenciaInsuficiente": {
+            "type": "boolean"
+          },
+          "manifestaciones": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ManifestacionCitada_Output"
+            }
+          },
+          "proveedor": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "textoFuente",
+          "nivelSugerido",
+          "evidenciaInsuficiente",
+          "manifestaciones",
+          "proveedor"
+        ],
+        "additionalProperties": false
+      },
+      "ManifestacionCitada_Output": {
+        "type": "object",
+        "properties": {
+          "manifestacion": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "nivel": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9
+              },
+              "dominio": {
+                "type": "string",
+                "enum": [
+                  "motor_grueso",
+                  "motor_fino",
+                  "lenguaje_comunicacion",
+                  "socioemocional",
+                  "cognitivo"
+                ]
+              },
+              "textoObservable": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "nivel",
+              "dominio",
+              "textoObservable"
+            ],
+            "additionalProperties": false
+          },
+          "cita": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "manifestacion",
+          "cita"
+        ],
+        "additionalProperties": false
+      },
+      "ObservacionConfirmada_Output": {
         "type": "object",
         "properties": {
           "id": {
-            "type": "string",
-            "format": "uuid",
-            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-          },
-          "tipo": {
-            "type": "string",
-            "enum": [
-              "texto",
-              "audio",
-              "foto"
-            ]
-          },
-          "estado": {
-            "type": "string",
-            "enum": [
-              "pendiente",
-              "procesando",
-              "propuesta",
-              "confirmada",
-              "corregida",
-              "validada",
-              "error"
-            ]
+            "type": "string"
           },
           "fecha": {
             "type": "string",
             "format": "date",
             "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
           },
-          "creadoEn": {
-            "type": "string",
-            "format": "date-time",
-            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+          "nivelEstimado": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9
           },
-          "usuario": {
-            "$ref": "#/components/schemas/UsuarioRef_Output"
-          },
-          "texto": {
-            "$ref": "#/components/schemas/TextoNulo_Output"
-          },
-          "textoExtraido": {
-            "$ref": "#/components/schemas/TextoNulo_Output"
-          },
-          "tieneArchivo": {
-            "type": "boolean"
-          },
-          "propuesta": {
-            "anyOf": [
-              {
-                "type": "object",
-                "properties": {
-                  "criterio": {
-                    "$ref": "#/components/schemas/CriterioRef_Output"
-                  },
-                  "confianza": {
-                    "anyOf": [
-                      {
-                        "type": "number",
-                        "minimum": 0,
-                        "maximum": 1
-                      },
-                      {
-                        "type": "null"
-                      }
-                    ]
-                  },
-                  "opciones": {
-                    "type": "array",
-                    "items": {
-                      "$ref": "#/components/schemas/CriterioRef_Output"
-                    }
-                  },
-                  "audioUrl": {
-                    "anyOf": [
-                      {
-                        "type": "string",
-                        "format": "uri"
-                      },
-                      {
-                        "type": "null"
-                      }
-                    ]
-                  }
-                },
-                "required": [
-                  "criterio",
-                  "confianza",
-                  "opciones",
-                  "audioUrl"
-                ],
-                "additionalProperties": false
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "criterio": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/CriterioRef_Output"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "validadoEn": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "date-time",
-                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
-              },
-              {
-                "type": "null"
-              }
-            ]
+          "manifestaciones": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ManifestacionCitada_Output"
+            }
           }
         },
         "required": [
           "id",
-          "tipo",
-          "estado",
           "fecha",
-          "creadoEn",
-          "usuario",
-          "texto",
-          "textoExtraido",
-          "tieneArchivo",
-          "propuesta",
-          "criterio",
-          "validadoEn"
+          "nivelEstimado",
+          "manifestaciones"
         ],
         "additionalProperties": false
       },
-      "DecisionRequestDto": {
-        "type": "object",
-        "properties": {
-          "criterioId": {
-            "type": "string",
-            "minLength": 1
-          }
-        },
-        "required": [
-          "criterioId"
-        ]
-      },
-      "ArchivoResponseDto_Output": {
+      "Subida_Output": {
         "type": "object",
         "properties": {
           "url": {
             "type": "string",
             "format": "uri"
           },
-          "tipo": {
-            "type": "string"
+          "metodo": {
+            "type": "string",
+            "const": "PUT"
+          },
+          "cabeceras": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {
+              "type": "string"
+            }
           },
           "expiraEn": {
             "type": "string",
@@ -918,12 +1126,115 @@
         },
         "required": [
           "url",
-          "tipo",
+          "metodo",
+          "cabeceras",
           "expiraEn"
         ],
         "additionalProperties": false
       },
-      "ObservacionResumen_Output": {
+      "CrearCapturaResponseDto_Output": {
+        "type": "object",
+        "properties": {
+          "captura": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid",
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+              },
+              "nino": {
+                "$ref": "#/components/schemas/NinoRef_Output"
+              },
+              "autor": {
+                "type": "string"
+              },
+              "formato": {
+                "type": "string",
+                "enum": [
+                  "texto",
+                  "audio",
+                  "foto"
+                ]
+              },
+              "estado": {
+                "type": "string",
+                "enum": [
+                  "procesando",
+                  "borrador_listo",
+                  "confirmada",
+                  "descartada",
+                  "error"
+                ]
+              },
+              "creadoEn": {
+                "type": "string",
+                "format": "date-time",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+              },
+              "texto": {
+                "$ref": "#/components/schemas/TextoNulo_Output"
+              },
+              "tieneArchivo": {
+                "type": "boolean"
+              },
+              "errorDetalle": {
+                "$ref": "#/components/schemas/TextoNulo_Output"
+              },
+              "borrador": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/Borrador_Output"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "observacion": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/ObservacionConfirmada_Output"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "id",
+              "nino",
+              "autor",
+              "formato",
+              "estado",
+              "creadoEn",
+              "texto",
+              "tieneArchivo",
+              "errorDetalle",
+              "borrador",
+              "observacion"
+            ],
+            "additionalProperties": false
+          },
+          "subida": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Subida_Output"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "captura",
+          "subida"
+        ],
+        "additionalProperties": false
+      },
+      "CapturaResumen_Output": {
         "type": "object",
         "properties": {
           "id": {
@@ -931,7 +1242,13 @@
             "format": "uuid",
             "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
           },
-          "tipo": {
+          "nino": {
+            "$ref": "#/components/schemas/NinoRef_Output"
+          },
+          "autor": {
+            "type": "string"
+          },
+          "formato": {
             "type": "string",
             "enum": [
               "texto",
@@ -942,82 +1259,54 @@
           "estado": {
             "type": "string",
             "enum": [
-              "pendiente",
               "procesando",
-              "propuesta",
+              "borrador_listo",
               "confirmada",
-              "corregida",
-              "validada",
+              "descartada",
               "error"
             ]
-          },
-          "fecha": {
-            "type": "string",
-            "format": "date",
-            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
           },
           "creadoEn": {
             "type": "string",
             "format": "date-time",
             "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
           },
-          "usuario": {
-            "$ref": "#/components/schemas/UsuarioRef_Output"
-          },
           "extracto": {
             "$ref": "#/components/schemas/TextoNulo_Output"
           },
-          "criterio": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/CriterioRef_Output"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          }
-        },
-        "required": [
-          "id",
-          "tipo",
-          "estado",
-          "fecha",
-          "creadoEn",
-          "usuario",
-          "extracto",
-          "criterio"
-        ],
-        "additionalProperties": false
-      },
-      "MiDiaResponseDto_Output": {
-        "type": "object",
-        "properties": {
-          "fecha": {
-            "type": "string",
-            "format": "date",
-            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
-          },
-          "observaciones": {
+          "dominios": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/ObservacionResumen_Output"
+              "type": "string",
+              "enum": [
+                "motor_grueso",
+                "motor_fino",
+                "lenguaje_comunicacion",
+                "socioemocional",
+                "cognitivo"
+              ]
             }
           }
         },
         "required": [
-          "fecha",
-          "observaciones"
+          "id",
+          "nino",
+          "autor",
+          "formato",
+          "estado",
+          "creadoEn",
+          "extracto",
+          "dominios"
         ],
         "additionalProperties": false
       },
-      "PanelObservacionesResponseDto_Output": {
+      "ListarCapturasResponseDto_Output": {
         "type": "object",
         "properties": {
           "items": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/ObservacionResumen_Output"
+              "$ref": "#/components/schemas/CapturaResumen_Output"
             }
           },
           "total": {
@@ -1044,107 +1333,243 @@
         ],
         "additionalProperties": false
       },
-      "PanelResumenResponseDto_Output": {
+      "CapturaDetalleDto_Output": {
         "type": "object",
         "properties": {
-          "fecha": {
+          "id": {
             "type": "string",
-            "format": "date",
-            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
           },
-          "total": {
+          "nino": {
+            "$ref": "#/components/schemas/NinoRef_Output"
+          },
+          "autor": {
+            "type": "string"
+          },
+          "formato": {
+            "type": "string",
+            "enum": [
+              "texto",
+              "audio",
+              "foto"
+            ]
+          },
+          "estado": {
+            "type": "string",
+            "enum": [
+              "procesando",
+              "borrador_listo",
+              "confirmada",
+              "descartada",
+              "error"
+            ]
+          },
+          "creadoEn": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+          },
+          "texto": {
+            "$ref": "#/components/schemas/TextoNulo_Output"
+          },
+          "tieneArchivo": {
+            "type": "boolean"
+          },
+          "errorDetalle": {
+            "$ref": "#/components/schemas/TextoNulo_Output"
+          },
+          "borrador": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Borrador_Output"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "observacion": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ObservacionConfirmada_Output"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "nino",
+          "autor",
+          "formato",
+          "estado",
+          "creadoEn",
+          "texto",
+          "tieneArchivo",
+          "errorDetalle",
+          "borrador",
+          "observacion"
+        ],
+        "additionalProperties": false
+      },
+      "ConfirmacionRequestDto": {
+        "type": "object",
+        "properties": {
+          "nivel": {
             "type": "integer",
-            "minimum": -9007199254740991,
-            "maximum": 9007199254740991
+            "minimum": 1,
+            "maximum": 9
           },
-          "porCriterio": {
+          "manifestaciones": {
+            "minItems": 1,
+            "maxItems": 5,
             "type": "array",
             "items": {
               "type": "object",
               "properties": {
-                "criterio": {
-                  "anyOf": [
-                    {
-                      "$ref": "#/components/schemas/CriterioRef_Output"
-                    },
-                    {
-                      "type": "null"
-                    }
-                  ]
-                },
-                "total": {
-                  "type": "integer",
-                  "minimum": -9007199254740991,
-                  "maximum": 9007199254740991
-                }
-              },
-              "required": [
-                "criterio",
-                "total"
-              ],
-              "additionalProperties": false
-            }
-          },
-          "porEstado": {
-            "type": "array",
-            "items": {
-              "type": "object",
-              "properties": {
-                "estado": {
+                "idManifestacion": {
                   "type": "string",
-                  "enum": [
-                    "pendiente",
-                    "procesando",
-                    "propuesta",
-                    "confirmada",
-                    "corregida",
-                    "validada",
-                    "error"
-                  ]
+                  "minLength": 1
                 },
-                "total": {
-                  "type": "integer",
-                  "minimum": -9007199254740991,
-                  "maximum": 9007199254740991
+                "cita": {
+                  "type": "string",
+                  "minLength": 1
                 }
               },
               "required": [
-                "estado",
-                "total"
-              ],
-              "additionalProperties": false
-            }
-          },
-          "porPersona": {
-            "type": "array",
-            "items": {
-              "type": "object",
-              "properties": {
-                "usuario": {
-                  "$ref": "#/components/schemas/UsuarioRef_Output"
-                },
-                "total": {
-                  "type": "integer",
-                  "minimum": -9007199254740991,
-                  "maximum": 9007199254740991
-                }
-              },
-              "required": [
-                "usuario",
-                "total"
-              ],
-              "additionalProperties": false
+                "idManifestacion"
+              ]
             }
           }
         },
         "required": [
-          "fecha",
-          "total",
-          "porCriterio",
-          "porEstado",
-          "porPersona"
+          "nivel",
+          "manifestaciones"
+        ]
+      },
+      "ArchivoResponseDto_Output": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "format": "uri"
+          },
+          "tipo": {
+            "type": "string"
+          },
+          "expiraEn": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+          }
+        },
+        "required": [
+          "url",
+          "tipo",
+          "expiraEn"
         ],
         "additionalProperties": false
+      },
+      "BorradorEntranteDto": {
+        "type": "object",
+        "properties": {
+          "textoFuente": {
+            "type": "string",
+            "minLength": 1
+          },
+          "nivelSugerido": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "evidenciaInsuficiente": {
+            "type": "boolean"
+          },
+          "manifestaciones": {
+            "maxItems": 5,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "idManifestacion": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "cita": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "required": [
+                "idManifestacion",
+                "cita"
+              ]
+            }
+          },
+          "proveedor": {
+            "type": "string",
+            "minLength": 1
+          },
+          "modelo": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "textoFuente",
+          "nivelSugerido",
+          "evidenciaInsuficiente",
+          "manifestaciones",
+          "proveedor"
+        ]
+      },
+      "CapturaEstadoResponseDto_Output": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "estado": {
+            "type": "string",
+            "enum": [
+              "procesando",
+              "borrador_listo",
+              "confirmada",
+              "descartada",
+              "error"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "estado"
+        ],
+        "additionalProperties": false
+      },
+      "ErrorPipelineRequestDto": {
+        "type": "object",
+        "properties": {
+          "detalle": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          }
+        },
+        "required": [
+          "detalle"
+        ]
       }
     }
   }

@@ -1,2 +1,2 @@
 export * from './health.js';
-export * from './observaciones.js';
+export * from './registro.js';

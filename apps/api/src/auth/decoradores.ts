@@ -1,16 +1,16 @@
 import { createParamDecorator, SetMetadata, type ExecutionContext } from '@nestjs/common';
 import type { Request } from 'express';
-import type { Rol } from '@toqui/shared';
+import type { Grupo } from '@toqui/shared';
 import type { Identidad } from './identidad';
 
 export const PUBLICO = 'auth:publico';
-export const ROLES = 'auth:roles';
+export const GRUPOS = 'auth:grupos';
 
-/** Ruta sin autenticación (solo `/health`). */
+/** Ruta sin token de Cognito (`/health` y el endpoint interno del pipeline, que usa su propio secreto). */
 export const Publico = () => SetMetadata(PUBLICO, true);
 
-/** Restringe la ruta a estos roles; sin el decorador basta con estar autenticado. */
-export const Roles = (...roles: Rol[]) => SetMetadata(ROLES, roles);
+/** Restringe la ruta a estos grupos; sin el decorador basta con estar autenticado. */
+export const Grupos = (...grupos: Grupo[]) => SetMetadata(GRUPOS, grupos);
 
 /** Identidad del token, ya verificada por `AuthGuard`. */
 export const IdentidadActual = createParamDecorator(

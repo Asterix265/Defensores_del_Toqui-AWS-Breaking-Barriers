@@ -1,7 +1,7 @@
 ## ADDED Requirements
 
 ### Requirement: Autenticación
-La API SHALL exigir un token JWT válido emitido por el User Pool de Cognito configurado en todos los endpoints, salvo los de salud y documentación, y SHALL validarlo sin estado de sesión en el servidor.
+La API SHALL exigir un token JWT válido emitido por el User Pool de Cognito configurado en todos los endpoints, salvo los de salud y documentación y el endpoint interno del pipeline, y SHALL validarlo sin estado de sesión en el servidor. El endpoint interno SHALL exigir el secreto compartido `PIPELINE_TOKEN`.
 
 #### Scenario: Token válido
 - **WHEN** una solicitud trae un JWT vigente del User Pool configurado
@@ -11,12 +11,20 @@ La API SHALL exigir un token JWT válido emitido por el User Pool de Cognito con
 - **WHEN** una solicitud no trae token o trae uno vencido o de otro emisor
 - **THEN** la API responde 401 sin ejecutar la operación
 
+#### Scenario: Endpoint interno sin secreto
+- **WHEN** alguien llama al endpoint interno del pipeline sin el secreto compartido o con uno distinto
+- **THEN** la API responde 401 sin registrar el borrador
+
 ### Requirement: Roles y aislamiento por jardín
 El sistema SHALL autorizar según el grupo (`educadora`, `directora`) y el atributo `custom:id_jardin`; ningún usuario SHALL leer ni escribir datos de niños o niñas de otro jardín.
 
 #### Scenario: Acceso a otro jardín
 - **WHEN** una educadora de `JAR-0001` solicita la trayectoria de un niño o niña de `JAR-0002`
 - **THEN** la API responde 403
+
+#### Scenario: Captura de otro jardín
+- **WHEN** una persona de `JAR-0002` consulta una captura registrada en `JAR-0001`
+- **THEN** la API responde 404, sin revelar que existe
 
 ### Requirement: Modo de autenticación local
 El sistema SHALL ofrecer `AUTH_MODE=local` con un usuario de desarrollo fijo, y SHALL rechazar el arranque con ese modo fuera del entorno local.

@@ -3,10 +3,10 @@ import { APP_INTERCEPTOR, APP_PIPE } from '@nestjs/core';
 import { ZodSerializerInterceptor, ZodValidationPipe } from 'nestjs-zod';
 import { AuthModule } from './auth/auth.module';
 import { AwsModule } from './aws/aws.module';
+import { CapturasModule } from './capturas/capturas.module';
+import { CatalogoModule } from './catalogo/catalogo.module';
 import { ConfigModule } from './config/config.module';
-import { CriteriosModule } from './criterios/criterios.module';
 import { HealthModule } from './health/health.module';
-import { ObservacionesModule } from './observaciones/observaciones.module';
 import { PrismaModule } from './prisma/prisma.module';
 
 @Module({
@@ -16,8 +16,8 @@ import { PrismaModule } from './prisma/prisma.module';
     AwsModule,
     AuthModule,
     HealthModule,
-    CriteriosModule,
-    ObservacionesModule,
+    CatalogoModule,
+    CapturasModule,
   ],
   providers: [
     { provide: APP_PIPE, useClass: ZodValidationPipe },

@@ -28,7 +28,7 @@ Las educadoras de Fundación Integra dedican, según la presentación del desaf�
 
 ## Impact
 
-- Código nuevo: `apps/web`, `apps/api`, `apps/pipeline`, `packages/shared`, `infra`, `scripts/seed`, `docker-compose.yml`, `.env.example`.
+- Código nuevo: `apps/web`, `apps/api`, `apps/pipeline`, `packages/shared`, `infra`, la carga del dataset (`apps/api/src/seed`), `docker-compose.yml`, `.env.example`.
 - Dependencias principales: NestJS, Prisma, zod, nestjs-zod, orval, React, Vite, AWS SDK v3, aws-jwt-verify, AWS CDK.
 - Servicios AWS (cuenta del evento, `us-east-1`): S3, Step Functions, Lambda, Amazon Transcribe, Amazon Bedrock (Claude, Guardrails), ECS Fargate, ALB, Aurora Serverless v2, Secrets Manager, Cognito y Amplify Hosting. Requieren permisos IAM, acceso a modelos de Bedrock y un plan de limpieza.
 - Documentación: README (comandos verificados, ubicación del dataset) y `docs/` cuando cambien decisiones.

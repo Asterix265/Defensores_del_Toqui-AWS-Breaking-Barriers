@@ -5,12 +5,13 @@
  * API del copiloto de registro de observaciones (datos sintéticos).
  * OpenAPI spec version: 0.0.0
  */
-import type { MeResponseDtoOutputRol } from './meResponseDtoOutputRol';
+import type { MeResponseDtoOutputGrupo } from './meResponseDtoOutputGrupo';
 import type { TextoNuloOutput } from './textoNuloOutput';
 
 export interface MeResponseDtoOutput {
   id: string;
-  rol: MeResponseDtoOutputRol;
+  email: TextoNuloOutput | null;
   nombre: TextoNuloOutput | null;
-  telefono: TextoNuloOutput | null;
+  grupo: MeResponseDtoOutputGrupo;
+  idJardin: string;
 }

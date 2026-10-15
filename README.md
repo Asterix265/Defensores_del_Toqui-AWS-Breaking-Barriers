@@ -12,7 +12,7 @@ La línea base declarada en la presentación es de **4 horas semanales** de docu
 
 ## Estado actual
 
-La base técnica del monorepo está lista (cambio OpenSpec `levantar-stack-base`). La arquitectura vigente es la v1 de clasificación de observaciones (Lambda API + SQS + Lambda de proceso). La **Lambda API** está implementada y probada en local (cambio `implementar-lambda-api`, ver [API de observaciones](#api-de-observaciones)); faltan la Lambda de proceso (IA), la web y la infraestructura. No hay recursos desplegados en AWS.
+La base técnica del monorepo está lista (cambio OpenSpec `levantar-stack-base`). De `definir-mvp-e1`, la **API** ya implementa el modelo de dominio, la carga del dataset, la autenticación con Cognito (y modo local), la captura con borrador y confirmación, el endpoint interno del pipeline y la trayectoria (ver [API de registro](#api-de-registro)). Faltan el pipeline real con IA (Lambdas), la conexión de la web a la API y el panel de impacto.
 
 ## Stack
 
@@ -37,10 +37,11 @@ cp .env.example apps/api/.env      # en PowerShell: Copy-Item .env.example apps/
 pnpm setup                          # instala dependencias, compila shared y genera Prisma
 pnpm db:up                          # Postgres en localhost:5432
 pnpm db:deploy                      # aplica las migraciones versionadas
+pnpm db:seed                        # carga el dataset E-1 desde DATASET_DIR (una vez)
 pnpm dev                            # web en http://localhost:5173 y API en http://localhost:3000
 ```
 
-Si ya tenías `apps/api/.env` de antes de la API de observaciones, agrégale `AUTH_MODO=dev` (o vuelve a copiar `.env.example`): sin esa línea la API exige Cognito y no arranca en local.
+Si ya tenías `apps/api/.env`, agrégale las variables del modo local de `.env.example` (`AUTH_MODE`, `PIPELINE_MODE`, `IA_PROVIDER`, `DATASET_DIR`): sin `AUTH_MODE=local` la API exige Cognito y no arranca en local.
 
 La web muestra el estado de la API; Swagger está en http://localhost:3000/docs. Se usan los puertos por defecto (web 5173, API 3000, Postgres 5432): si otro servicio local ya los ocupa, hay que detenerlo antes de levantar el proyecto.
 
@@ -49,6 +50,7 @@ La web muestra el estado de la API; Swagger está en http://localhost:3000/docs.
 | `pnpm dev` | Web y API en modo desarrollo |
 | `pnpm db:up` / `pnpm db:down` | Inicia o detiene Postgres local |
 | `pnpm db:deploy` | Aplica las migraciones existentes sin crear nuevas (primera vez y tras cada `git pull`) |
+| `pnpm db:seed` | Carga el dataset E-1 desde `DATASET_DIR` (ver `.env.example`); no hace nada si ya está cargado |
 | `pnpm db:migrate` | Solo al modificar `schema.prisma`: crea una migración nueva y la aplica (`prisma migrate dev`) |
 | `pnpm contract` | Exporta `apps/api/openapi.json` y regenera el cliente web en `apps/web/src/api/generated` |
 | `pnpm lint` / `pnpm format` | ESLint y Prettier |
@@ -61,37 +63,27 @@ Al cambiar un esquema de `packages/shared` o un endpoint, ejecutar `pnpm contrac
 
 Verificado el 14-10-2026 en macOS con Node 24.22.0 y pnpm 11.13.0, en una copia limpia del repositorio. Falta confirmar en Windows y Linux, y la primera ejecución de la CI en GitHub.
 
-## API de observaciones
+## API de registro
 
-La Lambda API (`apps/api`, entrada `src/lambda.ts`) solo valida, autoriza, firma URLs de S3 y encola en SQS; todo el procesamiento ocurre en la Lambda de proceso. El contrato completo está en Swagger (`http://localhost:3000/docs`) y en `apps/api/openapi.json`.
+API NestJS en Fargate (`apps/api`), según `definir-mvp-e1`. Contrato completo en Swagger (`http://localhost:3000/docs`) y en `apps/api/openapi.json`.
 
-| Ruta | Rol | Qué hace |
+| Ruta | Grupo | Qué hace |
 | --- | --- | --- |
-| `GET /me`, `GET /criterios` | ambos | Usuario y rol; lista fija de criterios |
-| `POST /subidas` | registrador | POST firmado de S3 (5 min, tipo y tamaño ≤ 10 MB) en `subidas/<sub>/` |
-| `POST /observaciones` | registrador | Crea la observación pendiente (texto o archivo subido) y la encola |
-| `GET /observaciones/:id` | ambos | Estado y propuesta (criterio, confianza, 2 opciones, audio de Polly) |
-| `POST /observaciones/:id/revision` | registrador | Confirma o corrige; 409 si ya fue validada |
-| `GET /mi-dia?fecha=` | registrador | Sus observaciones del día |
-| `GET /panel/observaciones`, `GET /panel/resumen` | supervisor | Lista filtrada y paginada; totales del día |
-| `POST /observaciones/:id/validacion` | supervisor | Valida o corrige y cierra la observación |
-| `GET /observaciones/:id/archivo` | ambos | URL temporal del original (registrador: solo los suyos) |
+| `GET /me` | ambos | Identidad, grupo y jardín del token |
+| `GET /ninos?sala=` | ambos | Niños y niñas del jardín (nombres sintéticos) |
+| `GET /ninos/:id/trayectoria` | ambos | Observaciones por dominio en el periodo, con «sin registros» y evidencia limitada |
+| `GET /manifestaciones?nivel=&dominio=` | ambos | Catálogo para agregar o quitar manifestaciones |
+| `POST /capturas` | educadora | Nota de texto, audio o foto; audio y foto devuelven un PUT firmado a `capturas/<id>.<ext>` |
+| `GET /capturas`, `GET /capturas/:id` | ambos | Notas del jardín (filtros de fecha, sala, niño, estado, `mias`) y su borrador |
+| `POST /capturas/:id/confirmacion` | educadora | Confirma o corrige (1 a 5 manifestaciones del nivel elegido); guarda la corrección |
+| `POST /capturas/:id/descarte` | educadora | Descarta sin crear observación |
+| `GET /capturas/:id/archivo` | ambos | URL temporal del original (S3 lo borra a los 7 días) |
+| `POST /interno/capturas/:id/borrador` · `/error` | pipeline | Entrega idempotente del borrador; cabecera `x-pipeline-token` = `PIPELINE_TOKEN` |
 
-- El rol sale del grupo de Cognito del token (`registrador` o `supervisor`); otro rol recibe 403. Las observaciones ajenas responden 404.
-- En local, `AUTH_MODO=dev` acepta `Authorization: Bearer dev:registrador:ana` (o `dev:supervisor:...`). La configuración rechaza ese modo en producción.
-- Sin `S3_BUCKET` las subidas responden 503; sin `SQS_QUEUE_URL` las observaciones quedan pendientes. Ver `.env.example`.
-- Una observación en `error` no se reencola: el registrador o el supervisor eligen el criterio a mano.
-- La tabla `criterios` no tiene datos porque la lista fija aún no está definida. Mientras tanto, toda revisión o validación responde 422.
-- `GET /me` toma nombre y teléfono del token de id. Con un token de acceso (que no los trae) devuelve los guardados.
-
-Para probar el flujo completo en local sin la Lambda de proceso, carga criterios de prueba y simula la propuesta:
-
-```sh
-docker exec toqui-postgres psql -U toqui -d toqui -c "INSERT INTO criterios (id,nombre,orden) VALUES ('prueba-a','Prueba A',1),('prueba-b','Prueba B',2);"
-# Crear una observación (POST /observaciones con Bearer dev:registrador:ana) y usar su id:
-docker exec toqui-postgres psql -U toqui -d toqui -c "UPDATE observaciones SET estado='propuesta', criterio_propuesto_id='prueba-a', criterio_id='prueba-a', confianza=0.9 WHERE id='<ID>';"
-```
-
+- Todo queda dentro del jardín del token (`custom:id_jardin`). Un niño o niña de otro jardín responde 403; una captura de otro jardín, 404.
+- Solo quien registró una captura la confirma o la descarta.
+- **Local** (`.env.example`): `AUTH_MODE=local` usa la educadora fija de `JAR-0001` sin token. Para otros usuarios: `Authorization: Bearer local:directora:JAR-0001`. `PIPELINE_MODE=inline` con `IA_PROVIDER=fake` produce borradores deterministas sin AWS. Audio y foto necesitan `S3_BUCKET_CAPTURAS` (el bucket de `ToquiDev`).
+- **AWS** (`PIPELINE_MODE=aws`, por defecto): la captura llega a `capturas/` (el texto también, como `.txt`), EventBridge inicia Step Functions y el pipeline entrega el borrador al endpoint interno. El pipeline obtiene el id de captura del nombre del archivo.
 - `pnpm test` incluye pruebas e2e que crean la base `toqui_test` en el Postgres local (`pnpm db:up` antes).
 
 ## Materiales del desafío
@@ -160,7 +152,7 @@ Se excluyeron las skills de otras bases de datos, de los servicios en la nube de
 
 ## Próximos pasos
 
-1. Lambda de proceso (Transcribe/Textract, Titan + pgvector, Nova, Polly), infraestructura CDK de la API y la web; definir la lista de criterios.
+1. Completar `definir-mvp-e1`: pipeline con Transcribe y Bedrock que entregue al endpoint interno, conectar la web a la API, medir el impacto y desplegar con datos.
 2. Resolver cómo representar la rúbrica institucional frente a la ruta sintética del dataset.
 3. Configurar IAM, acceso a modelos de Bedrock y despliegue en AWS, documentando permisos, costos y limpieza.
 4. Medir tiempo de documentación y trazabilidad con datos sintéticos; reportar resultados reales de la demo.

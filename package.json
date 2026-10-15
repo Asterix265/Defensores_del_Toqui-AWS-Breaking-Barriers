@@ -12,6 +12,7 @@
     "db:up": "docker compose up -d --wait",
     "db:down": "docker compose down",
     "db:deploy": "pnpm --filter @toqui/api prisma:deploy",
+    "db:seed": "pnpm --filter @toqui/shared build && pnpm --filter @toqui/api build && pnpm --filter @toqui/api seed",
     "db:migrate": "pnpm --filter @toqui/api prisma:migrate",
     "contract": "pnpm --filter @toqui/shared build && pnpm --filter @toqui/api openapi && pnpm --filter @toqui/web contract",
     "lint": "eslint .",

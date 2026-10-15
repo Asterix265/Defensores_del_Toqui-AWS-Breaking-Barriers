@@ -1,192 +1,143 @@
 # Modelo de datos
 
-Dos partes:
-
-1. **Modelo implementado** (`apps/api/prisma/schema.prisma`): lo que usan la Lambda API y la Lambda de proceso según la arquitectura v1.
-2. **Dataset E-1** (`../diccionario_datos.md` y `../datos_publicos/*.csv`): aún no se carga en la base.
-
-## 1. Modelo implementado (arquitectura v1)
-
-```mermaid
-erDiagram
-    USUARIOS ||--o{ OBSERVACIONES : "registra"
-    USUARIOS |o--o{ OBSERVACIONES : "valida"
-    CRITERIOS |o--o{ OBSERVACIONES : "propuesto por la IA"
-    CRITERIOS |o--o{ OBSERVACIONES : "vigente"
-    OBSERVACIONES ||--o{ REVISIONES : "historial"
-    OBSERVACIONES ||--o{ EJEMPLOS : "memoria (1 por origen)"
-    USUARIOS ||--o{ REVISIONES : "decide"
-    USUARIOS ||--o{ EJEMPLOS : "decide"
-    CRITERIOS ||--o{ REVISIONES : "elegido"
-    CRITERIOS ||--o{ EJEMPLOS : "elegido"
-
-    USUARIOS {
-        string id PK "sub de Cognito"
-        enum rol "registrador | supervisor"
-        string nombre "nullable, del token"
-        string telefono "nullable, del token"
-        datetime creado_en
-        datetime actualizado_en
-    }
-    CRITERIOS {
-        string id PK "slug estable"
-        string nombre
-        string descripcion "nullable"
-        int orden
-        boolean activo
-    }
-    OBSERVACIONES {
-        uuid id PK
-        string usuario_id FK
-        enum tipo "texto | audio | foto"
-        string texto "nullable, escrito"
-        string archivo_clave "nullable, S3 subidas/sub/"
-        string archivo_tipo "nullable, MIME"
-        string texto_extraido "nullable, proceso"
-        enum estado "pendiente ... validada | error"
-        string criterio_propuesto_id FK "nullable, proceso"
-        float confianza "nullable, proceso"
-        string_array opciones "2 si hay duda, proceso"
-        string audio_propuesta_clave "nullable, Polly"
-        string criterio_id FK "nullable, vigente"
-        string error_detalle "nullable"
-        date fecha "dia en America/Santiago"
-        string validado_por_id FK "nullable"
-        datetime validado_en "nullable"
-        datetime creado_en
-        datetime actualizado_en
-    }
-    REVISIONES {
-        uuid id PK
-        uuid observacion_id FK
-        string usuario_id FK
-        enum origen "registrador | supervisor"
-        string criterio_id FK
-        boolean coincide_con_propuesta
-        datetime creado_en
-    }
-    EJEMPLOS {
-        uuid id PK
-        uuid observacion_id FK "unico con origen"
-        enum origen "registrador | supervisor"
-        string usuario_id FK
-        string criterio_id FK
-        float peso "1 registrador, 3 supervisor"
-        datetime creado_en
-        datetime actualizado_en
-    }
-```
-
-### Quién escribe qué
-
-| Tabla / columnas | Lambda API | Lambda de proceso |
-| --- | --- | --- |
-| `usuarios` | Crea o actualiza en cada petición autenticada (con caché por contenedor) | Lee |
-| `observaciones`: creación, `estado` de revisión y validación, `criterio_id`, `validado_*` | Escribe | Lee |
-| `observaciones`: `procesando`, `propuesta`, `error`, `texto_extraido`, `criterio_propuesto_id`, `confianza`, `opciones`, `audio_propuesta_clave` | Lee | Escribe |
-| `revisiones` | Agrega una fila por cada confirmación, corrección o validación | — |
-| `ejemplos` | Guarda el último criterio por origen | Lee para buscar ejemplos parecidos |
-| `criterios` | Lee | Lee |
-
-### Estados de una observación
-
-`pendiente` → `procesando` → `propuesta` → `confirmada` | `corregida` → `validada`, y `error` si el proceso falla.
-
-- El registrador puede revisar desde `propuesta`, `confirmada`, `corregida` o `error`. Si está `validada`, recibe 409.
-- El supervisor puede validar desde esos mismos estados y también volver a cambiar una ya validada.
-- Con `pendiente` o `procesando` ambos reciben 409: todavía no hay propuesta.
-
-### Pendiente para la Lambda de proceso
-
-- Agregar el vector (`embedding vector(N)`, pgvector) a `observaciones`. La búsqueda de ejemplos une `ejemplos` con `observaciones` por `observacion_id`.
-- pgvector exige la imagen `pgvector/pgvector:pg17` en `docker-compose.yml`. Aurora ya lo incluye.
-- Cargar la lista fija de `criterios`: todavía no está definida.
-
-## 2. Dataset E-1 (no cargado en la base)
-
-Las columnas marcadas como **propuesta** no vienen del dataset.
+Esquema de `apps/api/prisma/schema.prisma`, según `definir-mvp-e1` (D4): las tablas del dataset E-1 (`../diccionario_datos.md`) más las del registro en la app. El dataset se carga con `pnpm db:seed` desde `DATASET_DIR`.
 
 ```mermaid
 erDiagram
     JARDINES ||--|{ EDUCADORAS : "emplea"
     JARDINES ||--o{ NINOS : "atiende"
     NINOS ||--o{ OBSERVACIONES : "es observado en"
-    EDUCADORAS ||--o{ OBSERVACIONES : "registra"
+    EDUCADORAS |o--o{ OBSERVACIONES : "registra (dataset)"
     RUTA_NIVELES ||--|{ MANIFESTACIONES : "agrupa"
     RUTA_NIVELES ||--o{ OBSERVACIONES : "nivel_estimado"
     OBSERVACIONES ||--|{ OBSERVACION_MANIFESTACIONES : "evidencia (1 a 5)"
     MANIFESTACIONES ||--o{ OBSERVACION_MANIFESTACIONES : "se vincula en"
+    NINOS ||--o{ CAPTURAS : "nota de"
+    JARDINES ||--o{ CAPTURAS : "pertenece a"
+    CAPTURAS ||--o| BORRADORES : "sugerencia IA (max 1)"
+    CAPTURAS ||--o| OBSERVACIONES : "confirmada como"
+    CAPTURAS ||--o| CORRECCIONES : "decision"
+    CAPTURAS ||--o{ EVENTOS_TIEMPO : "inicio, borrador, decision"
 
     JARDINES {
         string id_jardin PK "JAR-0001"
-        string nombre_fantasia "unico, sintetico"
+        string nombre_fantasia UK
         string comuna
         string region
-        int numero_salas "1-12"
-        int numero_educadoras ">=1"
+        int numero_salas
+        int numero_educadoras
     }
     EDUCADORAS {
         string id_educadora PK "EDU-0001"
         string id_jardin FK
-        string nombres "propuesta"
-        string apellidos "propuesta"
-        string rol "educadora_parvulos | tecnico_parvulos"
-        int anios_experiencia "0-35"
+        string nombres "sintetico"
+        string apellidos "sintetico"
+        enum rol "educadora_parvulos | tecnico_parvulos"
+        int anios_experiencia
     }
     NINOS {
         string id_nino PK "NINO-00001"
-        string nombres "propuesta"
-        string apellidos "propuesta"
+        string nombres "sintetico"
+        string apellidos "sintetico"
         date fecha_nacimiento
-        string sexo_registrado "f | m | x | no_informado"
+        enum sexo_registrado "f | m | x | no_informado"
         string id_jardin FK
-        string sala_grupo "sala del jardin"
+        string sala_grupo
         date fecha_ingreso
     }
     RUTA_NIVELES {
         int nivel PK "1-9"
         string nombre_nivel
-        int edad_min_meses "0-36"
-        int edad_max_meses "0-36"
-        string dominios "5 dominios separados por |"
+        int edad_min_meses
+        int edad_max_meses
+        enum_array dominios "5, orden canonico"
         string descripcion
     }
     MANIFESTACIONES {
         string id_manifestacion PK "MAN-LNN-DD-NN"
         int nivel FK
-        string dominio "motor_grueso | motor_fino | lenguaje_comunicacion | socioemocional | cognitivo"
+        enum dominio
         string texto_observable
     }
     OBSERVACIONES {
-        string id_observacion PK "OBS-0000001"
+        string id_observacion PK "OBS-0000001 o APP-<id_captura>"
         string id_nino FK
-        string id_educadora FK
-        date fecha_observacion "2025-01-01 a 2026-10-13"
-        string formato_captura "video | audio | texto | foto"
-        int nivel_estimado FK "1-9"
-        string nota_breve "nullable, max 280"
+        string id_educadora FK "null en la app"
+        string id_usuario "sub de Cognito, solo app"
+        date fecha_observacion
+        enum formato_captura "video | audio | texto | foto"
+        int nivel_estimado FK "estimacion, no diagnostico"
+        string nota_breve "nullable"
+        enum origen "dataset | app"
+        uuid id_captura FK,UK "solo app"
     }
     OBSERVACION_MANIFESTACIONES {
         string id_observacion PK,FK
         string id_manifestacion PK,FK
+        string cita "nullable, solo app"
+    }
+    CAPTURAS {
+        uuid id_captura PK
+        string id_nino FK
+        string id_jardin FK "copia para filtrar"
+        string id_usuario "sub de Cognito"
+        string autor "nombre o correo del token"
+        enum formato
+        string texto "nullable, nota escrita"
+        string archivo_clave "capturas/<id>.<ext>"
+        string archivo_tipo
+        enum estado "procesando | borrador_listo | confirmada | descartada | error"
+        string error_detalle
+        date fecha "dia en America/Santiago"
+    }
+    BORRADORES {
+        uuid id PK
+        uuid id_captura FK,UK
+        string texto_fuente "del que salen las citas"
+        int nivel_sugerido "null si evidencia insuficiente"
+        json manifestaciones "[{idManifestacion, cita}]"
+        boolean evidencia_insuficiente
+        string proveedor "fake | bedrock"
+        string modelo
+    }
+    CORRECCIONES {
+        uuid id PK
+        uuid id_captura FK,UK
+        string id_usuario
+        enum decision "confirmada | corregida | descartada"
+        json sugerencia "{nivel, manifestaciones}"
+        json final "null si se descarto"
+    }
+    EVENTOS_TIEMPO {
+        uuid id PK
+        uuid id_captura FK
+        enum tipo "inicio | borrador_listo | confirmacion | descarte"
+        datetime ocurrio_en
     }
 ```
 
-### Reglas que el diagrama no muestra
+## Flujo de una captura
 
-- Cada observación se vincula con 1 a 5 manifestaciones únicas **del mismo nivel** que su `nivel_estimado`.
-- La educadora de una observación y el niño/a pertenecen al mismo jardín (verificado en las 2 950 observaciones del dataset).
-- `fecha_ingreso` ≤ primera observación del niño/a.
-- Edad en meses (derivada, en `consolidado.json`): `12*(año_obs-año_nac)+(mes_obs-mes_nac)-1[día_obs<día_nac]`.
+`procesando` → `borrador_listo` → `confirmada` | `descartada`, y `error` si el pipeline falla.
 
-### Propuesta: nombres
+1. `POST /capturas` crea la captura y el evento `inicio`. Audio y foto reciben un PUT firmado; en modo `aws` el texto se guarda en S3 como `.txt`.
+2. El pipeline (o el modo `inline` con el proveedor `fake`) entrega el borrador por `POST /interno/capturas/:id/borrador`. Es idempotente: un solo borrador por captura.
+3. La educadora que registró confirma (con o sin cambios) o descarta. Confirmar crea la observación `origen = app` con sus citas. En ambos casos queda una fila en `correcciones` con la sugerencia y la decisión.
 
-- `nombres` y `apellidos` en `educadoras` y `ninos`. El dataset no los trae: el seed debe generarlos sintéticos.
-- Los IDs (`NINO-…`, `EDU-…`) siguen siendo la clave; el nombre es solo para mostrar y para que la Lambda de proceso identifique al niño/a mencionado en una captura.
-- Son datos personales: no enviarlos al modelo de IA ni a logs más allá de lo necesario para identificar al niño/a.
-- Si se cargan estas tablas, `usuarios` puede enlazarse con `educadoras` mediante un `id_educadora` opcional y único.
+## Reglas
 
-### Volumen del dataset
+- Cada observación tiene 1 a 5 manifestaciones **del mismo nivel** que su `nivel_estimado`; la API lo exige al confirmar y al recibir el borrador.
+- Toda cita del borrador debe aparecer literalmente en `texto_fuente`.
+- La educadora de una observación del dataset y el niño o niña pertenecen al mismo jardín (verificado en las 2 950 observaciones).
+- Edad en meses: `12*(año_obs-año_nac)+(mes_obs-mes_nac)-1[día_obs<día_nac]`.
+- Nombres de niños, niñas y educadoras: sintéticos y deterministas (`apps/api/src/seed/nombres.ts`). Son datos personales en un sistema real: no se envían al modelo de IA.
+
+## Pendiente
+
+- Embeddings en pgvector (D10, opcional): requiere la imagen `pgvector/pgvector:pg17` en local.
+- `usuarios` no existe: la identidad sale del token y cada captura guarda `id_usuario` y `autor`.
+
+## Volumen del dataset
 
 | Tabla | Filas |
 | --- | --- |

@@ -8,27 +8,32 @@ describe('loadEnv', () => {
   });
 
   it('aplica valores por defecto', () => {
-    const env = loadEnv({ ...BASE, AUTH_MODO: 'dev' });
+    const env = loadEnv({ ...BASE, AUTH_MODE: 'local' });
     expect(env.PORT).toBe(3000);
     expect(env.AWS_REGION).toBe('us-east-1');
+    expect(env.PIPELINE_MODE).toBe('aws');
+    expect(env.IA_PROVIDER).toBe('fake');
     expect(env.ZONA_HORARIA).toBe('America/Santiago');
   });
 
-  it('exige el user pool en modo cognito', () => {
+  it('exige el User Pool en modo cognito', () => {
     expect(() => loadEnv(BASE)).toThrow(/COGNITO_USER_POOL_ID/);
   });
 
-  it('rechaza el modo dev y la falta de S3 o SQS en producción', () => {
-    const error = (() => {
-      try {
-        loadEnv({ ...BASE, NODE_ENV: 'production', AUTH_MODO: 'dev' });
-      } catch (e) {
-        return (e as Error).message;
-      }
-      return '';
-    })();
-    expect(error).toMatch(/AUTH_MODO/);
-    expect(error).toMatch(/S3_BUCKET/);
-    expect(error).toMatch(/SQS_QUEUE_URL/);
+  it('rechaza AUTH_MODE=local en producción', () => {
+    expect(() => loadEnv({ ...BASE, NODE_ENV: 'production', AUTH_MODE: 'local' })).toThrow(
+      /AUTH_MODE=local solo se permite en desarrollo/,
+    );
+  });
+
+  it('arranca en producción con la configuración que inyecta ToquiApp', () => {
+    const env = loadEnv({
+      ...BASE,
+      NODE_ENV: 'production',
+      COGNITO_USER_POOL_ID: 'us-east-1_x',
+      COGNITO_CLIENT_ID: 'cliente',
+      S3_BUCKET_CAPTURAS: 'toqui-prod-capturas-123',
+    });
+    expect(env).toMatchObject({ AUTH_MODE: 'cognito', PIPELINE_MODE: 'aws' });
   });
 });

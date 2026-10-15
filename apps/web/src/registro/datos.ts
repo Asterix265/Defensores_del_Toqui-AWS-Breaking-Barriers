@@ -88,7 +88,11 @@ export const NINOS: Nino[] = [
   ]),
 ];
 
-export const NINOS_DE_MI_SALA = NINOS.filter((n) => n.sala === SALA);
+export function ninosDeSala(sala: string): Nino[] {
+  return NINOS.filter((n) => n.sala === sala);
+}
+
+export const NINOS_DE_MI_SALA = ninosDeSala(SALA);
 
 interface Lectura {
   texto: string;
@@ -245,6 +249,32 @@ export function notasDeEjemplo(ahora: Date): Nota[] {
       duracion: 18,
       texto: 'Dijo “agua” y apuntó a la botella cuando tuvo sed.',
       area: 'lenguaje_comunicacion',
+    },
+    // Martina tiene notas en cuatro áreas y ninguna de Motor grueso: la ficha muestra ambos casos.
+    {
+      ninoId: 'demo-1',
+      educadora: 'Mercedes',
+      formato: 'texto',
+      creada: diasAtras(ahora, 3, 11, 5),
+      texto: 'Le ofreció su peluche a un compañero que lloraba y se quedó a su lado.',
+      area: 'socioemocional',
+    },
+    {
+      ninoId: 'demo-1',
+      educadora: 'Mercedes',
+      formato: 'audio',
+      creada: diasAtras(ahora, 6, 9, 40),
+      duracion: 18,
+      texto: 'Buscó el autito que tapé con el pañal y lo encontró al primer intento.',
+      area: 'cognitivo',
+    },
+    {
+      ninoId: 'demo-1',
+      educadora: 'Mercedes',
+      formato: 'foto',
+      creada: diasAtras(ahora, 12, 12, 15),
+      texto: 'Tomó trocitos de pan con los dedos índice y pulgar durante la colación.',
+      area: 'motor_fino',
     },
   ];
   return ejemplos.map((n, i) => ({

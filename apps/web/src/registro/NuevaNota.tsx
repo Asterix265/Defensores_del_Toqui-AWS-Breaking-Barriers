@@ -64,12 +64,14 @@ const SUBTITULO_REVISION: Record<Formato, string> = {
  * Flujo «acción primero» (diseño 1b): capturar, elegir al niño o niña y confirmar.
  * La transcripción del audio y la lectura del post-it están simuladas con textos sintéticos.
  * En PC (`escritorio`) la foto y el audio se suben como archivo y se elige entre todas las salas.
+ * Con `ninoId` (desde la ficha del niño o niña) la nota ya tiene dueño y se salta la elección.
  */
 export function NuevaNota({
   formato,
   semilla,
   educadora,
   escritorio = false,
+  ninoId: ninoFijo,
   onGuardar,
   onCancelar,
 }: {
@@ -78,6 +80,8 @@ export function NuevaNota({
   semilla: number;
   educadora: string;
   escritorio?: boolean;
+  /** Niño o niña ya elegido: la nota se le asocia sin pasar por «¿De quién es?». */
+  ninoId?: string;
   onGuardar: (nota: Nota) => void;
   onCancelar: () => void;
 }) {
@@ -89,17 +93,18 @@ export function NuevaNota({
   const [texto, setTexto] = useState('');
   const [sugerencia, setSugerencia] = useState<Nota['sugerencia']>({ texto: '', area: null });
   const [area, setArea] = useState<Dominio | null>(null);
-  const [ninoId, setNinoId] = useState<string | null>(null);
+  const [ninoId, setNinoId] = useState<string | null>(ninoFijo ?? null);
 
   const capturar = (textoLeido: string, areaSugerida: Dominio | null) => {
     setTexto(textoLeido);
     setSugerencia({ texto: textoLeido, area: areaSugerida });
     setArea(areaSugerida);
-    setEtapa('nino');
+    setEtapa(ninoFijo ? 'revision' : 'nino');
   };
 
   const ninos = escritorio ? NINOS : NINOS_DE_MI_SALA;
-  const nino = ninos.find((n) => n.id === ninoId);
+  // Se busca en todas las salas: desde la ficha puede venir un niño o niña de otra sala.
+  const nino = NINOS.find((n) => n.id === ninoId);
 
   switch (etapa) {
     case 'grabando':
@@ -261,7 +266,7 @@ function Grabando({
         >
           <Box sx={{ width: 38, height: 38, borderRadius: '8px', bgcolor: '#fff' }} />
         </ButtonBase>
-        <Typography sx={{ fontSize: 18, fontWeight: 700 }}>Toca para terminar</Typography>
+        <Typography sx={{ fontSize: 18, fontWeight: 700 }}>Presiona para terminar</Typography>
         <Typography variant="caption" color="text.secondary">
           Demo: la grabación es simulada, no se usa el micrófono.
         </Typography>
@@ -414,7 +419,7 @@ function ElegirNino({
     <Pantalla>
       <CabeceraConCerrar
         titulo="¿De quién es?"
-        subtitulo="Toca un niño o niña"
+        subtitulo="Elige a un niño o niña"
         onCancelar={onCancelar}
       />
       <Box sx={{ px: 2, pt: 1.75 }}>

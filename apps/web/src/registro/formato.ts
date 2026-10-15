@@ -17,12 +17,15 @@ export function etiquetaDia(fecha: Date, ahora: Date): string {
 
 /** «Hoy 10:14», «Ayer 16:30» o «12 oct 09:15». */
 export function formatoCuando(fecha: Date, ahora: Date): string {
+  return `${diaCorto(fecha, ahora)} ${formatoHora(fecha)}`;
+}
+
+/** «Hoy», «Ayer» o «12 oct». */
+export function diaCorto(fecha: Date, ahora: Date): string {
   const dia = etiquetaDia(fecha, ahora);
-  const corto =
-    dia === 'Hoy' || dia === 'Ayer'
-      ? dia
-      : fecha.toLocaleDateString('es-CL', { day: 'numeric', month: 'short' });
-  return `${corto} ${formatoHora(fecha)}`;
+  return dia === 'Hoy' || dia === 'Ayer'
+    ? dia
+    : fecha.toLocaleDateString('es-CL', { day: 'numeric', month: 'short' });
 }
 
 export function formatoDuracion(segundos: number): string {

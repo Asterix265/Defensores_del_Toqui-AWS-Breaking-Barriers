@@ -36,7 +36,7 @@ describe('PanelSalas', () => {
   it('muestra las notas de todas las salas de los últimos 7 días', () => {
     renderizar();
     expect(screen.getByRole('heading', { name: 'Notas de las salas' })).toBeInTheDocument();
-    expect(screen.getByText('Últimos 7 días · 8 notas')).toBeInTheDocument();
+    expect(screen.getByText('Últimos 7 días · 10 notas')).toBeInTheDocument();
     // La nota de hace 9 días queda fuera del periodo.
     expect(screen.queryByText(/apuntó a la botella/)).not.toBeInTheDocument();
   });
@@ -79,7 +79,7 @@ describe('Nueva nota en PC', () => {
     fireEvent.click(boton('Está bien'));
 
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
-    expect(screen.getByText('Últimos 7 días · 9 notas')).toBeInTheDocument();
+    expect(screen.getByText('Últimos 7 días · 11 notas')).toBeInTheDocument();
     expect(screen.getAllByText('Tía Claudia', { exact: false })).toHaveLength(1);
   });
 });

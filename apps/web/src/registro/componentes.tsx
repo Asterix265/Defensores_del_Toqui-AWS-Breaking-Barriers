@@ -24,7 +24,7 @@ export const ICONO_FORMATO: Record<Formato, SvgIconComponent> = {
   texto: EditNoteRounded,
 };
 
-const ICONO_DOMINIO: Record<Dominio, SvgIconComponent> = {
+export const ICONO_DOMINIO: Record<Dominio, SvgIconComponent> = {
   cognitivo: LightbulbRounded,
   lenguaje_comunicacion: ChatBubbleRounded,
   motor_fino: PanToolRounded,

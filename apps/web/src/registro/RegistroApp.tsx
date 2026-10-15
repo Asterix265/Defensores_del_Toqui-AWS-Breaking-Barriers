@@ -5,9 +5,11 @@ import Snackbar from '@mui/material/Snackbar';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { useTheme } from '@mui/material/styles';
 import { BarraInferior } from './BarraInferior';
-import { NINOS, NINOS_DE_MI_SALA, notasDeEjemplo, type Formato, type Nota } from './datos';
+import { NINOS, NINOS_DE_MI_SALA, SALA, notasDeEjemplo, type Formato, type Nota } from './datos';
+import { FichaNino } from './FichaNino';
 import { Ingreso } from './Ingreso';
 import { Inicio } from './Inicio';
+import { MiSala } from './MiSala';
 import { MisNotas } from './MisNotas';
 import { NuevaNota } from './NuevaNota';
 import { PanelSalas } from './PanelSalas';
@@ -15,7 +17,16 @@ import { colores } from './tema';
 
 const CLAVE_SESION = 'toqui.registro.correo';
 
-type Vista = { tipo: 'inicio' } | { tipo: 'notas' } | { tipo: 'nueva'; formato: Formato };
+/**
+ * Pantalla del celular. El niño o niña elegido viaja solo en la vista `nueva` abierta desde su
+ * ficha: no hay un «niño actual» global que Grabar de la barra pueda heredar.
+ */
+type Vista =
+  | { tipo: 'inicio' }
+  | { tipo: 'notas' }
+  | { tipo: 'sala' }
+  | { tipo: 'ficha'; ninoId: string }
+  | { tipo: 'nueva'; formato: Formato; ninoId?: string };
 
 function leerSesion(): string | null {
   try {
@@ -54,6 +65,8 @@ export function RegistroApp() {
   const [vista, setVista] = useState<Vista>({ tipo: 'inicio' });
   const [notas, setNotas] = useState<Nota[]>(() => notasDeEjemplo(new Date()));
   const [aviso, setAviso] = useState<string | null>(null);
+  // Sala que se consulta en «Mi sala». Queda fuera de `Vista`: Grabar de la barra no la hereda.
+  const [salaVista, setSalaVista] = useState(SALA);
   const escritorio = useMediaQuery(useTheme().breakpoints.up('md'));
 
   const ahora = new Date();
@@ -102,38 +115,67 @@ export function RegistroApp() {
       />
     );
   } else if (vista.tipo === 'nueva') {
+    const { ninoId } = vista;
+    const volver = () => setVista(ninoId ? { tipo: 'ficha', ninoId } : { tipo: 'inicio' });
     contenido = (
       <NuevaNota
         formato={vista.formato}
+        ninoId={ninoId}
         semilla={notas.length}
         educadora={nombreDesdeCorreo(correo)}
-        onCancelar={() => setVista({ tipo: 'inicio' })}
+        onCancelar={volver}
         onGuardar={(nota) => {
           guardar(nota);
-          setVista({ tipo: 'inicio' });
+          volver();
         }}
       />
     );
   } else {
+    const fichaDe = vista.tipo === 'ficha' ? NINOS.find((n) => n.id === vista.ninoId) : undefined;
+    let pantalla;
+    if (fichaDe) {
+      pantalla = (
+        <FichaNino
+          nino={fichaDe}
+          notas={notas}
+          ahora={ahora}
+          onVolver={() => setVista({ tipo: 'sala' })}
+          onGrabar={() => setVista({ tipo: 'nueva', formato: 'audio', ninoId: fichaDe.id })}
+        />
+      );
+    } else if (vista.tipo === 'sala' || vista.tipo === 'ficha') {
+      pantalla = (
+        <MiSala
+          notas={notas}
+          ahora={ahora}
+          sala={salaVista}
+          onCambiarSala={setSalaVista}
+          onAbrir={(ninoId) => setVista({ tipo: 'ficha', ninoId })}
+        />
+      );
+    } else if (vista.tipo === 'notas') {
+      pantalla = <MisNotas notas={notas} ahora={ahora} />;
+    } else {
+      pantalla = (
+        <Inicio
+          nombre={nombreDesdeCorreo(correo)}
+          notasHoy={
+            notas.filter(
+              (n) =>
+                esHoy(n.creada, ahora) && NINOS_DE_MI_SALA.some((nino) => nino.id === n.ninoId),
+            ).length
+          }
+          onElegir={nueva}
+        />
+      );
+    }
     contenido = (
       <>
-        {vista.tipo === 'inicio' ? (
-          <Inicio
-            nombre={nombreDesdeCorreo(correo)}
-            notasHoy={
-              notas.filter(
-                (n) =>
-                  esHoy(n.creada, ahora) && NINOS_DE_MI_SALA.some((nino) => nino.id === n.ninoId),
-              ).length
-            }
-            onElegir={nueva}
-          />
-        ) : (
-          <MisNotas notas={notas} ahora={ahora} />
-        )}
+        {pantalla}
         <BarraInferior
-          activa={vista.tipo}
+          activa={vista.tipo === 'ficha' ? 'sala' : vista.tipo}
           onInicio={() => setVista({ tipo: 'inicio' })}
+          onSala={() => setVista({ tipo: 'sala' })}
           onGrabar={() => nueva('audio')}
           onNotas={() => setVista({ tipo: 'notas' })}
         />

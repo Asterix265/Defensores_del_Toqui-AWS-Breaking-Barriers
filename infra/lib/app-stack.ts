@@ -24,6 +24,7 @@ import * as logs from 'aws-cdk-lib/aws-logs';
 import type * as rds from 'aws-cdk-lib/aws-rds';
 import * as s3 from 'aws-cdk-lib/aws-s3';
 import * as s3deploy from 'aws-cdk-lib/aws-s3-deployment';
+import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager';
 import * as sfn from 'aws-cdk-lib/aws-stepfunctions';
 import * as tasks from 'aws-cdk-lib/aws-stepfunctions-tasks';
 import type { Construct } from 'constructs';
@@ -44,6 +45,18 @@ export const MODELOS = {
 
 /** Prefijo de las capturas que inician el pipeline. */
 export const PREFIJO_CAPTURAS = 'capturas/';
+
+/** Prefijo de los resultados de Transcribe (fuera de `capturas/`: no vuelven a iniciar el pipeline). */
+export const PREFIJO_TRANSCRIPCIONES = 'transcripciones/';
+
+/** Errores que Step Functions reintenta con espera creciente (red, API 5xx, límites de Bedrock). */
+export const ERRORES_TRANSITORIOS = [
+  'ErrorTransitorio',
+  'ThrottlingException',
+  'ServiceUnavailableException',
+  'ModelNotReadyException',
+  'InternalServerException',
+];
 
 export interface AppStackProps extends StackProps {
   vpc: ec2.IVpc;
@@ -74,6 +87,14 @@ export class AppStack extends Stack {
     // --- API: NestJS en Fargate detrás de un ALB que solo acepta tráfico de CloudFront ---
     const secreto = props.cluster.secret;
     if (!secreto) throw new Error('El cluster de Aurora no tiene secreto de credenciales.');
+
+    // Secreto compartido entre la API y las Lambdas para el endpoint interno (D6).
+    const tokenPipeline = new secretsmanager.Secret(this, 'TokenPipeline', {
+      secretName: 'toqui-prod/pipeline-token',
+      description: 'PIPELINE_TOKEN: autoriza al pipeline en /interno/capturas',
+      generateSecretString: { passwordLength: 48, excludePunctuation: true },
+      removalPolicy: RemovalPolicy.DESTROY,
+    });
 
     const cluster = new ecs.Cluster(this, 'Cluster', {
       clusterName: 'toqui-prod',
@@ -132,6 +153,7 @@ export class AppStack extends Stack {
           DB_PORT: ecs.Secret.fromSecretsManager(secreto, 'port'),
           DB_USER: ecs.Secret.fromSecretsManager(secreto, 'username'),
           DB_PASSWORD: ecs.Secret.fromSecretsManager(secreto, 'password'),
+          PIPELINE_TOKEN: ecs.Secret.fromSecretsManager(tokenPipeline),
         },
       },
     });
@@ -213,51 +235,7 @@ export class AppStack extends Stack {
       eventBridge: true,
     });
 
-    // --- Pipeline: S3 (capturas/) → EventBridge → Step Functions → Lambda ---
-    const paso = new lambda.Function(this, 'PasoEco', {
-      functionName: 'toqui-prod-paso-eco',
-      runtime: lambda.Runtime.NODEJS_24_X,
-      architecture: lambda.Architecture.ARM_64,
-      handler: 'eco.handler',
-      code: existsSync(DIST_PIPELINE)
-        ? lambda.Code.fromAsset(DIST_PIPELINE)
-        : lambda.Code.fromInline('exports.handler = async () => ({});'),
-      memorySize: 512,
-      timeout: Duration.seconds(60),
-      logGroup: new logs.LogGroup(this, 'LogsPipeline', {
-        logGroupName: '/toqui/prod/pipeline',
-        retention: logs.RetentionDays.TWO_WEEKS,
-        removalPolicy: RemovalPolicy.DESTROY,
-      }),
-    });
-    const maquina = new sfn.StateMachine(this, 'Captura', {
-      stateMachineName: 'toqui-captura',
-      timeout: Duration.minutes(15),
-      definitionBody: sfn.DefinitionBody.fromChainable(
-        new tasks.LambdaInvoke(this, 'Procesar captura', {
-          lambdaFunction: paso,
-          payload: sfn.TaskInput.fromObject({
-            idCaptura: sfn.JsonPath.stringAt('$.detail.object.key'),
-          }),
-          outputPath: '$.Payload',
-          retryOnServiceExceptions: true,
-        }).next(new sfn.Succeed(this, 'Borrador listo')),
-      ),
-    });
-    new events.Rule(this, 'CapturaSubida', {
-      ruleName: 'toqui-prod-captura-subida',
-      eventPattern: {
-        source: ['aws.s3'],
-        detailType: ['Object Created'],
-        detail: {
-          bucket: { name: [capturas.bucketName] },
-          object: { key: [{ prefix: PREFIJO_CAPTURAS }] },
-        },
-      },
-      targets: [new targets.SfnStateMachine(maquina)],
-    });
-
-    // --- Permisos de IA para la API y el pipeline ---
+    // --- Permisos de IA (Bedrock con Guardrail y Transcribe) ---
     const permisosIa = [
       new iam.PolicyStatement({
         actions: ['bedrock:InvokeModel', 'bedrock:InvokeModelWithResponseStream'],
@@ -276,12 +254,237 @@ export class AppStack extends Stack {
         resources: ['*'],
       }),
     ];
-    for (const declaracion of permisosIa) {
-      api.taskDefinition.addToTaskRolePolicy(declaracion);
-      paso.addToRolePolicy(declaracion);
+    for (const declaracion of permisosIa) api.taskDefinition.addToTaskRolePolicy(declaracion);
+
+    // --- Pipeline: S3 (capturas/) → EventBridge → Step Functions → Lambdas (D6) ---
+    // Las Lambdas quedan fuera de la VPC y llegan a la API por CloudFront con PIPELINE_TOKEN.
+    const logsPipeline = new logs.LogGroup(this, 'LogsPipeline', {
+      logGroupName: '/toqui/prod/pipeline',
+      retention: logs.RetentionDays.TWO_WEEKS,
+      removalPolicy: RemovalPolicy.DESTROY,
+    });
+    // Sin build del pipeline (por ejemplo en CI) se sintetiza con un handler vacío.
+    const codigoPipeline = existsSync(DIST_PIPELINE)
+      ? lambda.Code.fromAsset(DIST_PIPELINE)
+      : lambda.Code.fromInline('exports.handler = async () => ({});');
+    const entornoPipeline = {
+      API_URL: `${urlWeb}/api`,
+      PIPELINE_TOKEN_SECRET_ARN: tokenPipeline.secretArn,
+      IA_PROVIDER: 'bedrock',
+      BEDROCK_MODEL_EXTRACCION: MODELOS.extraccion,
+      BEDROCK_GUARDRAIL_ID: guardrail.attrGuardrailId,
+      BEDROCK_GUARDRAIL_VERSION: version.attrVersion,
+      NODE_OPTIONS: '--enable-source-maps',
+    };
+    const pasoLambda = (id: string, archivo: string, timeout: Duration) => {
+      const fn = new lambda.Function(this, id, {
+        functionName: `toqui-prod-${archivo}`,
+        runtime: lambda.Runtime.NODEJS_24_X,
+        architecture: lambda.Architecture.ARM_64,
+        handler: `${archivo}.handler`,
+        code: codigoPipeline,
+        memorySize: 512,
+        timeout,
+        environment: entornoPipeline,
+        logGroup: logsPipeline,
+      });
+      tokenPipeline.grantRead(fn);
+      return fn;
+    };
+    const fnPreparar = pasoLambda('PasoPreparar', 'preparar', Duration.seconds(30));
+    const fnFoto = pasoLambda('PasoDescribirFoto', 'describir-foto', Duration.seconds(60));
+    const fnExtraer = pasoLambda('PasoExtraer', 'extraer', Duration.seconds(120));
+    const fnEntregar = pasoLambda('PasoEntregar', 'entregar', Duration.seconds(30));
+    const fnError = pasoLambda('PasoInformarError', 'informar-error', Duration.seconds(30));
+    for (const declaracion of permisosIa.slice(0, 2)) {
+      fnFoto.addToRolePolicy(declaracion);
+      fnExtraer.addToRolePolicy(declaracion);
     }
+    capturas.grantRead(fnFoto, `${PREFIJO_CAPTURAS}*`);
+    capturas.grantRead(fnExtraer, `${PREFIJO_TRANSCRIPCIONES}*`);
+
+    const invocar = (id: string, fn: lambda.IFunction, payload: object, resultPath: string) =>
+      new tasks.LambdaInvoke(this, id, {
+        lambdaFunction: fn,
+        payload: sfn.TaskInput.fromObject(payload),
+        payloadResponseOnly: true,
+        resultPath,
+        retryOnServiceExceptions: true,
+      }).addRetry({
+        errors: ERRORES_TRANSITORIOS,
+        interval: Duration.seconds(3),
+        backoffRate: 2,
+        maxAttempts: 4,
+      });
+
+    const fallo = new tasks.LambdaInvoke(this, 'Informar error', {
+      lambdaFunction: fnError,
+      payload: sfn.TaskInput.fromObject({
+        idCaptura: sfn.JsonPath.stringAt('$.idCaptura'),
+        error: sfn.JsonPath.objectAt('$.error'),
+      }),
+      payloadResponseOnly: true,
+      resultPath: sfn.JsonPath.DISCARD,
+    })
+      .addRetry({ errors: ERRORES_TRANSITORIOS, interval: Duration.seconds(3), maxAttempts: 4 })
+      .next(new sfn.Fail(this, 'Captura con error'));
+    const conCatch = <T extends sfn.TaskStateBase>(tarea: T): T => {
+      tarea.addCatch(fallo, { resultPath: '$.error' });
+      return tarea;
+    };
+
+    // El id de captura es el nombre del objeto: capturas/<id>.<ext>.
+    const identificar = new sfn.Pass(this, 'Identificar captura', {
+      parameters: {
+        'bucket.$': '$.detail.bucket.name',
+        'clave.$': '$.detail.object.key',
+        'idCaptura.$': "States.ArrayGetItem(States.StringSplit($.detail.object.key, '/.'), 1)",
+      },
+    });
+    const preparar = conCatch(
+      invocar('Preparar', fnPreparar, { 'idCaptura.$': '$.idCaptura' }, '$.preparado'),
+    );
+    const extraer = conCatch(
+      invocar(
+        'Extraer borrador',
+        fnExtraer,
+        {
+          'idCaptura.$': '$.idCaptura',
+          'contexto.$': '$.preparado.contexto',
+          'fuente.$': '$.fuente',
+        },
+        '$.borrador',
+      ),
+    );
+    const entregar = conCatch(
+      invocar(
+        'Entregar borrador',
+        fnEntregar,
+        { 'idCaptura.$': '$.idCaptura', 'borrador.$': '$.borrador' },
+        sfn.JsonPath.DISCARD,
+      ),
+    );
+    extraer.next(entregar).next(new sfn.Succeed(this, 'Borrador listo'));
+
+    const fuenteTexto = new sfn.Pass(this, 'Texto escrito', {
+      parameters: { 'texto.$': '$.preparado.texto' },
+      resultPath: '$.fuente',
+    }).next(extraer);
+
+    const leerFoto = conCatch(
+      invocar(
+        'Leer foto',
+        fnFoto,
+        { 'idCaptura.$': '$.idCaptura', 'bucket.$': '$.bucket', 'clave.$': '$.clave' },
+        '$.fuente',
+      ),
+    );
+    leerFoto.next(extraer);
+
+    // Transcribe con la integración nativa: Step Functions espera sin una Lambda encendida.
+    const estadoTranscripcion = {
+      'nombre.$': '$.TranscriptionJob.TranscriptionJobName',
+      'estado.$': '$.TranscriptionJob.TranscriptionJobStatus',
+    };
+    const iniciarTranscripcion = conCatch(
+      new tasks.CallAwsService(this, 'Iniciar transcripción', {
+        service: 'transcribe',
+        action: 'startTranscriptionJob',
+        iamResources: ['*'],
+        parameters: {
+          TranscriptionJobName: sfn.JsonPath.format('toqui-{}', sfn.JsonPath.executionName),
+          LanguageCode: 'es-US',
+          Media: {
+            MediaFileUri: sfn.JsonPath.format(
+              's3://{}/{}',
+              sfn.JsonPath.stringAt('$.bucket'),
+              sfn.JsonPath.stringAt('$.clave'),
+            ),
+          },
+          OutputBucketName: capturas.bucketName,
+          OutputKey: sfn.JsonPath.format(
+            `${PREFIJO_TRANSCRIPCIONES}{}.json`,
+            sfn.JsonPath.stringAt('$.idCaptura'),
+          ),
+        },
+        resultSelector: estadoTranscripcion,
+        resultPath: '$.transcripcion',
+      }).addRetry({ errors: ['Transcribe.LimitExceededException'], interval: Duration.seconds(5) }),
+    );
+    const consultarTranscripcion = conCatch(
+      new tasks.CallAwsService(this, 'Consultar transcripción', {
+        service: 'transcribe',
+        action: 'getTranscriptionJob',
+        iamResources: ['*'],
+        parameters: { 'TranscriptionJobName.$': '$.transcripcion.nombre' },
+        resultSelector: estadoTranscripcion,
+        resultPath: '$.transcripcion',
+      }),
+    );
+    const fuenteAudio = new sfn.Pass(this, 'Audio transcrito', {
+      parameters: {
+        transcripcion: {
+          'bucket.$': '$.bucket',
+          'clave.$': `States.Format('${PREFIJO_TRANSCRIPCIONES}{}.json', $.idCaptura)`,
+        },
+      },
+      resultPath: '$.fuente',
+    }).next(extraer);
+    const transcripcionFallida = new sfn.Pass(this, 'Transcripción fallida', {
+      result: sfn.Result.fromObject({ Error: 'TranscripcionFallida', Cause: '{}' }),
+      resultPath: '$.error',
+    }).next(fallo);
+    const esperarTranscripcion = new sfn.Wait(this, 'Esperar transcripción', {
+      time: sfn.WaitTime.duration(Duration.seconds(5)),
+    });
+    iniciarTranscripcion.next(esperarTranscripcion);
+    esperarTranscripcion.next(consultarTranscripcion);
+    consultarTranscripcion.next(
+      new sfn.Choice(this, '¿Transcripción lista?')
+        .when(sfn.Condition.stringEquals('$.transcripcion.estado', 'COMPLETED'), fuenteAudio)
+        .when(sfn.Condition.stringEquals('$.transcripcion.estado', 'FAILED'), transcripcionFallida)
+        .otherwise(esperarTranscripcion),
+    );
+
+    const segunFormato = new sfn.Choice(this, '¿Formato?')
+      .when(sfn.Condition.stringEquals('$.preparado.formato', 'audio'), iniciarTranscripcion)
+      .when(sfn.Condition.stringEquals('$.preparado.formato', 'foto'), leerFoto)
+      .otherwise(fuenteTexto);
+
+    const maquina = new sfn.StateMachine(this, 'Captura', {
+      stateMachineName: 'toqui-captura',
+      timeout: Duration.minutes(15),
+      definitionBody: sfn.DefinitionBody.fromChainable(
+        identificar
+          .next(preparar)
+          .next(
+            new sfn.Choice(this, '¿Ya procesada?')
+              .when(
+                sfn.Condition.booleanEquals('$.preparado.omitir', true),
+                new sfn.Succeed(this, 'Sin cambios'),
+              )
+              .otherwise(segunFormato),
+          ),
+      ),
+    });
+    // Transcribe lee el audio y escribe el resultado con los permisos de quien lo llama.
+    capturas.grantRead(maquina, `${PREFIJO_CAPTURAS}*`);
+    capturas.grantPut(maquina, `${PREFIJO_TRANSCRIPCIONES}*`);
+
+    new events.Rule(this, 'CapturaSubida', {
+      ruleName: 'toqui-prod-captura-subida',
+      eventPattern: {
+        source: ['aws.s3'],
+        detailType: ['Object Created'],
+        detail: {
+          bucket: { name: [capturas.bucketName] },
+          object: { key: [{ prefix: PREFIJO_CAPTURAS }] },
+        },
+      },
+      targets: [new targets.SfnStateMachine(maquina)],
+    });
+
     capturas.grantReadWrite(api.taskDefinition.taskRole);
-    capturas.grantRead(paso);
     api.taskDefinition.defaultContainer?.addEnvironment('S3_BUCKET_CAPTURAS', capturas.bucketName);
 
     new CfnOutput(this, 'WebUrl', { value: urlWeb });
@@ -292,5 +495,17 @@ export class AppStack extends Stack {
     new CfnOutput(this, 'GuardrailId', { value: guardrail.attrGuardrailId });
     new CfnOutput(this, 'GuardrailVersion', { value: version.attrVersion });
     new CfnOutput(this, 'StateMachineArn', { value: maquina.stateMachineArn });
+    // Para tareas puntuales de ECS con la imagen de la API (carga del dataset).
+    new CfnOutput(this, 'ClusterName', { value: cluster.clusterName });
+    new CfnOutput(this, 'ApiTaskDefinitionArn', { value: api.taskDefinition.taskDefinitionArn });
+    new CfnOutput(this, 'ApiContainerName', {
+      value: api.taskDefinition.defaultContainer?.containerName ?? 'web',
+    });
+    new CfnOutput(this, 'ApiSubnets', {
+      value: props.vpc.publicSubnets.map((s) => s.subnetId).join(','),
+    });
+    new CfnOutput(this, 'ApiSecurityGroup', {
+      value: api.service.connections.securityGroups[0]!.securityGroupId,
+    });
   }
 }

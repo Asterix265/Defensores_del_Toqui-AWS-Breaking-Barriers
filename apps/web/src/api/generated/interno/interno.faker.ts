@@ -7,7 +7,39 @@
  */
 import { faker } from '@faker-js/faker';
 
-import type { CapturaEstadoResponseDtoOutput } from '../model';
+import type { CapturaEstadoResponseDtoOutput, ContextoCapturaDtoOutput } from '../model';
+
+export const getObtenerContextoCapturaResponseMock = (
+  overrideResponse: Partial<Extract<ContextoCapturaDtoOutput, object>> = {},
+): ContextoCapturaDtoOutput => ({
+  id: faker.string.uuid(),
+  formato: faker.helpers.arrayElement(['texto', 'audio', 'foto'] as const),
+  estado: faker.helpers.arrayElement([
+    'procesando',
+    'borrador_listo',
+    'confirmada',
+    'descartada',
+    'error',
+  ] as const),
+  texto: faker.helpers.arrayElement([faker.string.alpha({ length: { min: 10, max: 20 } }), null]),
+  edadMeses: faker.number.int({ min: 0, max: 9007199254740991 }),
+  nivelEsperado: faker.number.int({ min: 1, max: 9 }),
+  catalogo: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+    () => ({
+      id: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      nivel: faker.number.int({ min: 1, max: 9 }),
+      dominio: faker.helpers.arrayElement([
+        'motor_grueso',
+        'motor_fino',
+        'lenguaje_comunicacion',
+        'socioemocional',
+        'cognitivo',
+      ] as const),
+      textoObservable: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    }),
+  ),
+  ...overrideResponse,
+});
 
 export const getEntregarBorradorResponseMock = (
   overrideResponse: Partial<Extract<CapturaEstadoResponseDtoOutput, object>> = {},

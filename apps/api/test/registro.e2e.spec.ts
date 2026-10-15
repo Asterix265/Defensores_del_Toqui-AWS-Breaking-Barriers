@@ -546,6 +546,29 @@ describe('API de registro (e2e)', () => {
       modelo: 'us.anthropic.claude-sonnet-5-5',
     };
 
+    it('contexto: edad, nivel esperado y catálogo ±1, sin el id ni el nombre del niño o niña', async () => {
+      const id = await capturaProcesando();
+      await http().get(`/interno/capturas/${id}/contexto`).expect(401);
+      const res = await http()
+        .get(`/interno/capturas/${id}/contexto`)
+        .set('x-pipeline-token', TOKEN_PIPELINE)
+        .expect(200);
+      expect(res.body).toMatchObject({
+        id,
+        formato: 'audio',
+        estado: 'procesando',
+        texto: null,
+        nivelEsperado: 7,
+      });
+      const niveles = new Set(res.body.catalogo.map((m: { nivel: number }) => m.nivel));
+      expect([...niveles].sort()).toEqual([6, 7, 8]);
+      expect(JSON.stringify(res.body)).not.toMatch(/NINO-00001|idNino|nombres/);
+      await http()
+        .get('/interno/capturas/00000000-0000-4000-8000-000000000000/contexto')
+        .set('x-pipeline-token', TOKEN_PIPELINE)
+        .expect(404);
+    });
+
     it('401 sin el secreto del pipeline; no usa el token de Cognito', async () => {
       const id = await capturaProcesando();
       await entregar(id, valido, 'otro-secreto-cualquiera').expect(401);

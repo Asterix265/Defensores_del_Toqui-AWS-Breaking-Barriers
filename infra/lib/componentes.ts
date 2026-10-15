@@ -66,8 +66,9 @@ export function crearIdentidad(
   const cliente = pool.addClient('ClienteWeb', {
     userPoolClientName: `${opciones.nombre}-web`,
     generateSecret: false,
-    // USER_PASSWORD_AUTH solo donde se permite (desarrollo, para la prueba de humo).
-    authFlows: { userSrp: true, userPassword: opciones.permitirPassword },
+    // USER_PASSWORD_AUTH solo donde se permite (desarrollo). ADMIN_USER_PASSWORD_AUTH exige
+    // credenciales IAM de administración: lo usan las pruebas de humo, nunca la web.
+    authFlows: { userSrp: true, userPassword: opciones.permitirPassword, adminUserPassword: true },
     preventUserExistenceErrors: true,
     readAttributes: new cognito.ClientAttributes()
       .withStandardAttributes({ email: true })

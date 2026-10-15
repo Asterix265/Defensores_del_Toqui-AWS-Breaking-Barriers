@@ -287,6 +287,22 @@ export type BorradorEntrante = z.infer<typeof BorradorEntranteSchema>;
 
 export const ErrorPipelineRequestSchema = z.object({ detalle: z.string().min(1).max(500) });
 
+/**
+ * Lo que el pipeline necesita para extraer, sin datos que identifiquen al niño o niña: ni su
+ * id ni su nombre. El catálogo trae los niveles esperado ±1 para la edad (D7).
+ */
+export const ContextoCapturaSchema = z.object({
+  id: z.uuid(),
+  formato: FormatoCapturaSchema,
+  estado: EstadoCapturaSchema,
+  /** Texto escrito (solo formato texto). */
+  texto: TextoNuloSchema,
+  edadMeses: z.number().int().min(0),
+  nivelEsperado: NivelSchema,
+  catalogo: z.array(ManifestacionSchema),
+});
+export type ContextoCaptura = z.infer<typeof ContextoCapturaSchema>;
+
 export const CapturaEstadoResponseSchema = z.object({ id: z.uuid(), estado: EstadoCapturaSchema });
 
 // ---- Trayectoria ----

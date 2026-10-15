@@ -16,6 +16,23 @@ describe('loadEnv', () => {
     expect(env.ZONA_HORARIA).toBe('America/Santiago');
   });
 
+  it('trata como ausentes las variables vacías copiadas de .env.example', () => {
+    const env = loadEnv({
+      ...BASE,
+      AUTH_MODE: 'local',
+      S3_BUCKET_CAPTURAS: '',
+      BEDROCK_GUARDRAIL_ID: '',
+    });
+    expect(env.S3_BUCKET_CAPTURAS).toBeUndefined();
+    expect(env.BEDROCK_GUARDRAIL_ID).toBeUndefined();
+  });
+
+  it('exige la versión del Guardrail si se indica su id', () => {
+    expect(() =>
+      loadEnv({ ...BASE, AUTH_MODE: 'local', IA_PROVIDER: 'bedrock', BEDROCK_GUARDRAIL_ID: 'g' }),
+    ).toThrow(/BEDROCK_GUARDRAIL_VERSION/);
+  });
+
   it('exige el User Pool en modo cognito', () => {
     expect(() => loadEnv(BASE)).toThrow(/COGNITO_USER_POOL_ID/);
   });

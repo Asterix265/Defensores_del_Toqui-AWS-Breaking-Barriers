@@ -1,4 +1,10 @@
-import type { BorradorEntrante, Dominio, Manifestacion } from '@toqui/shared';
+import type { BorradorEntrante, Dominio } from '@toqui/shared';
+import {
+  MINIMO_TEXTO,
+  borradorInsuficiente,
+  type ContextoExtraccion,
+  type IaProvider,
+} from './proveedor.js';
 
 /** Mismas palabras clave que el mock de la web (`apps/web/src/registro/datos.ts`). */
 const PALABRAS_CLAVE: Record<Dominio, string[]> = {
@@ -21,8 +27,6 @@ const LECTURAS: Record<'audio' | 'foto', string[]> = {
   ],
 };
 
-/** Con menos caracteres que esto el borrador sale con evidencia insuficiente. */
-const MINIMO_TEXTO = 20;
 const LARGO_CITA = 160;
 
 function normalizar(texto: string): string {
@@ -76,31 +80,27 @@ export function citaDe(texto: string): string {
  * nivel en el dominio sugerido por palabras clave. Sin pista de dominio o con poco texto,
  * evidencia insuficiente.
  */
-export function extraerFake(
-  textoFuente: string,
-  nivelEsperado: number,
-  catalogoDelNivel: Manifestacion[],
-): BorradorEntrante {
+export function extraerFake(textoFuente: string, contexto: ContextoExtraccion): BorradorEntrante {
   const dominio = textoFuente.trim().length >= MINIMO_TEXTO ? dominioProbable(textoFuente) : null;
   const manifestacion = dominio
-    ? catalogoDelNivel
-        .filter((m) => m.dominio === dominio)
+    ? contexto.catalogo
+        .filter((m) => m.nivel === contexto.nivelEsperado && m.dominio === dominio)
         .sort((a, b) => a.id.localeCompare(b.id))[0]
     : undefined;
-  if (!manifestacion) {
-    return {
-      textoFuente,
-      nivelSugerido: null,
-      evidenciaInsuficiente: true,
-      manifestaciones: [],
-      proveedor: 'fake',
-    };
-  }
+  if (!manifestacion) return borradorInsuficiente(textoFuente, 'fake');
   return {
     textoFuente,
-    nivelSugerido: nivelEsperado,
+    nivelSugerido: contexto.nivelEsperado,
     evidenciaInsuficiente: false,
     manifestaciones: [{ idManifestacion: manifestacion.id, cita: citaDe(textoFuente) }],
     proveedor: 'fake',
   };
+}
+
+export class ProveedorFake implements IaProvider {
+  readonly nombre = 'fake';
+
+  async extraer(texto: string, contexto: ContextoExtraccion): Promise<BorradorEntrante> {
+    return extraerFake(texto, contexto);
+  }
 }

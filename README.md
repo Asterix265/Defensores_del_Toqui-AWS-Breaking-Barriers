@@ -12,7 +12,7 @@ La línea base declarada en la presentación es de **4 horas semanales** de docu
 
 ## Estado actual
 
-La base técnica del monorepo está lista (cambio OpenSpec `levantar-stack-base`): web, API, pipeline, paquete compartido e infraestructura compilan, tienen pruebas de humo y se comunican en local. De `definir-mvp-e1`, la **API** ya implementa el modelo de dominio, la carga del dataset, la autenticación con Cognito (y modo local), la captura con borrador y confirmación, el endpoint interno del pipeline y la trayectoria (ver [API de registro](#api-de-registro)). Faltan el pipeline real con IA (Lambdas), la conexión de la web a la API y el panel de impacto. Los servicios AWS de desarrollo (stack `ToquiDev`) y la arquitectura de producción (`ToquiRed`, `ToquiDatos`, `ToquiApp`) están desplegados; la API y el pipeline de producción todavía solo tienen los endpoints y pasos técnicos de ejemplo.
+La base técnica del monorepo está lista (cambio OpenSpec `levantar-stack-base`): web, API, pipeline, paquete compartido e infraestructura compilan, tienen pruebas de humo y se comunican en local. De `definir-mvp-e1`, la **API** ya implementa el modelo de dominio, la carga del dataset, la autenticación con Cognito (y modo local), la captura con borrador y confirmación, el endpoint interno del pipeline y la trayectoria (ver [API de registro](#api-de-registro)). El pipeline con IA está implementado (rama `feat/pipeline-ia`): el módulo `packages/ia` (Guardrail, Claude con salida estructurada, validación y reintento) lo usan tanto las Lambdas de Step Functions como el modo inline de la API, y el audio pasa por Transcribe y la foto por Claude multimodal. Faltan la conexión de la web a la API (con Cognito) y el panel de impacto. Los servicios AWS de desarrollo (stack `ToquiDev`) y la arquitectura de producción (`ToquiRed`, `ToquiDatos`, `ToquiApp`) están desplegados; ver en [arquitectura AWS](docs/arquitectura-aws.md#estado) qué versión del pipeline corre en producción.
 
 ## Stack
 
@@ -20,7 +20,8 @@ La base técnica del monorepo está lista (cambio OpenSpec `levantar-stack-base`
 | --- | --- | --- |
 | Web (PWA) | React 19 + Vite + TypeScript, Material UI, TanStack Query, vite-plugin-pwa | `apps/web` |
 | API | NestJS 11 + Prisma 7 (PostgreSQL), nestjs-zod, Swagger | `apps/api` |
-| Pipeline | Handlers Lambda en TypeScript (esbuild, `nodejs24.x`) | `apps/pipeline` |
+| Pipeline | Handlers Lambda en TypeScript (esbuild, `nodejs24.x`) orquestados por Step Functions | `apps/pipeline` |
+| IA | Guardrail + Claude (Bedrock Converse), validación zod; proveedores `fake` y `bedrock` | `packages/ia` |
 | Contrato | Esquemas zod → OpenAPI → cliente orval (hooks y mocks MSW) | `packages/shared` |
 | Infraestructura | AWS CDK v2 en TypeScript, `us-east-1` (stacks de desarrollo y producción) | `infra` |
 | Base local | PostgreSQL 17 en Docker | `docker-compose.yml` |
@@ -55,7 +56,7 @@ La web abre «Registro Simple», un mock con datos sintéticos y notas en memori
 | `pnpm typecheck` / `pnpm test` / `pnpm build` | Tipos, pruebas y build de todos los paquetes |
 | `pnpm infra:synth` | Sintetiza CloudFormation sin desplegar ni requerir credenciales |
 | `pnpm aws:*` | Despliegue y prueba de los servicios AWS de desarrollo (ver [guía AWS](docs/guia-aws.md)) |
-| `pnpm aws:prod:*` | Despliegue, prueba y borrado del ambiente de producción (ver [arquitectura AWS](docs/arquitectura-aws.md)) |
+| `pnpm aws:prod:*` | Despliegue, carga del dataset (`aws:prod:seed`), prueba y borrado del ambiente de producción (ver [arquitectura AWS](docs/arquitectura-aws.md)) |
 
 Imagen de la API (desde la raíz): `docker build -f apps/api/Dockerfile -t toqui-api .`
 
@@ -78,12 +79,13 @@ API NestJS en Fargate (`apps/api`), según `definir-mvp-e1`. Contrato completo e
 | `POST /capturas/:id/confirmacion` | educadora | Confirma o corrige (1 a 5 manifestaciones del nivel elegido); guarda la corrección |
 | `POST /capturas/:id/descarte` | educadora | Descarta sin crear observación |
 | `GET /capturas/:id/archivo` | ambos | URL temporal del original (S3 lo borra a los 7 días) |
+| `GET /interno/capturas/:id/contexto` | pipeline | Texto escrito, edad, nivel esperado y catálogo ±1, sin id ni nombre del niño o niña |
 | `POST /interno/capturas/:id/borrador` · `/error` | pipeline | Entrega idempotente del borrador; cabecera `x-pipeline-token` = `PIPELINE_TOKEN` |
 
 - Todo queda dentro del jardín del token (`custom:id_jardin`). Un niño o niña de otro jardín responde 403; una captura de otro jardín, 404.
 - Solo quien registró una captura la confirma o la descarta.
-- **Local** (`.env.example`): `AUTH_MODE=local` usa la educadora fija de `JAR-0001` sin token. Para otros usuarios: `Authorization: Bearer local:directora:JAR-0001`. `PIPELINE_MODE=inline` con `IA_PROVIDER=fake` produce borradores deterministas sin AWS. Audio y foto necesitan `S3_BUCKET_CAPTURAS` (el bucket de `ToquiDev`).
-- **AWS** (`PIPELINE_MODE=aws`, por defecto): la captura llega a `capturas/` (el texto también, como `.txt`), EventBridge inicia Step Functions y el pipeline entrega el borrador al endpoint interno. El pipeline obtiene el id de captura del nombre del archivo.
+- **Local** (`.env.example`): `AUTH_MODE=local` usa la educadora fija de `JAR-0001` sin token. Para otros usuarios: `Authorization: Bearer local:directora:JAR-0001`. `PIPELINE_MODE=inline` con `IA_PROVIDER=fake` produce borradores deterministas sin AWS; con `IA_PROVIDER=bedrock` (perfil `toqui` y `BEDROCK_GUARDRAIL_*` de `pnpm aws:env`) el texto pasa por el Guardrail y Claude reales, mientras audio y foto siguen con lecturas simuladas. Audio y foto necesitan `S3_BUCKET_CAPTURAS` (el bucket de `ToquiDev`).
+- **AWS** (`PIPELINE_MODE=aws`, por defecto): la captura llega a `capturas/` (el texto también, como `.txt`), EventBridge inicia Step Functions `toqui-captura` y las Lambdas piden el contexto, normalizan (Transcribe `es-US` para audio, Claude multimodal para fotos JPG o PNG de hasta 3,75 MB), extraen y entregan el borrador al endpoint interno. El pipeline obtiene el id de captura del nombre del archivo.
 - `pnpm test` incluye pruebas e2e que crean la base `toqui_test` en el Postgres local (`pnpm db:up` antes).
 
 ## AWS de desarrollo
@@ -158,7 +160,7 @@ Se excluyeron las skills de otras bases de datos, de los servicios en la nube de
 
 ## Próximos pasos
 
-1. Completar `definir-mvp-e1`: pipeline con Transcribe y Bedrock que entregue al endpoint interno, conectar la web a la API y medir el impacto. En `ToquiApp` falta inyectar `PIPELINE_TOKEN` (API y pipeline) y cargar el dataset en Aurora.
+1. Completar `definir-mvp-e1`: conectar la web a la API con Cognito y medir el impacto.
 2. Resolver cómo representar la rúbrica institucional frente a la ruta sintética del dataset.
 3. Configurar IAM, acceso a modelos de Bedrock y despliegue en AWS, documentando permisos, costos y limpieza.
 4. Medir tiempo de documentación y trazabilidad con datos sintéticos; reportar resultados reales de la demo.

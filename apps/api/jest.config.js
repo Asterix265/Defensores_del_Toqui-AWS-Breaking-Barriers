@@ -17,8 +17,9 @@ module.exports = {
     ],
   },
   moduleNameMapper: {
-    // Usa el código fuente del paquete compartido para no depender de su build en las pruebas.
+    // Usa el código fuente de los paquetes compartidos para no depender de su build en las pruebas.
     '^@toqui/shared$': '<rootDir>/../../packages/shared/src/index.ts',
+    '^@toqui/ia$': '<rootDir>/../../packages/ia/src/index.ts',
     '^(\\.{1,2}/.*)\\.js$': '$1',
   },
 };

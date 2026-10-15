@@ -1,6 +1,6 @@
 import { App } from 'aws-cdk-lib';
 import { Match, Template } from 'aws-cdk-lib/assertions';
-import { beforeAll, describe, it } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
 import { AppStack, PREFIJO_CAPTURAS, PREFIX_LIST_CLOUDFRONT } from './app-stack.js';
 import { DatosStack } from './datos-stack.js';
 import { RedStack } from './red-stack.js';
@@ -74,5 +74,31 @@ describe('stacks de producción', () => {
       }),
     });
     app.resourceCountIs('AWS::StepFunctions::StateMachine', 1);
+  });
+
+  it('conecta el pipeline real: Lambdas, Transcribe y entrega con PIPELINE_TOKEN', () => {
+    for (const paso of ['preparar', 'describir-foto', 'extraer', 'entregar', 'informar-error']) {
+      app.hasResourceProperties('AWS::Lambda::Function', {
+        FunctionName: `toqui-prod-${paso}`,
+        Handler: `${paso}.handler`,
+        Runtime: 'nodejs24.x',
+        Environment: {
+          Variables: Match.objectLike({ PIPELINE_TOKEN_SECRET_ARN: Match.anyValue() }),
+        },
+      });
+    }
+    // La API recibe el mismo secreto que leen las Lambdas.
+    app.hasResourceProperties('AWS::ECS::TaskDefinition', {
+      ContainerDefinitions: [
+        Match.objectLike({
+          Secrets: Match.arrayWith([Match.objectLike({ Name: 'PIPELINE_TOKEN' })]),
+        }),
+      ],
+    });
+    const [maquina] = Object.values(app.findResources('AWS::StepFunctions::StateMachine'));
+    const definicion = JSON.stringify(maquina?.Properties?.DefinitionString);
+    expect(definicion).toContain('transcribe:startTranscriptionJob');
+    expect(definicion).toContain('es-US');
+    expect(definicion).toContain('ErrorTransitorio');
   });
 });

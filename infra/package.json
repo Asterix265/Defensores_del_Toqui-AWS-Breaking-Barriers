@@ -2,7 +2,7 @@
   "name": "@toqui/infra",
   "version": "0.0.0",
   "private": true,
-  "description": "Infraestructura AWS CDK (TypeScript). Este cambio solo sintetiza; no despliega.",
+  "description": "Infraestructura AWS CDK (TypeScript): stacks de desarrollo y de producción",
   "type": "module",
   "scripts": {
     "synth": "cdk synth --quiet",
@@ -21,7 +21,8 @@
     "aws:prod:destroy": "node scripts/cdk.mjs destroy ToquiApp ToquiDatos ToquiRed",
     "aws:prod:users": "tsx scripts/usuarios.ts --stack ToquiApp",
     "aws:prod:env": "tsx scripts/env.ts --stack ToquiApp",
-    "aws:prod:smoke": "tsx scripts/smoke-prod.ts"
+    "aws:prod:smoke": "tsx scripts/smoke-prod.ts",
+    "aws:prod:seed": "tsx scripts/seed-prod.ts"
   },
   "dependencies": {
     "aws-cdk-lib": "^2.273.0",
@@ -30,7 +31,9 @@
   "devDependencies": {
     "@aws-sdk/client-bedrock-runtime": "^3.1151.0",
     "@aws-sdk/client-cloudformation": "^3.1151.0",
+    "@aws-sdk/client-cloudwatch-logs": "^3.1151.0",
     "@aws-sdk/client-cognito-identity-provider": "^3.1151.0",
+    "@aws-sdk/client-ecs": "^3.1151.0",
     "@aws-sdk/client-s3": "^3.1151.0",
     "@aws-sdk/client-sfn": "^3.1151.0",
     "@aws-sdk/client-sts": "^3.1151.0",

@@ -1,5 +1,6 @@
 // Entrypoint del contenedor: arma DATABASE_URL desde el secreto de Aurora, aplica migraciones
 // y arranca la API. En local basta con definir DATABASE_URL directamente.
+// Con TAREA=seed, en lugar de la API ejecuta la carga del dataset (tarea puntual de ECS).
 import { spawnSync } from 'node:child_process';
 
 const env = process.env;
@@ -23,4 +24,4 @@ if (env.RUN_MIGRATIONS !== 'false') {
   }
 }
 
-await import('./dist/main.js');
+await import(env.TAREA === 'seed' ? './dist/seed/cargar-dataset.js' : './dist/main.js');

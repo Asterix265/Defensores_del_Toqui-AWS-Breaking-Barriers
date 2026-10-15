@@ -177,7 +177,7 @@ export function notasDeEjemplo(ahora: Date): Nota[] {
       formato: 'audio',
       creada: haceMinutos(ahora, 25),
       duracion: 22,
-      texto: 'Se puso los zapatos sola después de la siesta y me los mostró contenta.',
+      texto: 'Le pasó su pelota a un compañero y sonrió cuando se la devolvió.',
       area: 'socioemocional',
     },
     {
@@ -185,7 +185,7 @@ export function notasDeEjemplo(ahora: Date): Nota[] {
       educadora: 'Mercedes',
       formato: 'foto',
       creada: haceMinutos(ahora, 60),
-      texto: 'Gateó hasta el sonajero y lo agitó para que sonara.',
+      texto: 'Trepó el cojín grande del rincón y se bajó solo, gateando.',
       area: 'motor_grueso',
     },
     {

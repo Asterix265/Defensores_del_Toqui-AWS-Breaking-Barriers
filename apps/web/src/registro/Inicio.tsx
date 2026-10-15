@@ -10,6 +10,12 @@ import { AvisoVerde, Encabezado, Pantalla } from './componentes';
 import type { Formato } from './datos';
 import { colores } from './tema';
 
+const DETALLE_CELULAR: Record<Formato, string> = {
+  audio: 'Habla y nosotros escribimos',
+  foto: 'De tu post-it o nota',
+  texto: 'Con el teclado',
+};
+
 /** Inicio «acción primero» (diseño 1b): tres botones grandes para elegir cómo registrar. */
 export function Inicio({
   nombre,
@@ -23,35 +29,7 @@ export function Inicio({
   return (
     <Pantalla>
       <Encabezado titulo={`Hola, ${nombre}`} subtitulo="¿Qué quieres registrar?" />
-      <Stack sx={{ px: 2, pt: 2.25, gap: 1.5 }}>
-        <BotonFormato
-          titulo="Audio"
-          detalle="Habla y nosotros escribimos"
-          icono={<MicRounded sx={{ fontSize: 40 }} />}
-          fondo={colores.rojo}
-          fondoIcono="rgba(255,255,255,.18)"
-          claro
-          onClick={() => onElegir('audio')}
-        />
-        <BotonFormato
-          titulo="Foto"
-          detalle="De tu post-it o nota"
-          icono={<PhotoCameraRounded sx={{ fontSize: 40, color: colores.texto }} />}
-          fondo={colores.amarilloSuave}
-          fondoIcono={colores.amarillo}
-          borde={colores.amarillo}
-          onClick={() => onElegir('foto')}
-        />
-        <BotonFormato
-          titulo="Escribir"
-          detalle="Con el teclado"
-          icono={<EditNoteRounded sx={{ fontSize: 40, color: colores.textoSuave }} />}
-          fondo="#fff"
-          fondoIcono={colores.cremaRosa}
-          borde={colores.borde}
-          onClick={() => onElegir('texto')}
-        />
-      </Stack>
+      <BotonesFormato detalles={DETALLE_CELULAR} onElegir={onElegir} />
       {notasHoy > 0 && (
         <Box sx={{ px: 2, pt: 2, pb: 2 }}>
           <AvisoVerde icono={<CheckCircleRounded />}>
@@ -60,6 +38,47 @@ export function Inicio({
         </Box>
       )}
     </Pantalla>
+  );
+}
+
+/** Los tres botones grandes (Audio, Foto, Escribir); el detalle cambia entre celular y PC. */
+export function BotonesFormato({
+  detalles,
+  onElegir,
+}: {
+  detalles: Record<Formato, string>;
+  onElegir: (formato: Formato) => void;
+}) {
+  return (
+    <Stack sx={{ px: 2, pt: 2.25, gap: 1.5 }}>
+      <BotonFormato
+        titulo="Audio"
+        detalle={detalles.audio}
+        icono={<MicRounded sx={{ fontSize: 40 }} />}
+        fondo={colores.rojo}
+        fondoIcono="rgba(255,255,255,.18)"
+        claro
+        onClick={() => onElegir('audio')}
+      />
+      <BotonFormato
+        titulo="Foto"
+        detalle={detalles.foto}
+        icono={<PhotoCameraRounded sx={{ fontSize: 40, color: colores.texto }} />}
+        fondo={colores.amarilloSuave}
+        fondoIcono={colores.amarillo}
+        borde={colores.amarillo}
+        onClick={() => onElegir('foto')}
+      />
+      <BotonFormato
+        titulo="Escribir"
+        detalle={detalles.texto}
+        icono={<EditNoteRounded sx={{ fontSize: 40, color: colores.textoSuave }} />}
+        fondo="#fff"
+        fondoIcono={colores.cremaRosa}
+        borde={colores.borde}
+        onClick={() => onElegir('texto')}
+      />
+    </Stack>
   );
 }
 

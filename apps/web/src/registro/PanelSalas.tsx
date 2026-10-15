@@ -11,10 +11,12 @@ import TableCell from '@mui/material/TableCell';
 import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
 import Typography from '@mui/material/Typography';
+import AddRounded from '@mui/icons-material/AddRounded';
 import CalendarTodayRounded from '@mui/icons-material/CalendarTodayRounded';
 import DownloadRounded from '@mui/icons-material/DownloadRounded';
 import { ChipArea, ICONO_FORMATO, NinoAvatar, formatoCuando } from './componentes';
 import { NINOS, SALAS, type Nota } from './datos';
+import { NuevaNotaEscritorio } from './NuevaNotaEscritorio';
 import { descargarCsv, notasACsv } from './reporte';
 import { colores } from './tema';
 
@@ -38,17 +40,23 @@ function iniciales(nombre: string): string {
   return nombre.slice(0, 2).toUpperCase();
 }
 
-/** Vista de escritorio (diseño 1e): notas de todas las salas y descarga del reporte. */
+/**
+ * Vista de escritorio (diseño 1e): notas de todas las salas, descarga del reporte y
+ * «Nueva nota» para cargar notas desde el PC.
+ */
 export function PanelSalas({
   notas,
   ahora,
   nombre,
+  onGuardar,
 }: {
   notas: Nota[];
   ahora: Date;
   nombre: string;
+  onGuardar: (nota: Nota) => void;
 }) {
   const [sala, setSala] = useState<string | null>(null);
+  const [cargando, setCargando] = useState(false);
   const [periodo, setPeriodo] = useState<Periodo>('7dias');
 
   const limite = desde(periodo, ahora);
@@ -100,21 +108,30 @@ export function PanelSalas({
               {visibles.length === 1 ? 'nota' : 'notas'}
             </Typography>
           </Box>
-          <Button
-            variant="contained"
-            startIcon={<DownloadRounded />}
-            disabled={visibles.length === 0}
-            onClick={descargar}
-            sx={{
-              ml: 'auto',
-              minHeight: 52,
-              px: 3,
-              fontSize: 17,
-              boxShadow: '0 8px 24px -4px rgba(214,40,57,.3)',
-            }}
-          >
-            Descargar reporte
-          </Button>
+          <Box sx={{ ml: 'auto', display: 'flex', gap: 1.5 }}>
+            <Button
+              variant="outlined"
+              startIcon={<DownloadRounded />}
+              disabled={visibles.length === 0}
+              onClick={descargar}
+              sx={{ minHeight: 52, px: 3, fontSize: 17, bgcolor: '#fff' }}
+            >
+              Descargar reporte
+            </Button>
+            <Button
+              variant="contained"
+              startIcon={<AddRounded />}
+              onClick={() => setCargando(true)}
+              sx={{
+                minHeight: 52,
+                px: 3,
+                fontSize: 17,
+                boxShadow: '0 8px 24px -4px rgba(214,40,57,.3)',
+              }}
+            >
+              Nueva nota
+            </Button>
+          </Box>
         </Box>
 
         <Box sx={{ pt: 3, display: 'flex', alignItems: 'center', gap: 1.25, flexWrap: 'wrap' }}>
@@ -210,6 +227,17 @@ export function PanelSalas({
           </Table>
         </Box>
       </Box>
+      {cargando && (
+        <NuevaNotaEscritorio
+          semilla={notas.length}
+          educadora={nombre}
+          onCerrar={() => setCargando(false)}
+          onGuardar={(nota) => {
+            setCargando(false);
+            onGuardar(nota);
+          }}
+        />
+      )}
     </Box>
   );
 }

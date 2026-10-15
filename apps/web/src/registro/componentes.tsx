@@ -3,10 +3,12 @@ import Avatar from '@mui/material/Avatar';
 import Box from '@mui/material/Box';
 import ButtonBase from '@mui/material/ButtonBase';
 import Chip from '@mui/material/Chip';
+import IconButton from '@mui/material/IconButton';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import type { SvgIconComponent } from '@mui/icons-material';
 import ChatBubbleRounded from '@mui/icons-material/ChatBubbleRounded';
+import CloseRounded from '@mui/icons-material/CloseRounded';
 import DirectionsRunRounded from '@mui/icons-material/DirectionsRunRounded';
 import EditNoteRounded from '@mui/icons-material/EditNoteRounded';
 import EventNoteOutlined from '@mui/icons-material/EventNoteOutlined';
@@ -73,6 +75,7 @@ export function Pantalla({ children, oscura = false }: { children: ReactNode; os
       component="main"
       sx={{
         flex: 1,
+        minHeight: 0,
         display: 'flex',
         flexDirection: 'column',
         bgcolor: oscura ? colores.camara : 'background.default',
@@ -94,6 +97,28 @@ export function Encabezado({ titulo, subtitulo }: { titulo: string; subtitulo?: 
         </Typography>
       )}
     </Stack>
+  );
+}
+
+/** Encabezado con botón para cancelar la nota en curso. */
+export function CabeceraConCerrar({
+  titulo,
+  subtitulo,
+  onCancelar,
+}: {
+  titulo: string;
+  subtitulo?: string;
+  onCancelar: () => void;
+}) {
+  return (
+    <Box sx={{ display: 'flex', alignItems: 'flex-start' }}>
+      <Box sx={{ flex: 1 }}>
+        <Encabezado titulo={titulo} subtitulo={subtitulo} />
+      </Box>
+      <IconButton aria-label="Cancelar nota" onClick={onCancelar} sx={{ mt: 2.5, mr: 1 }}>
+        <CloseRounded sx={{ fontSize: 28, color: 'text.secondary' }} />
+      </IconButton>
+    </Box>
   );
 }
 

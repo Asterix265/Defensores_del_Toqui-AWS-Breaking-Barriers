@@ -1,7 +1,8 @@
+import { useState } from 'react';
 import { describe, expect, it } from 'vitest';
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import { ThemeProvider } from '@mui/material/styles';
-import { notasDeEjemplo } from './datos';
+import { notasDeEjemplo, type Nota } from './datos';
 import { PanelSalas } from './PanelSalas';
 import { notasACsv } from './reporte';
 import { tema } from './tema';
@@ -9,13 +10,27 @@ import { tema } from './tema';
 const ahora = new Date(2026, 9, 15, 12, 0);
 const notas = notasDeEjemplo(ahora);
 
+function PanelConEstado() {
+  const [lista, setLista] = useState<Nota[]>(notas);
+  return (
+    <PanelSalas
+      notas={lista}
+      ahora={ahora}
+      nombre="Claudia"
+      onGuardar={(nota) => setLista((previas) => [nota, ...previas])}
+    />
+  );
+}
+
 function renderizar() {
   return render(
     <ThemeProvider theme={tema}>
-      <PanelSalas notas={notas} ahora={ahora} nombre="Claudia" />
+      <PanelConEstado />
     </ThemeProvider>,
   );
 }
+
+const boton = (nombre: string | RegExp) => screen.getByRole('button', { name: nombre });
 
 describe('PanelSalas', () => {
   it('muestra las notas de todas las salas de los últimos 7 días', () => {
@@ -28,11 +43,44 @@ describe('PanelSalas', () => {
 
   it('filtra por sala', () => {
     renderizar();
-    fireEvent.click(screen.getByRole('button', { name: /Medio Menor/ }));
+    fireEvent.click(boton(/Medio Menor/));
     const filas = screen.getAllByRole('row').slice(1);
     expect(filas).toHaveLength(2);
     expect(within(filas[0]!).getByText('Vicente')).toBeInTheDocument();
     expect(screen.getByText('Últimos 7 días · 2 notas')).toBeInTheDocument();
+  });
+});
+
+describe('Nueva nota en PC', () => {
+  it('sube la foto del post-it, elige un niño de otra sala y la nota aparece en la tabla', () => {
+    renderizar();
+    fireEvent.click(boton('Nueva nota'));
+    const dialogo = screen.getByRole('dialog', { name: 'Nueva nota' });
+    fireEvent.click(within(dialogo).getByRole('button', { name: /Foto/ }));
+
+    const archivo = screen.getByLabelText('Archivo');
+    fireEvent.change(archivo, {
+      target: { files: [new File(['x'], 'notas.pdf', { type: 'application/pdf' })] },
+    });
+    expect(screen.getByText('Ese archivo no es una imagen.')).toBeInTheDocument();
+    expect(boton('Seguir')).toBeDisabled();
+
+    fireEvent.change(archivo, {
+      target: { files: [new File(['x'], 'postit.jpg', { type: 'image/jpeg' })] },
+    });
+    fireEvent.click(boton('Seguir'));
+
+    expect(screen.getByRole('region', { name: 'Medio Menor' })).toBeInTheDocument();
+    fireEvent.click(boton('Vicente'));
+    fireEvent.click(boton('Seguir con Vicente'));
+
+    expect(screen.getByText('Esto leímos en tu post-it')).toBeInTheDocument();
+    expect(screen.getByText('postit.jpg')).toBeInTheDocument();
+    fireEvent.click(boton('Está bien'));
+
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(screen.getByText('Últimos 7 días · 9 notas')).toBeInTheDocument();
+    expect(screen.getAllByText('Tía Claudia', { exact: false })).toHaveLength(1);
   });
 });
 

@@ -5,7 +5,7 @@ import Snackbar from '@mui/material/Snackbar';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { useTheme } from '@mui/material/styles';
 import { BarraInferior } from './componentes';
-import { NINOS_DE_MI_SALA, notasDeEjemplo, type Formato, type Nota } from './datos';
+import { NINOS, NINOS_DE_MI_SALA, notasDeEjemplo, type Formato, type Nota } from './datos';
 import { Ingreso } from './Ingreso';
 import { Inicio } from './Inicio';
 import { MisNotas } from './MisNotas';
@@ -45,7 +45,8 @@ function esHoy(fecha: Date, ahora: Date): boolean {
 
 /**
  * App «Registro Simple» (mock). En el celular, el flujo de la tía (diseño 1b + pantallas
- * comunes 1d); en pantallas anchas, el panel de notas de las salas (diseño 1e).
+ * comunes 1d); en pantallas anchas, el panel de notas de las salas (diseño 1e) con carga
+ * de notas desde el PC.
  * Las notas viven en memoria y se pierden al recargar: aún no hay API de capturas.
  */
 export function RegistroApp() {
@@ -57,9 +58,37 @@ export function RegistroApp() {
 
   const ahora = new Date();
   const nueva = (formato: Formato) => setVista({ tipo: 'nueva', formato });
+  const guardar = (nota: Nota) => {
+    setNotas((previas) => [nota, ...previas]);
+    const nombre = NINOS.find((n) => n.id === nota.ninoId)?.nombre ?? '';
+    setAviso(`Nota guardada para ${nombre}`);
+  };
+
+  const avisoGuardado = (
+    <Snackbar
+      open={aviso !== null}
+      autoHideDuration={3000}
+      onClose={() => setAviso(null)}
+      anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+    >
+      <Alert severity="success" variant="filled" sx={{ fontSize: 16, fontWeight: 700 }}>
+        {aviso}
+      </Alert>
+    </Snackbar>
+  );
 
   if (correo && escritorio) {
-    return <PanelSalas notas={notas} ahora={ahora} nombre={nombreDesdeCorreo(correo)} />;
+    return (
+      <>
+        <PanelSalas
+          notas={notas}
+          ahora={ahora}
+          nombre={nombreDesdeCorreo(correo)}
+          onGuardar={guardar}
+        />
+        {avisoGuardado}
+      </>
+    );
   }
 
   let contenido;
@@ -80,9 +109,7 @@ export function RegistroApp() {
         educadora={nombreDesdeCorreo(correo)}
         onCancelar={() => setVista({ tipo: 'inicio' })}
         onGuardar={(nota) => {
-          setNotas((previas) => [nota, ...previas]);
-          const nombre = NINOS_DE_MI_SALA.find((n) => n.id === nota.ninoId)?.nombre ?? '';
-          setAviso(`Nota guardada para ${nombre}`);
+          guardar(nota);
           setVista({ tipo: 'inicio' });
         }}
       />
@@ -129,16 +156,7 @@ export function RegistroApp() {
       >
         {contenido}
       </Box>
-      <Snackbar
-        open={aviso !== null}
-        autoHideDuration={3000}
-        onClose={() => setAviso(null)}
-        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
-      >
-        <Alert severity="success" variant="filled" sx={{ fontSize: 16, fontWeight: 700 }}>
-          {aviso}
-        </Alert>
-      </Snackbar>
+      {avisoGuardado}
     </Box>
   );
 }

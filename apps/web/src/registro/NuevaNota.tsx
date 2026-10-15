@@ -13,9 +13,11 @@ import CheckRounded from '@mui/icons-material/CheckRounded';
 import CloseRounded from '@mui/icons-material/CloseRounded';
 import DeleteRounded from '@mui/icons-material/DeleteRounded';
 import EditRounded from '@mui/icons-material/EditRounded';
+import AttachFileRounded from '@mui/icons-material/AttachFileRounded';
 import MicRounded from '@mui/icons-material/MicRounded';
 import {
   AvisoVerde,
+  CabeceraConCerrar,
   ChipArea,
   Encabezado,
   NinoAvatar,
@@ -24,17 +26,21 @@ import {
 } from './componentes';
 import {
   DOMINIOS,
+  NINOS,
   NINOS_DE_MI_SALA,
+  SALAS,
   nuevoId,
   simularLectura,
   sugerirArea,
   type Dominio,
   type Formato,
+  type Nino,
   type Nota,
 } from './datos';
+import { SubirArchivo } from './SubirArchivo';
 import { colores } from './tema';
 
-type Etapa = 'grabando' | 'camara' | 'escribiendo' | 'nino' | 'revision';
+type Etapa = 'grabando' | 'camara' | 'subir' | 'escribiendo' | 'nino' | 'revision';
 
 const ETAPA_INICIAL: Record<Formato, Etapa> = {
   audio: 'grabando',
@@ -57,11 +63,13 @@ const SUBTITULO_REVISION: Record<Formato, string> = {
 /**
  * Flujo «acción primero» (diseño 1b): capturar, elegir al niño o niña y confirmar.
  * La transcripción del audio y la lectura del post-it están simuladas con textos sintéticos.
+ * En PC (`escritorio`) la foto y el audio se suben como archivo y se elige entre todas las salas.
  */
 export function NuevaNota({
   formato,
   semilla,
   educadora,
+  escritorio = false,
   onGuardar,
   onCancelar,
 }: {
@@ -69,10 +77,14 @@ export function NuevaNota({
   /** Rota las lecturas simuladas para que no se repita siempre la misma. */
   semilla: number;
   educadora: string;
+  escritorio?: boolean;
   onGuardar: (nota: Nota) => void;
   onCancelar: () => void;
 }) {
-  const [etapa, setEtapa] = useState<Etapa>(ETAPA_INICIAL[formato]);
+  const [etapa, setEtapa] = useState<Etapa>(
+    escritorio && formato !== 'texto' ? 'subir' : ETAPA_INICIAL[formato],
+  );
+  const [archivo, setArchivo] = useState<string>();
   const [duracion, setDuracion] = useState<number>();
   const [texto, setTexto] = useState('');
   const [sugerencia, setSugerencia] = useState<Nota['sugerencia']>({ texto: '', area: null });
@@ -86,7 +98,8 @@ export function NuevaNota({
     setEtapa('nino');
   };
 
-  const nino = NINOS_DE_MI_SALA.find((n) => n.id === ninoId);
+  const ninos = escritorio ? NINOS : NINOS_DE_MI_SALA;
+  const nino = ninos.find((n) => n.id === ninoId);
 
   switch (etapa) {
     case 'grabando':
@@ -110,6 +123,20 @@ export function NuevaNota({
           }}
         />
       );
+    case 'subir':
+      if (formato === 'texto') return null;
+      return (
+        <SubirArchivo
+          tipo={formato}
+          onCancelar={onCancelar}
+          onGrabar={formato === 'audio' ? () => setEtapa('grabando') : undefined}
+          onListo={(nombreArchivo) => {
+            setArchivo(nombreArchivo);
+            const lectura = simularLectura(formato, semilla);
+            capturar(lectura.texto, lectura.area);
+          }}
+        />
+      );
     case 'escribiendo':
       return (
         <Escribiendo
@@ -121,6 +148,8 @@ export function NuevaNota({
       return (
         <ElegirNino
           aviso={CAPTURA_LISTA[formato]}
+          ninos={ninos}
+          agrupar={escritorio}
           seleccionado={ninoId}
           onSeleccionar={setNinoId}
           onSeguir={() => setEtapa('revision')}
@@ -135,6 +164,7 @@ export function NuevaNota({
           ninoNombre={nino.nombre}
           avatar={<NinoAvatar nino={nino} tamano={formato === 'foto' ? 32 : 40} />}
           duracion={duracion}
+          archivo={archivo}
           texto={texto}
           onTexto={setTexto}
           area={area}
@@ -360,18 +390,26 @@ function Escribiendo({
 
 function ElegirNino({
   aviso,
+  ninos,
+  agrupar,
   seleccionado,
   onSeleccionar,
   onSeguir,
   onCancelar,
 }: {
   aviso: string;
+  ninos: Nino[];
+  /** En PC se muestran todas las salas, cada una con su título. */
+  agrupar: boolean;
   seleccionado: string | null;
   onSeleccionar: (id: string) => void;
   onSeguir: () => void;
   onCancelar: () => void;
 }) {
-  const elegido = NINOS_DE_MI_SALA.find((n) => n.id === seleccionado);
+  const elegido = ninos.find((n) => n.id === seleccionado);
+  const grupos = agrupar
+    ? SALAS.map((sala) => ({ sala, ninos: ninos.filter((n) => n.sala === sala) }))
+    : [{ sala: null, ninos }];
   return (
     <Pantalla>
       <CabeceraConCerrar
@@ -382,50 +420,27 @@ function ElegirNino({
       <Box sx={{ px: 2, pt: 1.75 }}>
         <AvisoVerde icono={<CheckCircleRounded />}>{aviso}</AvisoVerde>
       </Box>
-      <Box
-        sx={{
-          p: 2,
-          display: 'grid',
-          gridTemplateColumns: 'repeat(3, 1fr)',
-          rowGap: 1.75,
-          columnGap: 1,
-        }}
-      >
-        {NINOS_DE_MI_SALA.map((nino) => {
-          const activo = nino.id === seleccionado;
-          return (
-            <ButtonBase
-              key={nino.id}
-              aria-label={nino.nombre}
-              aria-pressed={activo}
-              onClick={() => onSeleccionar(nino.id)}
-              sx={{ flexDirection: 'column', gap: 0.75, py: 0.5, borderRadius: '12px' }}
-            >
-              <Box
-                sx={{
-                  borderRadius: '50%',
-                  boxShadow: activo
-                    ? `0 0 0 4px ${colores.crema}, 0 0 0 7px ${colores.rojo}`
-                    : 'none',
-                }}
+      <Box sx={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
+        {grupos.map((grupo) => (
+          <Box key={grupo.sala ?? 'sala'} component="section" aria-label={grupo.sala ?? undefined}>
+            {grupo.sala && (
+              <Typography
+                variant="h2"
+                color="text.secondary"
+                sx={{ px: 2.5, pt: 2, textTransform: 'uppercase' }}
               >
-                <NinoAvatar nino={nino} tamano={76} />
-              </Box>
-              <Box
-                component="span"
-                sx={{
-                  fontSize: 15,
-                  fontWeight: activo ? 800 : 600,
-                  color: activo ? 'primary.dark' : 'text.primary',
-                }}
-              >
-                {nino.nombre}
-              </Box>
-            </ButtonBase>
-          );
-        })}
+                {grupo.sala}
+              </Typography>
+            )}
+            <GrillaNinos
+              ninos={grupo.ninos}
+              seleccionado={seleccionado}
+              onSeleccionar={onSeleccionar}
+            />
+          </Box>
+        ))}
       </Box>
-      <Box sx={{ mt: 'auto', px: 2, pb: 3.5 }}>
+      <Box sx={{ mt: 'auto', px: 2, pt: 1, pb: 3.5 }}>
         <Button
           variant="contained"
           fullWidth
@@ -441,11 +456,68 @@ function ElegirNino({
   );
 }
 
+function GrillaNinos({
+  ninos,
+  seleccionado,
+  onSeleccionar,
+}: {
+  ninos: Nino[];
+  seleccionado: string | null;
+  onSeleccionar: (id: string) => void;
+}) {
+  return (
+    <Box
+      sx={{
+        p: 2,
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fill, minmax(96px, 1fr))',
+        rowGap: 1.75,
+        columnGap: 1,
+      }}
+    >
+      {ninos.map((nino) => {
+        const activo = nino.id === seleccionado;
+        return (
+          <ButtonBase
+            key={nino.id}
+            aria-label={nino.nombre}
+            aria-pressed={activo}
+            onClick={() => onSeleccionar(nino.id)}
+            sx={{ flexDirection: 'column', gap: 0.75, py: 0.5, borderRadius: '12px' }}
+          >
+            <Box
+              sx={{
+                borderRadius: '50%',
+                boxShadow: activo
+                  ? `0 0 0 4px ${colores.crema}, 0 0 0 7px ${colores.rojo}`
+                  : 'none',
+              }}
+            >
+              <NinoAvatar nino={nino} tamano={76} />
+            </Box>
+            <Box
+              component="span"
+              sx={{
+                fontSize: 15,
+                fontWeight: activo ? 800 : 600,
+                color: activo ? 'primary.dark' : 'text.primary',
+              }}
+            >
+              {nino.nombre}
+            </Box>
+          </ButtonBase>
+        );
+      })}
+    </Box>
+  );
+}
+
 function Revision({
   formato,
   ninoNombre,
   avatar,
   duracion,
+  archivo,
   texto,
   onTexto,
   area,
@@ -457,6 +529,7 @@ function Revision({
   ninoNombre: string;
   avatar: ReactNode;
   duracion?: number;
+  archivo?: string;
   texto: string;
   onTexto: (texto: string) => void;
   area: Dominio | null;
@@ -523,6 +596,24 @@ function Revision({
           )}
         </Box>
 
+        {archivo && (
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 0.75,
+              color: 'text.secondary',
+              fontSize: 14,
+              fontWeight: 600,
+              minWidth: 0,
+            }}
+          >
+            <AttachFileRounded sx={{ fontSize: 20 }} />
+            <Box component="span" sx={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              {archivo}
+            </Box>
+          </Box>
+        )}
         {editando ? (
           <CajaTexto valor={texto} onCambio={onTexto} autoFocus etiqueta="Corregir texto" />
         ) : (
@@ -608,27 +699,6 @@ function Revision({
         </Button>
       </Stack>
     </Pantalla>
-  );
-}
-
-function CabeceraConCerrar({
-  titulo,
-  subtitulo,
-  onCancelar,
-}: {
-  titulo: string;
-  subtitulo?: string;
-  onCancelar: () => void;
-}) {
-  return (
-    <Box sx={{ display: 'flex', alignItems: 'flex-start' }}>
-      <Box sx={{ flex: 1 }}>
-        <Encabezado titulo={titulo} subtitulo={subtitulo} />
-      </Box>
-      <IconButton aria-label="Cancelar nota" onClick={onCancelar} sx={{ mt: 2.5, mr: 1 }}>
-        <CloseRounded sx={{ fontSize: 28, color: 'text.secondary' }} />
-      </IconButton>
-    </Box>
   );
 }
 

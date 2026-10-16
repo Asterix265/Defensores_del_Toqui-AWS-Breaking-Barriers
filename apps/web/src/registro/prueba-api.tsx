@@ -10,6 +10,10 @@ import { HttpResponse, http } from 'msw';
 import { setupServer } from 'msw/node';
 import { getGetMeMockHandler } from '../api/generated/auth/auth.msw';
 import {
+  getObtenerEstadoSalaMockHandler,
+  getObtenerResumenJardinMockHandler,
+} from '../api/generated/salas/salas.msw';
+import {
   getListarManifestacionesMockHandler,
   getListarNivelesMockHandler,
 } from '../api/generated/catalogo/catalogo.msw';
@@ -404,6 +408,78 @@ export function conSesion() {
   localStorage.setItem(CLAVE_SESION_LOCAL, EDUCADORA.email);
 }
 
+const REGLAS = {
+  antiguedadMaximaDias: 45,
+  paresMinimos: 5,
+  brechaIndividual: 2,
+  salasMinimas: 2,
+  brechaSala: 1.5,
+  accionIndividual: 'Revisar evidencia, edad, oportunidades y apoyos con la educadora.',
+  accionSala: 'La directora revisa composición de las salas.',
+};
+const NUCLEOS_ESTADO = ['CC', 'CM', 'EN', 'ES', 'IA', 'LA', 'LV', 'PM'];
+
+/** Estado sintético de una sala: en SG-A, Tomás queda para revisar en Movimiento. */
+export function estadoSala(sala: string) {
+  const deLaSala = NINOS.filter((n) => n.sala === sala);
+  return {
+    sala,
+    idSala: `JAR-0001-${sala}`,
+    nivelEducativo: deLaSala[0]?.nivelEducativo ?? 'SC',
+    corte: haceDias(0),
+    matriculados: deLaSala.length,
+    nucleos: NUCLEOS_ESTADO.map((nucleo) => ({
+      nucleo,
+      conDecision: deLaSala.length,
+      sinDecision: 0,
+      distribucion: [{ nivel: 5, cantidad: deLaSala.length }],
+      mediana: 5,
+      modas: [5],
+    })),
+    niveles: deLaSala.map((n) => ({
+      idNino: n.id,
+      nucleo: 'CM',
+      nivel: 5,
+      fechaCorte: haceDias(1),
+    })),
+    alertas:
+      sala === 'SG-A'
+        ? [
+            {
+              idNino: 'NINO-T003',
+              nucleo: 'CM',
+              nivelValidado: 3,
+              referencia: 5,
+              brecha: 2,
+              pares: 6,
+            },
+          ]
+        : [],
+    reglas: REGLAS,
+  };
+}
+
+export const RESUMEN_JARDIN = {
+  idJardin: 'JAR-0001',
+  corte: haceDias(0),
+  reglas: REGLAS,
+  salas: ['SG-A', 'SG-B'].map((sala) => ({
+    sala,
+    idSala: `JAR-0001-${sala}`,
+    nivelEducativo: sala === 'SG-A' ? ('SC' as const) : ('NM' as const),
+    matriculados: NINOS.filter((n) => n.sala === sala).length,
+    edadMinMeses: 20,
+    edadMaxMeses: 31,
+    edadPromedioMeses: 22.5,
+    cobertura: 0.9,
+    observaciones30Dias: 12,
+    alertasIndividuales: sala === 'SG-A' ? 1 : 0,
+    ninosConAlerta: sala === 'SG-A' ? 1 : 0,
+    nucleos: estadoSala(sala).nucleos,
+    alertasSala: [],
+  })),
+};
+
 export const servidor = setupServer(
   getGetMeMockHandler(EDUCADORA),
   getListarNinosMockHandler(NINOS),
@@ -411,6 +487,10 @@ export const servidor = setupServer(
   getListarManifestacionesMockHandler(MANIFESTACIONES),
   getObtenerTrayectoriaMockHandler(({ params }) => trayectoria(String(params['id']))),
   ...handlersCapturas,
+  getObtenerEstadoSalaMockHandler(({ request }) =>
+    estadoSala(new URL(request.url).searchParams.get('sala') ?? ''),
+  ),
+  getObtenerResumenJardinMockHandler(RESUMEN_JARDIN),
 );
 
 export function conProveedores(contenido: ReactNode) {

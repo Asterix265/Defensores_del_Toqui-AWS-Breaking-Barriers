@@ -25,6 +25,7 @@ import {
   alTerminarSesion,
   cerrarSesion,
   haySesion,
+  confirmarNuevaClave,
   iniciarSesion,
   modoLocal,
 } from '../auth/sesion';
@@ -197,6 +198,14 @@ export function RegistroApp() {
           setEstado('dentro');
           return null;
         }}
+        onNuevaClave={async (clave) => {
+          const resultado = await confirmarNuevaClave(clave);
+          if (!resultado.ok) return resultado.error;
+          cerrando.current = false;
+          setAviso(null);
+          setEstado('dentro');
+          return null;
+        }}
       />
     );
   }
@@ -276,6 +285,8 @@ function AppSesion({ salir }: { salir: (motivo: string | null) => void }) {
     pantalla = (
       <AppConDatos
         nombre={nombreVisible(identidad.data)}
+        grupo={identidad.data.grupo}
+        idUsuario={identidad.data.id}
         ninos={ninos.data}
         catalogo={{ niveles: catalogo.niveles, manifestaciones: catalogo.manifestaciones }}
         escritorio={escritorio}
@@ -334,12 +345,16 @@ function Estado({
 
 function AppConDatos({
   nombre,
+  grupo,
+  idUsuario,
   ninos,
   catalogo,
   escritorio,
   onSalir,
 }: {
   nombre: string;
+  grupo: 'educadora' | 'directora';
+  idUsuario: string;
   ninos: Nino[];
   catalogo: ComponentProps<typeof NuevaNota>['catalogo'];
   escritorio: boolean;
@@ -385,10 +400,13 @@ function AppConDatos({
     </Snackbar>
   );
 
-  if (escritorio) {
+  // La directora no registra notas: también en el celular ve el panel (jardín, salas y equipo).
+  if (escritorio || grupo === 'directora') {
     return (
       <>
         <PanelSalas
+          grupo={grupo}
+          idUsuario={idUsuario}
           ninos={ninos}
           salas={salas}
           salaPropia={salaPropia}

@@ -1,6 +1,6 @@
 import type { Manifestacion, MensajeCaptura } from '@toqui/shared';
 import { vi } from 'vitest';
-import { ContextoVacio } from '../adaptadores/nulos.js';
+import { ContextoDesdeMensaje } from '../adaptadores/nulos.js';
 import { ClasificadorFake } from '../ia/fake.js';
 import type { Dependencias } from '../puertos.js';
 
@@ -64,7 +64,7 @@ export function depsFalsas(cambios: Partial<Dependencias> = {}): Dependencias {
     transcriptor: { transcribir: vi.fn(async () => 'Dijo agua cuando tuvo sed.') },
     lectorImagen: { proveedor: 'prueba', leer: vi.fn(async () => 'Apiló cuatro bloques solo.') },
     anonimizador: { anonimizar: vi.fn(async (t: string) => t) },
-    contexto: new ContextoVacio(),
+    contexto: new ContextoDesdeMensaje(),
     clasificador: new ClasificadorFake(),
     api: {
       entregarBorrador: vi.fn(async () => 'borrador_listo' as const),

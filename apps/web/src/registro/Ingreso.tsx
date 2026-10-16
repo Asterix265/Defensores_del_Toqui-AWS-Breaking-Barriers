@@ -12,15 +12,15 @@ import LockRounded from '@mui/icons-material/LockRounded';
 import MailRounded from '@mui/icons-material/MailRounded';
 import VisibilityOffRounded from '@mui/icons-material/VisibilityOffRounded';
 import VisibilityRounded from '@mui/icons-material/VisibilityRounded';
-import type { ErrorIngreso } from '../auth/sesion';
+import { LARGO_MINIMO_CLAVE, type ErrorIngreso } from '../auth/sesion';
 import { colores } from './tema';
 
 const CORREO_VALIDO = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export const MENSAJE_ERROR: Record<ErrorIngreso, string> = {
   credenciales: 'Correo o contraseña incorrectos.',
-  nueva_clave:
-    'Tu cuenta tiene una contraseña temporal. Pide a quien administra la app que la deje definitiva.',
+  nueva_clave: 'Crea tu contraseña para terminar de ingresar.',
+  clave_invalida: `La contraseña nueva no cumple las reglas: al menos ${LARGO_MINIMO_CLAVE} caracteres, con mayúsculas, minúsculas y números.`,
   restablecer: 'Debes restablecer tu contraseña. Pide ayuda a quien administra la app.',
   sin_confirmar: 'Tu cuenta aún no está confirmada. Pide ayuda a quien administra la app.',
   paso_no_soportado:
@@ -37,10 +37,13 @@ export const MENSAJE_ERROR: Record<ErrorIngreso, string> = {
  */
 export function Ingreso({
   onIngresar,
+  onNuevaClave,
   aviso,
   modoLocal = false,
 }: {
   onIngresar: (correo: string, clave: string) => Promise<ErrorIngreso | null>;
+  /** Primer ingreso con contraseña temporal: define la nueva y entra. */
+  onNuevaClave?: (clave: string) => Promise<ErrorIngreso | null>;
   /** Motivo por el que se volvió al ingreso (sesión terminada, cuenta sin jardín). */
   aviso?: string | null;
   modoLocal?: boolean;
@@ -50,14 +53,43 @@ export function Ingreso({
   const [verClave, setVerClave] = useState(false);
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState<ErrorIngreso | null>(null);
+  /** Cognito pidió una contraseña nueva (cuenta invitada por la directora). */
+  const [creandoClave, setCreandoClave] = useState(false);
+  const [nueva, setNueva] = useState('');
+  const [repetida, setRepetida] = useState('');
   const listo = CORREO_VALIDO.test(correo.trim()) && clave.length > 0 && !enviando;
+  const problemaNueva =
+    nueva.length < LARGO_MINIMO_CLAVE
+      ? `Al menos ${LARGO_MINIMO_CLAVE} caracteres.`
+      : !/[a-z]/.test(nueva) || !/[A-Z]/.test(nueva) || !/\d/.test(nueva)
+        ? 'Usa mayúsculas, minúsculas y números.'
+        : nueva !== repetida
+          ? 'Las dos contraseñas no coinciden.'
+          : null;
 
   const enviar = async () => {
+    if (creandoClave) {
+      if (problemaNueva || !onNuevaClave || enviando) return;
+      setEnviando(true);
+      setError(null);
+      const resultado = await onNuevaClave(nueva);
+      if (resultado) {
+        setError(resultado === 'nueva_clave' ? 'clave_invalida' : resultado);
+        setEnviando(false);
+      }
+      return;
+    }
     if (!listo) return;
     setEnviando(true);
     setError(null);
     const resultado = await onIngresar(correo.trim(), clave);
     // Si entró, este componente se desmonta; solo se actualiza si sigue en pantalla.
+    if (resultado === 'nueva_clave' && onNuevaClave) {
+      setCreandoClave(true);
+      setClave('');
+      setEnviando(false);
+      return;
+    }
     if (resultado) {
       setError(resultado);
       setClave('');
@@ -118,82 +150,135 @@ export function Ingreso({
           </Box>
           <Stack sx={{ pt: { xs: 3.5, md: 0 }, gap: 0.75 }}>
             <Typography variant="h1" sx={{ fontSize: 28, lineHeight: '34px' }}>
-              Hola 👋
-              <br />
-              Ingresa a Registro Simple
+              {creandoClave ? (
+                'Crea tu contraseña'
+              ) : (
+                <>
+                  Hola 👋
+                  <br />
+                  Ingresa a Registro Simple
+                </>
+              )}
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              Con el correo y la contraseña de tu cuenta.
+              {creandoClave
+                ? `Es tu primer ingreso. Elige una contraseña de al menos ${LARGO_MINIMO_CLAVE} caracteres, con mayúsculas, minúsculas y números.`
+                : 'Con el correo y la contraseña de tu cuenta.'}
             </Typography>
           </Stack>
 
-          <Stack sx={{ pt: 3, gap: 2 }}>
-            {aviso && <Alert severity="warning">{aviso}</Alert>}
-            <TextField
-              fullWidth
-              type="email"
-              name="username"
-              autoComplete="username"
-              placeholder="tu.correo@integra.cl"
-              value={correo}
-              onChange={(e) => setCorreo(e.target.value)}
-              disabled={enviando}
-              slotProps={{
-                htmlInput: { 'aria-label': 'Correo', inputMode: 'email' },
-                input: { startAdornment: <Icono>{<MailRounded />}</Icono> },
-              }}
-              sx={campo}
-            />
-            <TextField
-              fullWidth
-              type={verClave ? 'text' : 'password'}
-              name="password"
-              autoComplete="current-password"
-              placeholder="Contraseña"
-              value={clave}
-              onChange={(e) => setClave(e.target.value)}
-              disabled={enviando}
-              slotProps={{
-                htmlInput: { 'aria-label': 'Contraseña' },
-                input: {
-                  startAdornment: <Icono>{<LockRounded />}</Icono>,
-                  endAdornment: (
-                    <InputAdornment position="end">
-                      <IconButton
-                        aria-label={verClave ? 'Ocultar contraseña' : 'Mostrar contraseña'}
-                        onClick={() => setVerClave((v) => !v)}
-                        edge="end"
-                      >
-                        {verClave ? <VisibilityOffRounded /> : <VisibilityRounded />}
-                      </IconButton>
-                    </InputAdornment>
-                  ),
-                },
-              }}
-              sx={campo}
-            />
-            {error && (
-              <Alert severity="error" role="alert">
-                {MENSAJE_ERROR[error]}
-              </Alert>
-            )}
-            {modoLocal && (
-              <Alert severity="info">
-                Modo local: sin Cognito configurado. Cualquier contraseña sirve y la API debe correr
-                con AUTH_MODE=local.
-              </Alert>
-            )}
-          </Stack>
+          {creandoClave ? (
+            <Stack sx={{ pt: 3, gap: 2 }}>
+              <TextField
+                fullWidth
+                type={verClave ? 'text' : 'password'}
+                name="new-password"
+                autoComplete="new-password"
+                placeholder="Contraseña nueva"
+                value={nueva}
+                onChange={(e) => setNueva(e.target.value)}
+                disabled={enviando}
+                slotProps={{
+                  htmlInput: { 'aria-label': 'Contraseña nueva' },
+                  input: { startAdornment: <Icono>{<LockRounded />}</Icono> },
+                }}
+                sx={campo}
+              />
+              <TextField
+                fullWidth
+                type={verClave ? 'text' : 'password'}
+                name="new-password-2"
+                autoComplete="new-password"
+                placeholder="Repite la contraseña"
+                value={repetida}
+                onChange={(e) => setRepetida(e.target.value)}
+                disabled={enviando}
+                slotProps={{
+                  htmlInput: { 'aria-label': 'Repite la contraseña' },
+                  input: { startAdornment: <Icono>{<LockRounded />}</Icono> },
+                }}
+                sx={campo}
+              />
+              {nueva.length > 0 && problemaNueva && (
+                <Typography variant="caption" color="text.secondary" role="status">
+                  {problemaNueva}
+                </Typography>
+              )}
+              {error && (
+                <Alert severity="error" role="alert">
+                  {MENSAJE_ERROR[error]}
+                </Alert>
+              )}
+            </Stack>
+          ) : (
+            <Stack sx={{ pt: 3, gap: 2 }}>
+              {aviso && <Alert severity="warning">{aviso}</Alert>}
+              <TextField
+                fullWidth
+                type="email"
+                name="username"
+                autoComplete="username"
+                placeholder="tu.correo@integra.cl"
+                value={correo}
+                onChange={(e) => setCorreo(e.target.value)}
+                disabled={enviando}
+                slotProps={{
+                  htmlInput: { 'aria-label': 'Correo', inputMode: 'email' },
+                  input: { startAdornment: <Icono>{<MailRounded />}</Icono> },
+                }}
+                sx={campo}
+              />
+              <TextField
+                fullWidth
+                type={verClave ? 'text' : 'password'}
+                name="password"
+                autoComplete="current-password"
+                placeholder="Contraseña"
+                value={clave}
+                onChange={(e) => setClave(e.target.value)}
+                disabled={enviando}
+                slotProps={{
+                  htmlInput: { 'aria-label': 'Contraseña' },
+                  input: {
+                    startAdornment: <Icono>{<LockRounded />}</Icono>,
+                    endAdornment: (
+                      <InputAdornment position="end">
+                        <IconButton
+                          aria-label={verClave ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                          onClick={() => setVerClave((v) => !v)}
+                          edge="end"
+                        >
+                          {verClave ? <VisibilityOffRounded /> : <VisibilityRounded />}
+                        </IconButton>
+                      </InputAdornment>
+                    ),
+                  },
+                }}
+                sx={campo}
+              />
+              {error && (
+                <Alert severity="error" role="alert">
+                  {MENSAJE_ERROR[error]}
+                </Alert>
+              )}
+              {modoLocal && (
+                <Alert severity="info">
+                  Modo local: sin Cognito configurado. Cualquier contraseña sirve y la API debe
+                  correr con AUTH_MODE=local.
+                </Alert>
+              )}
+            </Stack>
+          )}
 
           <Box sx={{ mt: { xs: 'auto', md: 4 }, pt: 2 }}>
             <Button
               type="submit"
               variant="contained"
               fullWidth
-              disabled={!listo}
+              disabled={creandoClave ? problemaNueva !== null || enviando : !listo}
               startIcon={enviando ? <CircularProgress size={22} color="inherit" /> : undefined}
             >
-              {enviando ? 'Ingresando…' : 'Entrar'}
+              {enviando ? 'Ingresando…' : creandoClave ? 'Guardar y entrar' : 'Entrar'}
             </Button>
           </Box>
         </Stack>

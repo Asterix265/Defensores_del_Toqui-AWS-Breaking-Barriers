@@ -706,6 +706,261 @@
           "interno"
         ]
       }
+    },
+    "/salas/estado": {
+      "get": {
+        "operationId": "obtenerEstadoSala",
+        "parameters": [
+          {
+            "name": "sala",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          {
+            "name": "corte",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "format": "date",
+              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EstadoSalaResponseDto_Output"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Estado por núcleo de una sala al corte, con alertas para revisar en contexto",
+        "tags": [
+          "salas"
+        ]
+      }
+    },
+    "/jardin/resumen": {
+      "get": {
+        "operationId": "obtenerResumenJardin",
+        "parameters": [
+          {
+            "name": "corte",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "format": "date",
+              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResumenJardinResponseDto_Output"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Vista general de la directora: todas las salas del jardín al corte",
+        "tags": [
+          "salas"
+        ]
+      }
+    },
+    "/cuentas": {
+      "get": {
+        "operationId": "listarCuentas",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListarCuentasResponseDto_Output"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Cuentas del jardín de la directora",
+        "tags": [
+          "cuentas"
+        ]
+      },
+      "post": {
+        "operationId": "invitarCuenta",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InvitarCuentaRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CuentaResponseDto_Output"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Crea una cuenta del jardín; Cognito envía la contraseña temporal por correo",
+        "tags": [
+          "cuentas"
+        ]
+      }
+    },
+    "/cuentas/{usuario}/reenvio": {
+      "post": {
+        "operationId": "reenviarInvitacion",
+        "parameters": [
+          {
+            "name": "usuario",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CuentaResponseDto_Output"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Reenvía la contraseña temporal",
+        "tags": [
+          "cuentas"
+        ]
+      }
+    },
+    "/cuentas/{usuario}/desactivacion": {
+      "post": {
+        "operationId": "desactivarCuenta",
+        "parameters": [
+          {
+            "name": "usuario",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CuentaResponseDto_Output"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Desactiva una cuenta del jardín",
+        "tags": [
+          "cuentas"
+        ]
+      }
+    },
+    "/cuentas/{usuario}/activacion": {
+      "post": {
+        "operationId": "activarCuenta",
+        "parameters": [
+          {
+            "name": "usuario",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CuentaResponseDto_Output"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Reactiva una cuenta del jardín",
+        "tags": [
+          "cuentas"
+        ]
+      }
     }
   },
   "info": {
@@ -1609,6 +1864,11 @@
               ],
               "additionalProperties": false
             }
+          },
+          "ejemplosUsados": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
           }
         },
         "required": [
@@ -2112,6 +2372,11 @@
                 "detalle"
               ]
             }
+          },
+          "ejemplosUsados": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
           }
         },
         "required": [
@@ -2220,6 +2485,520 @@
         "required": [
           "detalle"
         ]
+      },
+      "ResumenNucleo_Output": {
+        "type": "object",
+        "properties": {
+          "nucleo": {
+            "type": "string",
+            "pattern": "^[A-Z]{2}$"
+          },
+          "conDecision": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "sinDecision": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "distribucion": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "nivel": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 8
+                },
+                "cantidad": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                }
+              },
+              "required": [
+                "nivel",
+                "cantidad"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "mediana": {
+            "anyOf": [
+              {
+                "type": "number",
+                "minimum": 1,
+                "maximum": 8
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "modas": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 8
+            }
+          }
+        },
+        "required": [
+          "nucleo",
+          "conDecision",
+          "sinDecision",
+          "distribucion",
+          "mediana",
+          "modas"
+        ],
+        "additionalProperties": false
+      },
+      "NivelVigente_Output": {
+        "type": "object",
+        "properties": {
+          "idNino": {
+            "type": "string"
+          },
+          "nucleo": {
+            "type": "string",
+            "pattern": "^[A-Z]{2}$"
+          },
+          "nivel": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 8
+          },
+          "fechaCorte": {
+            "type": "string",
+            "format": "date",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+          }
+        },
+        "required": [
+          "idNino",
+          "nucleo",
+          "nivel",
+          "fechaCorte"
+        ],
+        "additionalProperties": false
+      },
+      "AlertaIndividual_Output": {
+        "type": "object",
+        "properties": {
+          "idNino": {
+            "type": "string"
+          },
+          "nucleo": {
+            "type": "string",
+            "pattern": "^[A-Z]{2}$"
+          },
+          "nivelValidado": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 8
+          },
+          "referencia": {
+            "type": "number"
+          },
+          "brecha": {
+            "type": "number"
+          },
+          "pares": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "idNino",
+          "nucleo",
+          "nivelValidado",
+          "referencia",
+          "brecha",
+          "pares"
+        ],
+        "additionalProperties": false
+      },
+      "ReglasAlerta_Output": {
+        "type": "object",
+        "properties": {
+          "antiguedadMaximaDias": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "paresMinimos": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "brechaIndividual": {
+            "type": "number"
+          },
+          "salasMinimas": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "brechaSala": {
+            "type": "number"
+          },
+          "accionIndividual": {
+            "type": "string"
+          },
+          "accionSala": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "antiguedadMaximaDias",
+          "paresMinimos",
+          "brechaIndividual",
+          "salasMinimas",
+          "brechaSala",
+          "accionIndividual",
+          "accionSala"
+        ],
+        "additionalProperties": false
+      },
+      "EstadoSalaResponseDto_Output": {
+        "type": "object",
+        "properties": {
+          "sala": {
+            "type": "string"
+          },
+          "idSala": {
+            "type": "string"
+          },
+          "nivelEducativo": {
+            "type": "string",
+            "enum": [
+              "SC",
+              "NM",
+              "TR"
+            ]
+          },
+          "corte": {
+            "type": "string",
+            "format": "date",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+          },
+          "matriculados": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "nucleos": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ResumenNucleo_Output"
+            }
+          },
+          "niveles": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/NivelVigente_Output"
+            }
+          },
+          "alertas": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AlertaIndividual_Output"
+            }
+          },
+          "reglas": {
+            "$ref": "#/components/schemas/ReglasAlerta_Output"
+          }
+        },
+        "required": [
+          "sala",
+          "idSala",
+          "nivelEducativo",
+          "corte",
+          "matriculados",
+          "nucleos",
+          "niveles",
+          "alertas",
+          "reglas"
+        ],
+        "additionalProperties": false
+      },
+      "ResumenSala_Output": {
+        "type": "object",
+        "properties": {
+          "sala": {
+            "type": "string"
+          },
+          "idSala": {
+            "type": "string"
+          },
+          "nivelEducativo": {
+            "type": "string",
+            "enum": [
+              "SC",
+              "NM",
+              "TR"
+            ]
+          },
+          "matriculados": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "edadMinMeses": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "edadMaxMeses": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "edadPromedioMeses": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "cobertura": {
+            "type": "number"
+          },
+          "observaciones30Dias": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "alertasIndividuales": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "ninosConAlerta": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "nucleos": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ResumenNucleo_Output"
+            }
+          },
+          "alertasSala": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AlertaSala_Output"
+            }
+          }
+        },
+        "required": [
+          "sala",
+          "idSala",
+          "nivelEducativo",
+          "matriculados",
+          "edadMinMeses",
+          "edadMaxMeses",
+          "edadPromedioMeses",
+          "cobertura",
+          "observaciones30Dias",
+          "alertasIndividuales",
+          "ninosConAlerta",
+          "nucleos",
+          "alertasSala"
+        ],
+        "additionalProperties": false
+      },
+      "AlertaSala_Output": {
+        "type": "object",
+        "properties": {
+          "nucleo": {
+            "type": "string",
+            "pattern": "^[A-Z]{2}$"
+          },
+          "mediana": {
+            "type": "number"
+          },
+          "referencia": {
+            "type": "number"
+          },
+          "brecha": {
+            "type": "number"
+          },
+          "salasReferencia": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "nucleo",
+          "mediana",
+          "referencia",
+          "brecha",
+          "salasReferencia"
+        ],
+        "additionalProperties": false
+      },
+      "ResumenJardinResponseDto_Output": {
+        "type": "object",
+        "properties": {
+          "idJardin": {
+            "type": "string"
+          },
+          "corte": {
+            "type": "string",
+            "format": "date",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+          },
+          "salas": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ResumenSala_Output"
+            }
+          },
+          "reglas": {
+            "$ref": "#/components/schemas/ReglasAlerta_Output"
+          }
+        },
+        "required": [
+          "idJardin",
+          "corte",
+          "salas",
+          "reglas"
+        ],
+        "additionalProperties": false
+      },
+      "Cuenta_Output": {
+        "type": "object",
+        "properties": {
+          "usuario": {
+            "type": "string"
+          },
+          "email": {
+            "$ref": "#/components/schemas/TextoNulo_Output"
+          },
+          "nombre": {
+            "$ref": "#/components/schemas/TextoNulo_Output"
+          },
+          "grupo": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "educadora",
+                  "directora"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "estado": {
+            "type": "string",
+            "enum": [
+              "activa",
+              "pendiente",
+              "desactivada"
+            ]
+          },
+          "creadaEn": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "usuario",
+          "email",
+          "nombre",
+          "grupo",
+          "estado",
+          "creadaEn"
+        ],
+        "additionalProperties": false
+      },
+      "ListarCuentasResponseDto_Output": {
+        "type": "object",
+        "properties": {
+          "cuentas": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Cuenta_Output"
+            }
+          }
+        },
+        "required": [
+          "cuentas"
+        ],
+        "additionalProperties": false
+      },
+      "InvitarCuentaRequestDto": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "maxLength": 254,
+            "format": "email",
+            "pattern": "^(?:[A-Za-z0-9_'+\\-]+\\.)*[A-Za-z0-9_'+\\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$"
+          },
+          "nombre": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 80
+          },
+          "grupo": {
+            "type": "string",
+            "enum": [
+              "educadora",
+              "directora"
+            ]
+          }
+        },
+        "required": [
+          "email",
+          "nombre",
+          "grupo"
+        ],
+        "additionalProperties": false
+      },
+      "CuentaResponseDto_Output": {
+        "type": "object",
+        "properties": {
+          "cuenta": {
+            "$ref": "#/components/schemas/Cuenta_Output"
+          }
+        },
+        "required": [
+          "cuenta"
+        ],
+        "additionalProperties": false
       }
     }
   }

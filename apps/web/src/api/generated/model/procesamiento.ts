@@ -12,4 +12,9 @@ export interface Procesamiento {
   simulado: boolean;
   entrada: ProcesamientoEntrada;
   pasos: ProcesamientoPasosItem[];
+  /**
+   * @minimum 0
+   * @maximum 9007199254740991
+   */
+  ejemplosUsados?: number;
 }

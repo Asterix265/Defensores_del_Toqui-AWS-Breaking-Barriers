@@ -15,6 +15,23 @@ const tiposDe = (formato: 'audio' | 'foto') =>
 const TipoAudioSchema = z.enum(tiposDe('audio') as [TipoArchivo, ...TipoArchivo[]]);
 const TipoFotoSchema = z.enum(tiposDe('foto') as [TipoArchivo, ...TipoArchivo[]]);
 
+/** Tope de decisiones previas por mensaje y largo de su texto. */
+export const MAXIMO_EJEMPLOS = 5;
+export const LARGO_EJEMPLO = 400;
+
+/**
+ * Decisión previa de una educadora: solo el texto ya anonimizado (`textoFuente` del borrador),
+ * el nivel y las manifestaciones que confirmó. Nunca IDs de niño o niña, captura ni usuario.
+ */
+export const EjemploDecisionSchema = z.object({
+  textoFuente: z.string().min(1).max(LARGO_EJEMPLO),
+  nivel: NivelSchema,
+  idsManifestaciones: z.array(z.string().min(1)).min(1).max(5),
+  /** true si la educadora cambió la propuesta de la IA. */
+  corregida: z.boolean(),
+});
+export type EjemploDecision = z.infer<typeof EjemploDecisionSchema>;
+
 const MensajeBaseSchema = z.object({
   version: z.literal(1),
   idCaptura: z.uuid(),
@@ -31,6 +48,11 @@ const MensajeBaseSchema = z.object({
   nivelEsperado: NivelSchema,
   /** Manifestaciones permitidas: las del nivel educativo. La IA solo puede proponer estas. */
   catalogo: z.array(ManifestacionSchema).min(1),
+  /**
+   * Decisiones previas de educadoras del mismo jardín y nivel educativo (aprender de las
+   * correcciones, panel-directora-y-aprendizaje D4). Opcional: los mensajes antiguos no lo traen.
+   */
+  ejemplos: z.array(EjemploDecisionSchema).max(MAXIMO_EJEMPLOS).optional(),
 });
 
 /**

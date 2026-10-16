@@ -114,13 +114,14 @@ describe('notasACsv', () => {
       nucleos: ['LV'],
       nivel: 7,
     };
-    const csv = notasACsv([nota]).split('\n');
+    // `;` como separador: así lo abre Excel en español.
+    const csv = notasACsv([nota]).split('\r\n');
     expect(csv[0]).toBe(
-      'id_nota,fecha,sala,educadora,id_nino,nino,formato,nivel_estimado,areas,nota',
+      'id_nota;fecha;sala;educadora;id_nino;nino;formato;nivel_estimado;areas;nota',
     );
     expect(csv).toHaveLength(2);
     expect(csv[1]).toContain(
-      'Sala A,Mercedes Rojas,NINO-T001,Martina Pérez Soto,texto,7,Lenguaje,"Señaló el gato del cuento, con calma."',
+      'Sala A;Mercedes Rojas;NINO-T001;Martina Pérez Soto;texto;7;Lenguaje;"Señaló el gato del cuento, con calma."',
     );
   });
 });

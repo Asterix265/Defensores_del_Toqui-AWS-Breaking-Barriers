@@ -24,7 +24,8 @@ export function FichaEscritorio({
   ahora: Date;
   onVolver: () => void;
   /** Abre «Nueva nota» ya asociada a este niño o niña. */
-  onNuevaNota: () => void;
+  /** Sin esta acción (directora) no se muestra «Nueva nota». */
+  onNuevaNota?: () => void;
 }) {
   return (
     <>
@@ -57,7 +58,9 @@ export function FichaEscritorio({
           </Typography>
         </Box>
         <Box sx={{ ml: 'auto' }}>
-          <BotonNuevaNota onClick={onNuevaNota} etiqueta={`Nueva nota para ${nino.nombre}`} />
+          {onNuevaNota && (
+            <BotonNuevaNota onClick={onNuevaNota} etiqueta={`Nueva nota para ${nino.nombre}`} />
+          )}
         </Box>
       </Box>
 

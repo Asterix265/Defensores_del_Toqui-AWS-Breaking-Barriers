@@ -211,6 +211,8 @@ export const ProcesamientoSchema = z
         detalle: z.string(),
       }),
     ),
+    /** Decisiones previas del jardín que recibió la IA como ejemplos; ausente en borradores antiguos. */
+    ejemplosUsados: z.number().int().nonnegative().optional(),
   })
   .meta({ id: 'Procesamiento' });
 export type Procesamiento = z.infer<typeof ProcesamientoSchema>;

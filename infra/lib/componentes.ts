@@ -51,6 +51,12 @@ export function crearIdentidad(
       id_jardin: new cognito.StringAttribute({ minLen: 1, maxLen: 20, mutable: true }),
     },
     passwordPolicy: { minLength: 12, requireSymbols: false },
+    // Correo de la invitación que envía la directora desde la web (panel-directora-y-aprendizaje).
+    userInvitation: {
+      emailSubject: 'Tu cuenta en Toqui E-1',
+      emailBody:
+        'Te invitaron a Toqui E-1, el registro de observaciones del jardín. Ingresa con tu correo {username} y la contraseña temporal {####}. Al entrar te pediremos crear una contraseña nueva de al menos 12 caracteres.',
+    },
     accountRecovery: cognito.AccountRecovery.EMAIL_ONLY,
     removalPolicy: RemovalPolicy.DESTROY,
   });
@@ -69,7 +75,7 @@ export function crearIdentidad(
     authFlows: { userSrp: true, userPassword: opciones.permitirPassword },
     preventUserExistenceErrors: true,
     readAttributes: new cognito.ClientAttributes()
-      .withStandardAttributes({ email: true })
+      .withStandardAttributes({ email: true, fullname: true })
       .withCustomAttributes('id_jardin'),
     writeAttributes: new cognito.ClientAttributes().withStandardAttributes({ email: true }),
   });

@@ -7,6 +7,7 @@ import { desdeColumnaFecha, edadEnMeses } from '../comun/fechas';
 import { ENV } from '../config/config.module';
 import type { Env } from '../config/env';
 import { PrismaService } from '../prisma/prisma.service';
+import { EjemplosService } from './ejemplos.service';
 import { nivelReferencia } from './nivel';
 import { PipelineInlineService } from './pipeline-inline.service';
 
@@ -26,6 +27,7 @@ export class DespachadorService {
     private readonly prisma: PrismaService,
     private readonly cola: ColaService,
     private readonly inline: PipelineInlineService,
+    private readonly ejemplos: EjemplosService,
   ) {}
 
   /**
@@ -94,6 +96,12 @@ export class DespachadorService {
       nivelEducativo,
       nivelEsperado: await nivelReferencia(this.prisma, c.nino.id),
       catalogo,
+      ejemplos: await this.ejemplos.ejemplos({
+        idJardin: c.idJardin,
+        nivelEducativo,
+        catalogo: new Set(catalogo.map((m) => m.id)),
+        excluir: idCaptura,
+      }),
     };
     if (c.formato === 'texto') return { ...base, formato: 'texto', texto: c.texto ?? '' };
     if (c.formato === 'audio' || c.formato === 'foto') {

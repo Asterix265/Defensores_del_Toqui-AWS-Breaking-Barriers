@@ -22,6 +22,11 @@ const EnvSchema = z
     PIPELINE_MODE: z.enum(['cola', 'inline']).default('inline'),
     /** Cola de capturas (salida `ColaCapturasUrl` de ToquiApp). Obligatoria con `PIPELINE_MODE=cola`. */
     SQS_URL_CAPTURAS: z.url().optional(),
+    /**
+     * Decisiones previas del jardín que viajan como ejemplos en el mensaje de la cola (0 = apagado).
+     * Ver panel-directora-y-aprendizaje, D4.
+     */
+    EJEMPLOS_CORRECCIONES: z.coerce.number().int().min(0).max(5).default(5),
     /** Proveedor de IA del modo inline. Por ahora solo `fake` (borradores deterministas). */
     IA_PROVIDER: z.enum(['fake']).default('fake'),
     /** Secreto compartido con el pipeline para el endpoint interno. Sin él, responde 503. */

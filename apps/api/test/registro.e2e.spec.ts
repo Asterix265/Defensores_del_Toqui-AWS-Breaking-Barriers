@@ -450,6 +450,45 @@ describe('API de registro (e2e)', () => {
     });
   });
 
+  describe('estado de salas y vista general (panel-directora-y-aprendizaje)', () => {
+    it('estado por núcleo de una sala con el nivel validado vigente', async () => {
+      const res = await http().get('/salas/estado?sala=SC-01').expect(200);
+      expect(res.body).toMatchObject({ sala: 'SC-01', nivelEducativo: 'SC', matriculados: 1 });
+      expect(res.body.niveles).toEqual([
+        { idNino: 'NINO-00001', nucleo: 'IA', nivel: 3, fechaCorte: sumarDias(HOY, -9) },
+      ]);
+      const ia = res.body.nucleos.find((n: { nucleo: string }) => n.nucleo === 'IA');
+      expect(ia).toMatchObject({ conDecision: 1, sinDecision: 0, mediana: 3, modas: [3] });
+      // Evidencia insuficiente no es una decisión: cuenta como sin decisión.
+      const cm = res.body.nucleos.find((n: { nucleo: string }) => n.nucleo === 'CM');
+      expect(cm).toMatchObject({ conDecision: 0, sinDecision: 1, mediana: null });
+      expect(res.body.alertas).toEqual([]);
+    });
+
+    it('una sala que no es del jardín responde 404', async () => {
+      await http().get('/salas/estado?sala=TR-09').expect(404);
+      await http().get('/salas/estado').expect(400);
+    });
+
+    it('el resumen del jardín es solo para la directora', async () => {
+      await http().get('/jardin/resumen').expect(403);
+      const res = await http().get('/jardin/resumen').set('Authorization', DIRECTORA).expect(200);
+      expect(res.body.salas.map((s: { sala: string }) => s.sala)).toEqual(['NM-01', 'SC-01']);
+      expect(res.body.salas[1]).toMatchObject({ matriculados: 1, alertasIndividuales: 0 });
+      expect(res.body.reglas).toMatchObject({ paresMinimos: 5, brechaIndividual: 2 });
+    });
+
+    it('cuentas: solo la directora, y sin Cognito responde 501', async () => {
+      await http().get('/cuentas').expect(403);
+      await http().get('/cuentas').set('Authorization', DIRECTORA).expect(501);
+      await http()
+        .post('/cuentas')
+        .set('Authorization', DIRECTORA)
+        .send({ email: 'x@example.com', nombre: 'X Y', grupo: 'educadora', idJardin: 'JAR-0002' })
+        .expect(400);
+    });
+  });
+
   describe('captura y borrador (pipeline inline, proveedor fake)', () => {
     it('crea la captura en procesando y el pipeline deja un borrador válido con cita', async () => {
       const res = await http()
@@ -1039,10 +1078,30 @@ describe('API de registro (e2e)', () => {
       expect(mensaje.catalogo.every((m) => m.nivelEducativo === 'SC')).toBe(true);
       expect(new Set(mensaje.catalogo.map((m) => m.nivel)).size).toBe(8);
       expect(JSON.stringify(mensaje)).not.toMatch(/NINO-|idNino|nombres|apellidos/);
+      // Las decisiones de las pruebas anteriores (mismo jardín y nivel educativo) vuelven como
+      // ejemplos, con las corregidas primero y solo manifestaciones del catálogo.
+      expect(mensaje.ejemplos?.length).toBeGreaterThan(0);
+      expect(mensaje.ejemplos![0]!.corregida).toBe(true);
+      const ids = new Set(mensaje.catalogo.map((m) => m.id));
+      expect(mensaje.ejemplos!.every((e) => e.idsManifestaciones.every((i) => ids.has(i)))).toBe(
+        true,
+      );
+      expect(JSON.stringify(mensaje.ejemplos)).not.toMatch(/idCaptura|idUsuario|local-educadora/);
       await new Promise((r) => setTimeout(r, 200));
       await expect(prisma.captura.findUnique({ where: { id } })).resolves.toMatchObject({
         estado: 'procesando',
       });
+    });
+
+    it('sin decisiones en el jardín, el mensaje no trae ejemplos de otros jardines', async () => {
+      await request(appCola.getHttpServer())
+        .post('/capturas')
+        .set('Authorization', EDUCADORA_J2)
+        .send({ idNino: 'NINO-00003', formato: 'texto', texto: 'Nota de otro jardín.' })
+        .expect(201);
+      const mensaje = MensajeCapturaSchema.parse(cola.enviar.mock.calls.at(-1)![0]);
+      expect(mensaje.idJardin).toBe('JAR-0002');
+      expect(mensaje.ejemplos).toEqual([]);
     });
 
     it('el audio se encola al confirmar la subida, una sola vez', async () => {

@@ -13,6 +13,8 @@ import { etiquetaSala, useObservacionesDe } from './api';
 import { areasSinNotas, registrosDe, resumenAreas } from './areas';
 import { NinoAvatar, Pantalla } from './componentes';
 import type { Nino } from './datos';
+import { alertasPorNino, useEstadoSala } from './estado';
+import { EstadoSala } from './panel/EstadoSala';
 import { colores } from './tema';
 
 /**
@@ -41,6 +43,7 @@ export function MiSala({
   const deLaSala = ninos.filter((n) => n.sala === sala);
   const observaciones = useObservacionesDe(deLaSala.map((n) => n.id));
   const cuantosEn = (s: string) => ninos.filter((n) => n.sala === s).length;
+  const alertas = alertasPorNino(useEstadoSala(sala).data);
   return (
     <Pantalla>
       <Stack sx={{ px: 2.5, pt: 3, gap: 0.25 }}>
@@ -60,6 +63,7 @@ export function MiSala({
           const sinNotas = consulta?.isSuccess
             ? areasSinNotas(resumenAreas(registrosDe(consulta.data), ahora))
             : 0;
+          const paraRevisar = alertas.get(nino.id)?.length ?? 0;
           return (
             <li key={nino.id}>
               <ButtonBase
@@ -73,14 +77,19 @@ export function MiSala({
                   justifyContent: 'flex-start',
                   textAlign: 'left',
                   bgcolor: '#fff',
-                  border: 1,
-                  borderColor: 'divider',
+                  border: paraRevisar > 0 ? 2 : 1,
+                  borderColor: paraRevisar > 0 ? colores.amarillo : 'divider',
                   borderRadius: '16px',
                 }}
               >
                 <NinoAvatar nino={nino} tamano={44} />
                 <Box sx={{ flex: 1, minWidth: 0, fontSize: 17, fontWeight: 700 }}>
                   {nino.nombre}
+                  {paraRevisar > 0 && (
+                    <Box sx={{ fontSize: 14, fontWeight: 700, color: colores.rojoOscuro }}>
+                      Revisar {paraRevisar} {paraRevisar === 1 ? 'área' : 'áreas'}
+                    </Box>
+                  )}
                 </Box>
                 {sinNotas > 0 && (
                   <Box
@@ -105,6 +114,9 @@ export function MiSala({
           );
         })}
       </Stack>
+      <Box sx={{ px: 2, pb: 3 }}>
+        <EstadoSala sala={sala} ninos={ninos} compacto onAbrir={onAbrir} />
+      </Box>
     </Pantalla>
   );
 }

@@ -54,7 +54,7 @@ export function nivelInicial(niveles: NivelRuta[]): number {
   return niveles[0]?.nivel ?? 1;
 }
 
-function mensajeApi(cuerpo: unknown, porDefecto: string): string {
+export function mensajeApi(cuerpo: unknown, porDefecto: string): string {
   const mensaje = (cuerpo as { message?: unknown } | null)?.message;
   if (typeof mensaje === 'string') return mensaje;
   if (Array.isArray(mensaje)) return mensaje.join('; ');
@@ -130,6 +130,9 @@ function useAlDecidir() {
   return (idNino: string) =>
     Promise.all([
       cliente.invalidateQueries({ queryKey: ['/api/capturas'] }),
+      // Una nota confirmada cambia el estado de la sala y del jardín.
+      cliente.invalidateQueries({ queryKey: ['/api/salas/estado'] }),
+      cliente.invalidateQueries({ queryKey: ['/api/jardin/resumen'] }),
       cliente.invalidateQueries({
         predicate: (q) => String(q.queryKey[0]).startsWith(`/api/ninos/${idNino}/`),
       }),

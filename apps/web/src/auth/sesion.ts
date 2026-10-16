@@ -4,12 +4,13 @@
  * la API con `AUTH_MODE=local`.
  */
 import { Amplify } from 'aws-amplify';
-import { fetchAuthSession, signIn, signOut } from 'aws-amplify/auth';
+import { confirmSignIn, fetchAuthSession, signIn, signOut } from 'aws-amplify/auth';
 
 /** Motivos por los que no se pudo ingresar; la pantalla de ingreso los traduce. */
 export type ErrorIngreso =
   | 'credenciales'
   | 'nueva_clave'
+  | 'clave_invalida'
   | 'restablecer'
   | 'sin_confirmar'
   | 'paso_no_soportado'
@@ -60,6 +61,8 @@ function traducir(error: unknown): ErrorIngreso {
     case 'EmptySignInUsername':
     case 'EmptySignInPassword':
       return 'credenciales';
+    case 'InvalidPasswordException':
+      return 'clave_invalida';
     case 'PasswordResetRequiredException':
       return 'restablecer';
     case 'UserNotConfirmedException':
@@ -116,6 +119,25 @@ export async function iniciarSesion(correo: string, clave: string): Promise<Resu
   }
 }
 
+/** Largo mínimo de la política del User Pool (`passwordPolicy` en `infra/lib/componentes.ts`). */
+export const LARGO_MINIMO_CLAVE = 12;
+
+/**
+ * Primer ingreso de una cuenta invitada (panel-directora-y-aprendizaje): responde al desafío
+ * `CONFIRM_SIGN_IN_WITH_NEW_PASSWORD_REQUIRED` que dejó `iniciarSesion` con la contraseña nueva.
+ */
+export async function confirmarNuevaClave(clave: string): Promise<ResultadoIngreso> {
+  if (modoLocal()) return { ok: true };
+  try {
+    const resultado = await confirmSignIn({ challengeResponse: clave });
+    if (resultado.nextStep.signInStep === 'DONE') return { ok: true };
+    await signOut().catch(() => undefined);
+    return { ok: false, error: 'paso_no_soportado' };
+  } catch (error) {
+    return { ok: false, error: traducir(error) };
+  }
+}
+
 /**
  * ¿Hay una sesión en este dispositivo? Si la renovación del token falla por red, Amplify conserva
  * los tokens: la sesión sigue y las consultas reintentan. Solo un refresh token inválido o
@@ -137,13 +159,26 @@ export async function haySesion(): Promise<boolean> {
 }
 
 /**
+ * Modo local: sin token la API usa la educadora fija de JAR-0001. Un correo que empieza con
+ * «directora» manda el token local de la directora del mismo jardín, para probar su vista.
+ */
+function tokenLocal(): string | undefined {
+  try {
+    const correo = localStorage.getItem(CLAVE_SESION_LOCAL) ?? '';
+    return correo.toLowerCase().startsWith('directora') ? 'local:directora:JAR-0001' : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
  * ID token vigente para la API; Amplify lo renueva con el refresh token si venció.
  * El de acceso no sirve: la API necesita el correo y `custom:id_jardin`.
  * `undefined` = no hay sesión (o el refresh token ya no sirve). Una falla transitoria (red,
  * Cognito no disponible) se propaga como error para no confundirla con una sesión terminada.
  */
 export async function idToken(): Promise<string | undefined> {
-  if (modoLocal()) return undefined;
+  if (modoLocal()) return tokenLocal();
   configurarAuth();
   const { tokens } = await fetchAuthSession();
   return tokens?.idToken?.toString();

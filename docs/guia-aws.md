@@ -55,6 +55,17 @@ Cerrar sesión revoca el refresh token del dispositivo, borra los tokens y los d
 
 Se crean o actualizan con `pnpm aws:users` usando `TOQUI_DEV_PASSWORD` de `infra/.env`.
 
+## Cuentas del jardín
+
+No hay autorregistro (`selfSignUpEnabled: false`). La directora crea las cuentas de su jardín desde la web, en la pestaña «Equipo» (cambio `panel-directora-y-aprendizaje`):
+
+1. «Invitar» con nombre, correo y rol (`educadora` o `directora`). La API (`POST /cuentas`, solo grupo `directora`) llama a `AdminCreateUser` con el `custom:id_jardin` **del token de la directora** (el cuerpo no puede traer jardín) y a `AdminAddUserToGroup`. Si la asignación del rol falla, la API responde 503: volver a invitar el mismo correo completa esa cuenta (le asigna el rol y reenvía la contraseña temporal).
+2. Cognito envía por correo la contraseña temporal (plantilla en español en `infra/lib/componentes.ts`). Sin SES, el correo por defecto de Cognito permite unos 50 envíos al día y puede llegar a spam; «Reenviar» manda otra.
+3. En el primer ingreso la web muestra «Crea tu contraseña» (al menos 12 caracteres, con mayúsculas, minúsculas y números) y entra.
+4. «Desactivar» o «Reactivar» una cuenta del mismo jardín. Nadie puede desactivarse a sí mismo.
+
+Permisos: el rol de tarea de la API en `ToquiApp` solo tiene `ListUsersInGroup`, `AdminGetUser`, `AdminCreateUser`, `AdminAddUserToGroup`, `AdminListGroupsForUser`, `AdminDisableUser` y `AdminEnableUser` sobre el pool de producción (`ACCIONES_CUENTAS` en `infra/lib/app-stack.ts`). Con `AUTH_MODE=local` el módulo responde 501. Sin costo fijo: Cognito cobra por usuario activo al mes, dentro de la capa gratuita para una demo.
+
 Usuario personal (opcional, en lugar de compartir la contraseña): crearlo con `aws cognito-idp admin-create-user` (`email`, `email_verified=true`, `custom:id_jardin`), `admin-set-user-password --permanent` y `admin-add-user-to-group`, y poner `TOQUI_PERSONAL_EMAIL` y `TOQUI_PERSONAL_PASSWORD` en `infra/.env`; `pnpm aws:smoke` ingresa con él y comprueba que el token traiga un grupo válido y un jardín (los mismos requisitos de la API, que si no responde 403).
 
 ## Comandos

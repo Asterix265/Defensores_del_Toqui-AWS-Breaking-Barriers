@@ -6,8 +6,10 @@ import { AwsModule } from './aws/aws.module';
 import { CapturasModule } from './capturas/capturas.module';
 import { CatalogoModule } from './catalogo/catalogo.module';
 import { ConfigModule } from './config/config.module';
+import { CuentasModule } from './cuentas/cuentas.module';
 import { HealthModule } from './health/health.module';
 import { PrismaModule } from './prisma/prisma.module';
+import { SalasModule } from './salas/salas.module';
 
 @Module({
   imports: [
@@ -18,6 +20,8 @@ import { PrismaModule } from './prisma/prisma.module';
     HealthModule,
     CatalogoModule,
     CapturasModule,
+    SalasModule,
+    CuentasModule,
   ],
   providers: [
     { provide: APP_PIPE, useClass: ZodValidationPipe },

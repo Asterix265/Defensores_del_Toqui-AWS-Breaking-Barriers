@@ -11,9 +11,12 @@ import Typography from '@mui/material/Typography';
 import EventNoteRounded from '@mui/icons-material/EventNoteRounded';
 import ExpandMoreRounded from '@mui/icons-material/ExpandMoreRounded';
 import GroupsRounded from '@mui/icons-material/GroupsRounded';
+import HomeWorkRounded from '@mui/icons-material/HomeWorkRounded';
+import ManageAccountsRounded from '@mui/icons-material/ManageAccountsRounded';
 import LogoutRounded from '@mui/icons-material/LogoutRounded';
 
-export type Seccion = 'sala' | 'notas';
+/** `jardin` y `equipo` solo para la directora (panel-directora-y-aprendizaje). */
+export type Seccion = 'jardin' | 'sala' | 'notas' | 'equipo';
 
 function iniciales(nombre: string): string {
   return nombre.slice(0, 2).toUpperCase();
@@ -26,11 +29,13 @@ function iniciales(nombre: string): string {
 export function CabeceraPanel({
   nombre,
   seccion,
+  directora = false,
   onSeccion,
   onSalir,
 }: {
   nombre: string;
   seccion: Seccion;
+  directora?: boolean;
   onSeccion: (seccion: Seccion) => void;
   onSalir?: () => void;
 }) {
@@ -58,15 +63,38 @@ export function CabeceraPanel({
       <Tabs
         value={seccion}
         aria-label="Secciones"
+        variant="scrollable"
+        scrollButtons={false}
         sx={{ ml: 5, alignSelf: 'stretch', '& .MuiTabs-flexContainer': { height: '100%' } }}
       >
-        <TabSeccion value="sala" etiqueta="Mi sala" Icono={GroupsRounded} onSeccion={onSeccion} />
+        {directora && (
+          <TabSeccion
+            value="jardin"
+            etiqueta="Jardín"
+            Icono={HomeWorkRounded}
+            onSeccion={onSeccion}
+          />
+        )}
+        <TabSeccion
+          value="sala"
+          etiqueta={directora ? 'Salas' : 'Mi sala'}
+          Icono={GroupsRounded}
+          onSeccion={onSeccion}
+        />
         <TabSeccion
           value="notas"
-          etiqueta="Mis notas"
+          etiqueta={directora ? 'Notas' : 'Mis notas'}
           Icono={EventNoteRounded}
           onSeccion={onSeccion}
         />
+        {directora && (
+          <TabSeccion
+            value="equipo"
+            etiqueta="Equipo"
+            Icono={ManageAccountsRounded}
+            onSeccion={onSeccion}
+          />
+        )}
       </Tabs>
 
       <ButtonBase

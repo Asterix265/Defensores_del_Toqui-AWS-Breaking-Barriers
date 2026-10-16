@@ -1,8 +1,8 @@
 ## Context
 
 - Decisión del equipo (15-10-2026, ADR «¿IA en Nest o en Lambda?»): la IA vive en un módulo puro, `packages/ia`, que depende de **Lambda** solo como entorno de ejecución. Nest **no** lo llama por ahora; si sobra tiempo se puede reintroducir como respaldo de la demo (`PIPELINE_MODE=inline` + `IA_PROVIDER=bedrock`), pero no forma parte de este cambio.
-- Hay **una sola Lambda orquestadora** (`procesar`, Persona C). Ella lee el contexto de la API (`GET /interno/capturas/:id/contexto`, Persona B), obtiene el texto según el formato, llama a este módulo y entrega el borrador en `POST /interno/capturas/:id/borrador`. Transcribe se invoca con la integración nativa de Step Functions; el módulo nunca ve audio.
-- Estado de `main` (commit `a31e951`): no existe `packages/ia`. `packages/shared/src/registro.ts` define `BorradorEntrante` (`textoFuente`, `nivelSugerido` 1..9 o `null`, `evidenciaInsuficiente`, `manifestaciones[{idManifestacion, cita}]` con máximo 5, `proveedor`, `modelo?`), `Manifestacion` (`id`, `nivel`, `dominio`, `textoObservable`) y `Dominio` (enum de 5 valores). `infra/lib/componentes.ts#crearGuardrail` anonimiza `NAME`, `EMAIL`, `PHONE`, `ADDRESS` y RUT; Bedrock reemplaza lo detectado por marcadores como `{NAME}`.
+- Hay **una sola Lambda de proceso** (`toqui-prod-proceso`, `apps/pipeline`), activada por la cola SQS (cambio `cola-ia-y-amplify`, que reemplazó a Step Functions). El mensaje de la cola ya trae la edad, el nivel esperado y el catálogo completo, así que la Lambda no pide el contexto a la API. Normaliza (Transcribe para audio, Textract para foto), anonimiza con el Guardrail, clasifica, valida y entrega en `POST /interno/capturas/:id/borrador`. El módulo nunca ve audio.
+- Estado de `main` (commit `2dad05d`): no existe `packages/ia`. `apps/pipeline` ya tiene el orquestador de la Lambda `proceso` (puertos `Clasificador`, `LectorImagen` y `Anonimizador`, validación `validarClasificacion` y un reintento) y solo el clasificador `fake`; el orquestador guarda como `textoFuente` el texto anonimizado (D5 de `cola-ia-y-amplify`). `packages/shared/src/registro.ts` define `BorradorEntrante` (`textoFuente`, `nivelSugerido` 1..9 o `null`, `evidenciaInsuficiente`, `manifestaciones[{idManifestacion, cita}]` con máximo 5, `proveedor`, `modelo?`), `Manifestacion` (`id`, `nivel`, `dominio`, `textoObservable`) y `Dominio` (enum de 5 valores). `infra/lib/componentes.ts#crearGuardrail` anonimiza `NAME`, `EMAIL`, `PHONE`, `ADDRESS` y RUT; Bedrock reemplaza lo detectado por marcadores como `{NAME}`.
 - Dataset: ruta de 9 niveles y 5 dominios (90 manifestaciones; ids como `MAN-L01-CO-01`). La presentación del desafío y la FAQ de Integra hablan de 8 o 9 niveles por núcleo y de 8 a 10 núcleos. `AGENTS.md` prohíbe asumir equivalencias entre ambas rúbricas: este módulo **no** las mapea, solo trabaja con el catálogo que recibe.
 - Restricciones: Node 24, ESM (`"type": "module"`), TypeScript estricto (`tsconfig.base.json`), pnpm con catálogo (`zod`, `typescript`, `vitest` como `catalog:`), runtime Lambda `nodejs24.x` que ya incluye AWS SDK v3, región `us-east-1`, modelo `us.anthropic.claude-sonnet-5-5`. Equipo en Windows, macOS y Linux: nada específico de un sistema operativo.
 - Plazo: cierre de código el 16-10-2026 a las 10:15. Lo imprescindible es `extraer` con `fake` y `bedrock`; la foto es «debería».
@@ -12,7 +12,7 @@
 **Goals:**
 
 - Un paquete `@toqui/ia` que la Lambda pueda importar sin arrastrar Nest, Prisma ni clientes de S3 o de la API.
-- Contrato pequeño y estable que la Persona C pueda usar desde el primer día con el proveedor `fake`.
+- Contrato pequeño y estable que el pipeline pueda usar desde el primer día con el proveedor `fake`.
 - Salida siempre válida según `BorradorEntranteSchema`: IDs del catálogo, citas literales del texto original, un solo nivel, entre 1 y 5 manifestaciones, o evidencia insuficiente.
 - Rúbrica parametrizable: ningún número de niveles ni nombre de núcleo escrito en el código del módulo.
 - Datos personales protegidos: Guardrail antes de Claude, falla cerrada, texto original persistido.
@@ -20,8 +20,8 @@
 
 **Non-Goals:**
 
-- Leer S3, llamar a la API interna, invocar Transcribe o decidir el flujo (Persona C).
-- Endpoint de contexto y secreto `PIPELINE_TOKEN` (Persona B).
+- Leer S3, llamar a la API interna, invocar Transcribe o Textract o decidir el flujo (`apps/pipeline`).
+- Un endpoint de contexto: el mensaje de la cola ya trae edad, nivel esperado y catálogo.
 - Tocar `apps/api`, `apps/pipeline`, `infra` o `packages/shared`. En particular, no abrir `Dominio` ni `NivelSchema` en `shared`.
 - Equivalencia entre rúbricas de 8 y 9 niveles; diagnóstico; confianza numérica; aprendizaje por correcciones; resumen del grupo (Haiku).
 
@@ -51,7 +51,7 @@ export interface ManifestacionCatalogo {
 export interface ContextoExtraccion {
   edadMeses: number;
   nivelEsperado: number;
-  /** Ya filtrado por el llamador (niveles esperado ±1). Define los niveles y núcleos válidos. */
+  /** Lo decide el llamador (en el pipeline, el catálogo completo del mensaje). Define los niveles y núcleos válidos. */
   catalogo: ManifestacionCatalogo[];
 }
 
@@ -114,7 +114,7 @@ Limitación conocida: el valor devuelto sigue siendo `BorradorEntrante`, cuyo `n
 5. Si no es válida, **un** reintento enviando de vuelta los problemas como `toolResult` con `status: 'error'` (o texto si no hubo `toolUse`). Si vuelve a fallar, o la respuesta no trae contenido, devolver evidencia insuficiente.
 6. Mapear las citas de `textoAnonimo` al texto original (D5) y devolver `{ textoFuente: textoOriginal, ..., proveedor: 'bedrock', modelo }`.
 
-El mensaje enviado al modelo **nunca** incluye `id_captura`, `id_nino`, nombres, RUT ni otros identificadores: el módulo no los recibe, y una prueba lo verifica inspeccionando el comando enviado.
+El mensaje enviado al modelo **nunca** incluye `id_captura`, `id_nino`, nombres, RUT ni otros identificadores: el módulo no los recibe, y una prueba lo verifica inspeccionando el comando enviado. La nota va entre etiquetas `<nota>…</nota>`; si el texto ya contiene una etiqueta con ese nombre (por ejemplo `</nota>` seguido de instrucciones) se usa `nota-1`, `nota-2`… hasta que no aparezca, para que el texto no pueda cerrar el bloque.
 
 `toolChoice`: usar `{ auto: {} }` mientras no se confirme que el modelo acepta forzar la herramienta (ver Open Questions); si no se llama a la herramienta, cuenta como respuesta inválida y entra al reintento.
 
@@ -134,17 +134,17 @@ Como Claude solo ve `textoAnonimo`, sus citas pueden contener marcadores (`{NAME
 
 - Con `proveedor: 'bedrock'`, `crearProveedor` lanza `ErrorIa('CONFIGURACION_INVALIDA')` si falta `guardrail` y no se pidió `sinGuardrail: true`.
 - Si `ApplyGuardrail` devuelve `GUARDRAIL_INTERVENED` sin texto en `outputs`, lanzar `ErrorIa('GUARDRAIL_NO_DISPONIBLE')`; **nunca** continuar con el texto original. Si devuelve `NONE`, se usa el texto sin cambios.
-- Errores de red o del servicio del Guardrail se propagan tal cual (transitorios → Step Functions reintenta).
+- Errores de red o del servicio del Guardrail se propagan tal cual (transitorios → la cola SQS reintenta).
 
 ### D7. Errores
 
-- Propagar sin envolver los errores del SDK de Bedrock (`ThrottlingException`, `ServiceUnavailableException`, `ModelNotReadyException`, `ModelTimeoutException`, `InternalServerException`): Lambda los expone por `error.name` y Step Functions los reintenta con espera creciente.
+- Propagar sin envolver los errores del SDK de Bedrock (`ThrottlingException`, `ServiceUnavailableException`, `ModelNotReadyException`, `ModelTimeoutException`, `InternalServerException`): Lambda los expone por `error.name` y, en el pipeline, la cola SQS reintenta el mensaje (`maxReceiveCount: 3`). `ErrorIa` debe traducirse a `ErrorPermanente` en el adaptador de `apps/pipeline`, que informa a la API sin reintentar.
 - `ErrorIa` (con `name = 'ErrorIa'` y `codigo`) para fallas que reintentar no arregla: `FOTO_NO_VALIDA` (formato distinto de `jpeg`/`png` o más de 3,75 MB; el mensaje se muestra a la educadora, sin datos técnicos), `GUARDRAIL_NO_DISPONIBLE`, `CONFIGURACION_INVALIDA`.
 - Texto insuficiente o sin respaldo **no es un error**: es un `BorradorEntrante` con `evidenciaInsuficiente: true`, `nivelSugerido: null`, `manifestaciones: []`.
 
 ### D8. Proveedor `fake`
 
-Determinista y sin red, para que la Persona C y la CI trabajen sin AWS. A diferencia del `fake` de la API (palabras clave por los 5 dominios), el del módulo es **independiente de la rúbrica**: normaliza (minúsculas, sin tildes), toma las manifestaciones del `nivelEsperado` y puntúa cada una por coincidencias de palabras (prefijo de 5 caracteres, ignorando palabras de menos de 4 letras) con la nota; elige la de mayor puntaje (desempate por `id`) si alcanza un mínimo de 2 coincidencias; cita = primera oración de la nota (máx. 160 caracteres); si nada alcanza el mínimo o el texto es corto, evidencia insuficiente. `proveedor: 'fake'`, sin `modelo`. `normalizarFoto` devuelve una de dos lecturas fijas elegida por una semilla del contenido de los bytes.
+Determinista y sin red, para que el pipeline y la CI trabajen sin AWS. A diferencia del `fake` de la API (palabras clave por los 5 dominios), el del módulo es **independiente de la rúbrica**: normaliza (minúsculas, sin tildes), toma las manifestaciones del `nivelEsperado` y puntúa cada una por coincidencias de palabras (prefijo de 5 caracteres, ignorando palabras de menos de 4 letras) con la nota; elige la de mayor puntaje (desempate por `id`) si alcanza un mínimo de 1 coincidencia (con el catálogo real, 2 dejaba casi toda nota en evidencia insuficiente); cita = primera oración de la nota (máx. 160 caracteres); si nada alcanza el mínimo o el texto es corto, evidencia insuficiente. `proveedor: 'fake'`, sin `modelo`. `normalizarFoto` devuelve una de dos lecturas fijas elegida por una semilla del contenido de los bytes.
 
 El `fake` de la API (`ia-fake.ts`) queda intacto; unificarlos es trabajo posterior.
 
@@ -161,22 +161,29 @@ El `fake` de la API (`ia-fake.ts`) queda intacto; unificarlos es trabajo posteri
 - Prueba manual opcional contra Bedrock real, solo si `RUN_BEDROCK_LIVE=1` (`describe.skipIf`), con el perfil `toqui`; nunca corre en CI.
 - Datos de prueba sintéticos; sin nombres ni RUT reales (usar valores obviamente ficticios).
 
+### D11. Integración con la Lambda `proceso` (cambio posterior)
+
+`ProveedorBedrock.extraer` hace Guardrail, validación y reintento, y el orquestador de `apps/pipeline` ya hace lo mismo (`AnonimizadorGuardrail`, `validarClasificacion`, dos intentos): conectarlo tal cual duplicaría el Guardrail, la validación y las llamadas al modelo (hasta 4). El puerto `Clasificador.clasificar(entrada)` espera la salida cruda del modelo. Por eso el siguiente paso es exponer desde `@toqui/ia` solo esa parte (prompt, herramienta y llamada a Converse, más las citas ubicadas con `ubicarCita`) y escribir en `apps/pipeline/src/ia/` un `ClasificadorBedrock` que la use y que agregue `bedrock` a `IA_PROVIDER`. No forma parte de este cambio: toca `apps/pipeline`.
+
+- *Divergencia conocida:* el pipeline de `main` guarda como `textoFuente` el texto anonimizado; este módulo devuelve el original con las citas mapeadas (D5). Mientras el módulo no esté conectado no hay conflicto; antes de conectarlo hay que elegir una de las dos.
+
 ## Risks / Trade-offs
 
 - [Claude cita fragmentos con marcadores y el mapeo al original falla o es ambiguo] → regex perezosa, primera coincidencia, un reintento y luego evidencia insuficiente; pruebas con varios marcadores y citas sin marcadores.
 - [El Guardrail reemplaza texto que no es dato personal y altera el sentido] → solo afecta lo que ve el modelo; el original se conserva; la educadora revisa siempre.
 - [El modelo no acepta forzar la herramienta o cambia el formato de `toolUse`] → `toolChoice: auto`, respuesta sin herramienta cuenta como inválida y entra al reintento; prueba manual con el perfil `toqui` antes del 16-10.
-- [Throttling de Bedrock durante la demo] → los errores transitorios se propagan para el backoff de Step Functions; el módulo no reintenta por su cuenta salvo el reintento de validación.
+- [Throttling de Bedrock durante la demo] → los errores transitorios se propagan para los reintentos de la cola SQS; el módulo no reintenta por su cuenta salvo el reintento de validación.
 - [Dos `fake` distintos (API y módulo) pueden divergir] → se acepta por ahora; unificar si sobra tiempo.
 - [`NivelSchema` limita a 9 niveles] → fuera de alcance; se documenta.
 - [El módulo envía a Claude una nota que el Guardrail no reconoce como dato personal] → el Guardrail cubre nombre, correo, teléfono, dirección y RUT; no es una garantía absoluta, y la nota es sintética en la demo.
 
 ## Migration Plan
 
-Cambio aditivo en un paquete nuevo; no hay migración de datos ni de despliegue. Orden: (1) fusionar este cambio, (2) la Persona C agrega `@toqui/ia` como dependencia de `apps/pipeline` y construye la Lambda `procesar`, (3) opcional: la API usa el módulo en modo inline. Para revertir basta con eliminar el paquete; nada en `main` depende de él todavía.
+Cambio aditivo en un paquete nuevo; no hay migración de datos ni de despliegue. Orden: (1) fusionar este cambio, (2) un cambio aparte agrega `@toqui/ia` a `apps/pipeline` con un adaptador `ClasificadorBedrock` del puerto `Clasificador` (tarea 4.2 de `cola-ia-y-amplify`; ver D11), (3) opcional: la API usa el módulo en modo inline. Para revertir basta con eliminar el paquete; nada en `main` depende de él todavía.
 
 ## Open Questions
 
+- ¿Qué texto se guarda como `textoFuente`: el anonimizado (como hoy en el pipeline de `main`, D5 de `cola-ia-y-amplify`) o el original con las citas mapeadas (D5 de este cambio)? Decidir antes de conectar el módulo a la Lambda `proceso`.
 - ¿El modelo `us.anthropic.claude-sonnet-5-5` acepta `toolChoice` forzado en Converse? Comprobarlo con el perfil `toqui`; si lo acepta, preferirlo sobre `auto`.
 - ¿La cuenta del evento tiene acceso habilitado al modelo y al Guardrail desplegado (`pnpm aws:env` entrega `BEDROCK_GUARDRAIL_ID` y `BEDROCK_GUARDRAIL_VERSION`)?
 - Si la rúbrica institucional (8 niveles × 8 a 10 núcleos) se usa algún día en lugar de la ruta sintética, ¿quién decide la equivalencia y cómo se amplía `NivelSchema`?

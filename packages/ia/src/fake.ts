@@ -20,7 +20,8 @@ const LECTURAS_FOTO = [
 const LARGO_CITA = 160;
 const LARGO_PREFIJO = 5;
 const LARGO_MINIMO_PALABRA = 4;
-const COINCIDENCIAS_MINIMAS = 2;
+/** Con 2, casi toda nota real queda en evidencia insuficiente frente al catálogo del dataset. */
+const COINCIDENCIAS_MINIMAS = 1;
 
 /** Prefijos de las palabras de 4 o más letras, en minúsculas y sin tildes. */
 function prefijos(texto: string): Set<string> {

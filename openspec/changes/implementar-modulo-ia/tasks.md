@@ -19,7 +19,7 @@
 
 ## 4. Proveedor `fake`
 
-- [x] 4.1 Implementar `fake.ts` con `ProveedorFake`: puntuación por coincidencia de palabras (minúsculas, sin tildes, prefijo de 5 caracteres, ignorando palabras de menos de 4 letras) contra las manifestaciones del `nivelEsperado`; elige la de mayor puntaje con mínimo de 2 coincidencias y desempate por `id`; cita = primera oración de la nota (máx. 160 caracteres) ubicada con `ubicarCita`; evidencia insuficiente si el texto es corto o nada alcanza el mínimo; `proveedor: 'fake'` sin `modelo`; `normalizarFoto` devuelve una de dos lecturas fijas elegida por una semilla de los bytes
+- [x] 4.1 Implementar `fake.ts` con `ProveedorFake`: puntuación por coincidencia de palabras (minúsculas, sin tildes, prefijo de 5 caracteres, ignorando palabras de menos de 4 letras) contra las manifestaciones del `nivelEsperado`; elige la de mayor puntaje con mínimo de 1 coincidencia y desempate por `id`; cita = primera oración de la nota (máx. 160 caracteres) ubicada con `ubicarCita`; evidencia insuficiente si el texto es corto o nada alcanza el mínimo; `proveedor: 'fake'` sin `modelo`; `normalizarFoto` devuelve una de dos lecturas fijas elegida por una semilla de los bytes
 - [x] 4.2 Pruebas: determinismo, el resultado supera `BorradorEntranteSchema.parse` y `validar`, sin coincidencias, texto corto, núcleos desconocidos, y la nota «Apiló cuatro bloques solo y aplaudió cuando no se cayeron» contra `MAN-L07-MF-01`
 
 ## 5. Proveedor `bedrock`
@@ -40,7 +40,7 @@
 ## 7. Documentación y cierre
 
 - [x] 7.1 Agregar al README una sección de `packages/ia` con propósito, API pública resumida, el hecho de que hoy solo la Lambda lo usará y los comandos verificados (`pnpm --filter @toqui/ia build|typecheck|test` y la prueba opcional con `RUN_BEDROCK_LIVE=1`); no inventar comandos
-- [x] 7.2 Agregar «Notas de implementación» a `openspec/changes/definir-mvp-e1/tasks.md` para 4.3, 4.4 y 4.7 (qué quedó en `packages/ia`, qué falta para la Persona C y la B) y marcarlas solo si corresponde a lo realmente implementado y probado
+- [x] 7.2 Agregar «Notas de implementación» a `openspec/changes/definir-mvp-e1/tasks.md` para 4.3, 4.4 y 4.7 (qué quedó en `packages/ia`, qué falta para conectarlo a la Lambda `proceso`) y marcarlas solo si corresponde a lo realmente implementado y probado
 - [x] 7.3 Ajustar en `openspec/changes/definir-mvp-e1/design.md` las decisiones D7 y D8 para reflejar: Guardrail antes de Claude, texto original persistido con citas mapeadas, `crearProveedor` con configuración explícita, y que la API de Nest no usa el módulo por ahora
 - [x] 7.4 Ejecutar `openspec validate implementar-modulo-ia --strict --no-interactive` y dejar el resultado sin errores
-- [x] 7.5 Entregar a la Persona C: la firma final (copiar el bloque de `design.md` D2 actualizado si cambió algo) y la lista de errores transitorios que Step Functions debe reintentar
+- [x] 7.5 Dejar documentadas la firma final (bloque de `design.md` D2) y la lista de errores transitorios que debe reintentar quien conecte el módulo (en el pipeline, la cola SQS)

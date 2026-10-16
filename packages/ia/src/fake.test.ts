@@ -61,8 +61,15 @@ describe('ProveedorFake.extraer', () => {
     expect(revalidado.ok).toBe(true);
   });
 
-  it('con «Apila 4 bloques» solo coincide «bloques» y queda con evidencia insuficiente (A1)', async () => {
-    expect(await fake.extraer(NOTA, contextoNivel7())).toEqual(insuficiente(NOTA));
+  it('con una sola palabra en común («bloques») ya propone la manifestación (mínimo 1)', async () => {
+    const borrador = await fake.extraer(NOTA, contextoNivel7());
+    expect(borrador).toMatchObject({
+      nivelSugerido: 7,
+      evidenciaInsuficiente: false,
+      manifestaciones: [{ idManifestacion: 'MAN-L07-MF-01', cita: NOTA }],
+      proveedor: 'fake',
+    });
+    expect(() => BorradorEntranteSchema.parse(borrador)).not.toThrow();
   });
 
   it('sin coincidencias suficientes queda con evidencia insuficiente', async () => {

@@ -89,12 +89,12 @@ API NestJS en Fargate (`apps/api`), según `definir-mvp-e1`. Contrato completo e
 
 ## Módulo de IA (`packages/ia`)
 
-`@toqui/ia` convierte una nota (escrita, transcrita o leída de una foto) en un `BorradorEntrante` de `@toqui/shared`, con manifestaciones del catálogo recibido y citas literales del texto (cambio OpenSpec `implementar-modulo-ia`). Es lógica pura: no depende de Nest, Prisma, S3 ni de la API, y no lee variables de entorno. Por ahora solo lo usará la Lambda `procesar` del pipeline; la API mantiene su propio proveedor `fake`.
+`@toqui/ia` convierte una nota (escrita, transcrita o leída de una foto) en un `BorradorEntrante` de `@toqui/shared`, con manifestaciones del catálogo recibido y citas literales del texto (cambio OpenSpec `implementar-modulo-ia`). Es lógica pura: no depende de Nest, Prisma, S3 ni de la API, y no lee variables de entorno. Todavía nadie lo usa: la Lambda `proceso` de `apps/pipeline` tiene los puertos `Clasificador` y `LectorImagen`, pero solo el proveedor `fake`; falta un adaptador `bedrock` que use este módulo (tarea 4.2 de `cola-ia-y-amplify`). La API mantiene su propio proveedor `fake`.
 
 - `crearProveedor({ proveedor: 'fake' })`: determinista y sin AWS. `crearProveedor({ proveedor: 'bedrock', modelo, region?, guardrail: { id, version } })`: Guardrail → Claude (Converse con la herramienta `registrar_borrador`) → validación → un reintento → evidencia insuficiente. El Guardrail es obligatorio salvo `sinGuardrail: true` (solo desarrollo) y falla cerrado: sin texto anonimizado no se llama al modelo.
 - El proveedor expone `extraer(texto, { edadMeses, nivelEsperado, catalogo })` y `normalizarFoto(bytes, 'jpeg' | 'png')` (máximo 3,75 MB). También se exportan `validar`, `normalizarTexto`, `textoDeTranscripcion` (JSON de Transcribe) y `ErrorIa`.
 - Niveles y núcleos salen del catálogo recibido (sirven la ruta 9 × 5 del dataset y rúbricas de 8 niveles × 10 núcleos). `textoFuente` es la nota original normalizada; las citas que el modelo toma del texto anonimizado (`{NAME}`) se ubican en el original.
-- `ErrorIa` (`codigo`: `FOTO_NO_VALIDA`, `GUARDRAIL_NO_DISPONIBLE` o `CONFIGURACION_INVALIDA`) marca fallas que reintentar no corrige. Los errores del SDK de Bedrock (`ThrottlingException` y otros) se propagan con su nombre para que Step Functions los reintente. Una nota sin respaldo no es un error: es un borrador con `evidenciaInsuficiente: true`.
+- `ErrorIa` (`codigo`: `FOTO_NO_VALIDA`, `GUARDRAIL_NO_DISPONIBLE` o `CONFIGURACION_INVALIDA`) marca fallas que reintentar no corrige. Los errores del SDK de Bedrock (`ThrottlingException` y otros) se propagan con su nombre para que quien lo use los reintente (en el pipeline, la cola SQS). Una nota sin respaldo no es un error: es un borrador con `evidenciaInsuficiente: true`.
 
 Comandos (verificados el 15-10-2026 en Windows con Node 24.22.0 y pnpm 11.13.0, después de `pnpm --filter @toqui/shared build`):
 

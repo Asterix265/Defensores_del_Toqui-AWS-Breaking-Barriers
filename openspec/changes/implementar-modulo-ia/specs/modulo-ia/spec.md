@@ -57,6 +57,10 @@ El paquete `@toqui/ia` SHALL exportar `crearProveedor`, `validar`, `normalizarTe
 - **WHEN** el modelo propone 6 manifestaciones
 - **THEN** la validación falla porque el máximo es 5
 
+#### Scenario: Nota con la etiqueta de cierre
+- **WHEN** la nota contiene `</nota>` seguido de instrucciones
+- **THEN** el mensaje enviado delimita la nota con una etiqueta que no aparece en el texto (`nota-1`), de modo que ese texto no cierra el bloque
+
 ### Requirement: Reintento y evidencia insuficiente
 Si la propuesta del modelo no es válida, el proveedor `bedrock` SHALL reintentar una sola vez entregando al modelo los problemas detectados, y si el segundo intento también falla o no trae contenido, SHALL devolver un borrador con `evidenciaInsuficiente` en verdadero, `nivelSugerido` en `null` y sin manifestaciones. Un texto de menos de 20 caracteres SHALL producir evidencia insuficiente sin llamar al Guardrail ni al modelo.
 
@@ -138,7 +142,7 @@ El módulo SHALL ofrecer `normalizarTexto` (recorta y colapsa espacios sin alter
 - **THEN** devuelve «Apiló cuatro bloques.»
 
 ### Requirement: Errores transitorios y no transitorios distinguibles
-El módulo SHALL propagar sin envolver los errores del SDK de Bedrock (para que Step Functions los reintente por su nombre) y SHALL lanzar `ErrorIa` con `name` igual a `ErrorIa` y un código para las fallas que reintentar no corrige.
+El módulo SHALL propagar sin envolver los errores del SDK de Bedrock (para que quien lo use los reintente por su nombre; en el pipeline, la cola SQS) y SHALL lanzar `ErrorIa` con `name` igual a `ErrorIa` y un código para las fallas que reintentar no corrige.
 
 #### Scenario: Throttling de Bedrock
 - **WHEN** Bedrock responde con un error de nombre `ThrottlingException`
@@ -156,7 +160,7 @@ El proveedor `fake` SHALL producir el mismo borrador para las mismas entradas, s
 - **THEN** ambos borradores son idénticos y `proveedor` es `fake`
 
 #### Scenario: Sin coincidencias
-- **WHEN** la nota no comparte palabras suficientes con ninguna manifestación del nivel esperado
+- **WHEN** la nota no comparte ninguna palabra con las manifestaciones del nivel esperado
 - **THEN** el borrador queda con evidencia insuficiente
 
 #### Scenario: Rúbrica desconocida

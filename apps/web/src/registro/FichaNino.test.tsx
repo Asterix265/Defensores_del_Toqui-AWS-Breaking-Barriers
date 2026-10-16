@@ -33,9 +33,10 @@ describe('Mi sala', () => {
   it('lista solo la sala propia e indica las áreas sin registros', async () => {
     await abrirMiSala();
     expect(screen.getByRole('heading', { name: 'Mi sala' })).toBeInTheDocument();
-    expect(await screen.findByText('1 área sin notas')).toBeInTheDocument();
-    expect(boton(/Martina/)).toHaveTextContent('1 área sin notas');
-    expect(boton(/Tomás/)).toHaveTextContent('5 áreas sin notas');
+    // Martina tiene notas recientes en 4 de los 8 núcleos.
+    expect(await screen.findByText('4 áreas sin notas')).toBeInTheDocument();
+    expect(boton(/Martina/)).toHaveTextContent('4 áreas sin notas');
+    expect(boton(/Tomás/)).toHaveTextContent('8 áreas sin notas');
     expect(screen.queryByRole('button', { name: /Vicente/ })).not.toBeInTheDocument();
   });
 
@@ -44,8 +45,8 @@ describe('Mi sala', () => {
 
     expect(boton('Mi sala')).toHaveAttribute('aria-current', 'page');
     const regiones = screen.getAllByRole('region').map((r) => r.getAttribute('aria-label'));
-    expect(regiones[0]).toBe('Motor grueso');
-    expect(within(area('Motor grueso')).getByText('0')).toBeInTheDocument();
+    expect(regiones[0]).toBe('Convivencia');
+    expect(within(area('Convivencia')).getByText('0')).toBeInTheDocument();
     expect(within(area('Lenguaje')).getByText('1')).toBeInTheDocument();
     expect(within(area('Lenguaje')).getByText('Última: ayer')).toBeInTheDocument();
     expect(screen.queryByText(/nivel|rezago/i)).not.toBeInTheDocument();
@@ -55,7 +56,7 @@ describe('Mi sala', () => {
     await abrirFicha('Martina P.');
     const registros = screen.getAllByRole('article');
     expect(registros).toHaveLength(3);
-    expect(registros[0]).toHaveTextContent('Prueba LC 7');
+    expect(registros[0]).toHaveTextContent('Prueba LV 7');
     expect(registros[0]).toHaveTextContent('Registro durante el juego libre.');
     expect(registros[0]).toHaveTextContent('Registro del jardín');
     fireEvent.click(boton('Ver las 4'));
@@ -66,7 +67,7 @@ describe('Mi sala', () => {
     await abrirMiSala();
     fireEvent.click(boton(/Tomás/));
     expect(await screen.findByText(/Aún no hay notas de Tomás A\./)).toBeInTheDocument();
-    expect(screen.getAllByText('Sin notas aún. Buen momento para observar.')).toHaveLength(5);
+    expect(screen.getAllByText('Sin notas aún. Buen momento para observar.')).toHaveLength(8);
   });
 });
 
@@ -93,7 +94,7 @@ describe('Grabar con y sin niño o niña', () => {
     expect(screen.getByRole('heading', { name: 'Martina P.' })).toBeInTheDocument();
     // La observación confirmada vuelve por la trayectoria de la API.
     await screen.findByText(/Registrada en la app/);
-    expect(screen.getAllByRole('article')[0]).toHaveTextContent('Prueba LC 7');
+    expect(screen.getAllByRole('article')[0]).toHaveTextContent('Prueba LV 7');
     expect(screen.getAllByRole('article')[0]).toHaveTextContent('Registrada en la app');
   });
 
@@ -163,9 +164,9 @@ describe('Cambiar de sala', () => {
     fireEvent.click(boton(/Vicente/));
     fireEvent.click(await screen.findByRole('button', { name: 'Grabar nota de Vicente P.' }));
     fireEvent.click(await screen.findByRole('button', { name: 'Terminar grabación' }));
-    // 31 meses → nivel 9.
+    // Nivel Medio: la API falsa propone el nivel 8.
     expect(await screen.findByRole('status', { name: 'Nivel estimado' })).toHaveTextContent(
-      'Nivel 9',
+      'Nivel 8',
     );
     fireEvent.click(boton('Está bien'));
     expect(await screen.findByText('Nota guardada para Vicente P.')).toBeInTheDocument();

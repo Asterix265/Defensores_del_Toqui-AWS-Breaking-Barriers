@@ -6,8 +6,8 @@
  * OpenAPI spec version: 0.0.0
  */
 import type { ObservacionTrayectoriaOutput } from './observacionTrayectoriaOutput';
-import type { TrayectoriaResponseDtoOutputDominiosItem } from './trayectoriaResponseDtoOutputDominiosItem';
 import type { TrayectoriaResponseDtoOutputNino } from './trayectoriaResponseDtoOutputNino';
+import type { TrayectoriaResponseDtoOutputNucleosItem } from './trayectoriaResponseDtoOutputNucleosItem';
 
 export interface TrayectoriaResponseDtoOutput {
   nino: TrayectoriaResponseDtoOutputNino;
@@ -21,6 +21,6 @@ export interface TrayectoriaResponseDtoOutput {
    */
   totalObservaciones: number;
   evidenciaLimitada: boolean;
-  dominios: TrayectoriaResponseDtoOutputDominiosItem[];
+  nucleos: TrayectoriaResponseDtoOutputNucleosItem[];
   observaciones: ObservacionTrayectoriaOutput[];
 }

@@ -5,13 +5,17 @@
  * API del copiloto de registro de observaciones (datos sintéticos).
  * OpenAPI spec version: 0.0.0
  */
-import type { ListarManifestacionesDominio } from './listarManifestacionesDominio';
+import type { ListarManifestacionesNivelEducativo } from './listarManifestacionesNivelEducativo';
 
 export type ListarManifestacionesParams = {
   /**
    * @minimum 1
-   * @maximum 9
+   * @maximum 8
    */
   nivel?: number;
-  dominio?: ListarManifestacionesDominio;
+  /**
+   * @pattern ^[A-Z]{2}$
+   */
+  nucleo?: string;
+  nivelEducativo?: ListarManifestacionesNivelEducativo;
 };

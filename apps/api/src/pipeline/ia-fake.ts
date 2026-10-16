@@ -1,12 +1,18 @@
-import type { BorradorEntrante, Dominio, Manifestacion, Procesamiento } from '@toqui/shared';
+import type { BorradorEntrante, Manifestacion, Procesamiento } from '@toqui/shared';
 
-/** Mismas palabras clave que el mock de la web (`apps/web/src/registro/datos.ts`). */
-const PALABRAS_CLAVE: Record<Dominio, string[]> = {
-  lenguaje_comunicacion: ['dijo', 'palabra', 'cancion', 'hablo', 'balbuce', 'senalo', 'pidio'],
-  motor_fino: ['bloque', 'apilo', 'pinza', 'lapiz', 'encaj', 'cuchara', 'boton'],
-  motor_grueso: ['gate', 'camin', 'corri', 'rampa', 'salt', 'trep', 'pelota'],
-  socioemocional: ['content', 'compart', 'abraz', 'llor', 'sonri', 'companer', 'consol'],
-  cognitivo: ['busco', 'escond', 'encontr', 'orden', 'clasific', 'color', 'forma'],
+/**
+ * Palabras clave por núcleo del dataset E1 (mismas que `apps/pipeline/src/ia/fake.ts`). Solo
+ * para la IA simulada: no reemplazan la rúbrica.
+ */
+export const PALABRAS_CLAVE: Record<string, string[]> = {
+  IA: ['solo', 'sola', 'zapato', 'vistio', 'eligio', 'necesit', 'se calm', 'llor'],
+  CC: ['compart', 'turno', 'companer', 'ayudo', 'regla', 'consol', 'abraz'],
+  CM: ['gate', 'camin', 'corri', 'rampa', 'salt', 'trep', 'pelota', 'bloque', 'apilo', 'pinza'],
+  LV: ['dijo', 'palabra', 'hablo', 'balbuce', 'senalo', 'pidio', 'conto', 'pregunt'],
+  LA: ['pint', 'dibuj', 'cancion', 'canto', 'bail', 'music', 'ritmo', 'sonaj'],
+  EN: ['planta', 'agua', 'animal', 'insect', 'hoja', 'tierra', 'semilla'],
+  ES: ['famil', 'mama', 'papa', 'abuel', 'fiesta', 'comunidad', 'oficio'],
+  PM: ['conteo', 'numero', 'cuant', 'orden', 'clasific', 'forma', 'tamano', 'escond', 'encontr'],
 };
 
 /** Lecturas simuladas para audio y foto cuando no hay Transcribe ni lectura de imágenes. */
@@ -49,14 +55,14 @@ export function normalizarFake(
   return opciones[semilla(idCaptura) % opciones.length]!;
 }
 
-export function dominioProbable(texto: string): Dominio | null {
+export function nucleoProbable(texto: string): string | null {
   const limpio = normalizar(texto);
-  let mejor: Dominio | null = null;
+  let mejor: string | null = null;
   let puntajeMejor = 0;
-  for (const [dominio, palabras] of Object.entries(PALABRAS_CLAVE) as [Dominio, string[]][]) {
+  for (const [nucleo, palabras] of Object.entries(PALABRAS_CLAVE)) {
     const puntaje = palabras.filter((p) => limpio.includes(p)).length;
     if (puntaje > puntajeMejor) {
-      mejor = dominio;
+      mejor = nucleo;
       puntajeMejor = puntaje;
     }
   }
@@ -72,19 +78,19 @@ export function citaDe(texto: string): string {
 }
 
 /**
- * Borrador determinista y válido: el nivel esperado para la edad y una manifestación de ese
- * nivel en el dominio sugerido por palabras clave. Sin pista de dominio o con poco texto,
- * evidencia insuficiente.
+ * Borrador determinista y válido: el nivel de referencia y una manifestación de ese nivel en el
+ * núcleo sugerido por palabras clave, dentro del catálogo del nivel educativo. Sin pista de
+ * núcleo o con poco texto, evidencia insuficiente.
  */
 export function extraerFake(
   textoFuente: string,
-  nivelEsperado: number,
+  nivelReferencia: number,
   catalogoDelNivel: Manifestacion[],
 ): BorradorEntrante {
-  const dominio = textoFuente.trim().length >= MINIMO_TEXTO ? dominioProbable(textoFuente) : null;
-  const manifestacion = dominio
+  const nucleo = textoFuente.trim().length >= MINIMO_TEXTO ? nucleoProbable(textoFuente) : null;
+  const manifestacion = nucleo
     ? catalogoDelNivel
-        .filter((m) => m.dominio === dominio)
+        .filter((m) => m.nucleo === nucleo)
         .sort((a, b) => a.id.localeCompare(b.id))[0]
     : undefined;
   if (!manifestacion) {
@@ -98,7 +104,7 @@ export function extraerFake(
   }
   return {
     textoFuente,
-    nivelSugerido: nivelEsperado,
+    nivelSugerido: nivelReferencia,
     evidenciaInsuficiente: false,
     manifestaciones: [{ idManifestacion: manifestacion.id, cita: citaDe(textoFuente) }],
     proveedor: 'fake',
@@ -135,7 +141,7 @@ export function procesamientoFake(
     paso: 'extraccion',
     estado: 'simulado',
     detalle:
-      'IA simulada (proveedor fake): propone el nivel esperado para la edad y una manifestación según palabras clave; no usa Bedrock.',
+      'IA simulada (proveedor fake): propone el nivel de referencia y una manifestación del núcleo según palabras clave; no usa Bedrock.',
   });
   return {
     simulado: true,

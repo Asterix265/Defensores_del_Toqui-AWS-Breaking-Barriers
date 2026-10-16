@@ -9,18 +9,8 @@
 export interface NivelRutaDtoOutput {
   /**
    * @minimum 1
-   * @maximum 9
+   * @maximum 8
    */
   nivel: number;
   nombre: string;
-  /**
-   * @minimum -9007199254740991
-   * @maximum 9007199254740991
-   */
-  edadMinMeses: number;
-  /**
-   * @minimum -9007199254740991
-   * @maximum 9007199254740991
-   */
-  edadMaxMeses: number;
 }

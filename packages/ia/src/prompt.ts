@@ -56,7 +56,7 @@ export const HERRAMIENTA_BORRADOR: ToolSpecification = {
   },
 };
 
-/** Catálogo agrupado por nivel ascendente, con el núcleo o dominio tal como viene. */
+/** Catálogo agrupado por nivel ascendente, con el núcleo tal como viene. */
 function lineasCatalogo(catalogo: ManifestacionCatalogo[]): string[] {
   const porNivel = new Map<number, ManifestacionCatalogo[]>();
   for (const m of catalogo) porNivel.set(m.nivel, [...(porNivel.get(m.nivel) ?? []), m]);
@@ -64,7 +64,7 @@ function lineasCatalogo(catalogo: ManifestacionCatalogo[]): string[] {
     .sort((a, b) => a - b)
     .flatMap((nivel) => [
       `Nivel ${nivel}:`,
-      ...(porNivel.get(nivel) ?? []).map((m) => `- ${m.id} [${m.dominio}] ${m.textoObservable}`),
+      ...(porNivel.get(nivel) ?? []).map((m) => `- ${m.id} [${m.nucleo}] ${m.textoObservable}`),
     ]);
 }
 
@@ -87,19 +87,19 @@ export function etiquetaNota(texto: string): string {
 
 /**
  * Mensaje de usuario para Claude. Solo lleva la nota (ya anonimizada), la edad, el nivel
- * esperado y el catálogo: se toman campos explícitos para no filtrar otros datos del contexto.
+ * de referencia y el catálogo: se toman campos explícitos para no filtrar otros datos del contexto.
  */
 export function mensajeExtraccion(texto: string, contexto: ContextoExtraccion): string {
-  const catalogo = contexto.catalogo.map(({ id, nivel, dominio, textoObservable }) => ({
+  const catalogo = contexto.catalogo.map(({ id, nivel, nucleo, textoObservable }) => ({
     id,
     nivel,
-    dominio,
+    nucleo,
     textoObservable,
   }));
   const etiqueta = etiquetaNota(texto);
   return [
     `Edad: ${contexto.edadMeses} meses`,
-    `Nivel esperado para la edad: ${contexto.nivelEsperado}`,
+    `Nivel de referencia (último validado): ${contexto.nivelEsperado}`,
     '',
     'Catálogo de manifestaciones (id [núcleo] texto observable):',
     ...lineasCatalogo(catalogo),

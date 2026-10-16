@@ -34,12 +34,12 @@ describe('HERRAMIENTA_BORRADOR', () => {
 });
 
 describe('mensajeExtraccion', () => {
-  it('incluye edad, nivel esperado, catálogo agrupado por nivel y la nota delimitada', () => {
+  it('incluye edad, nivel de referencia, catálogo agrupado por nivel y la nota delimitada', () => {
     const contexto = contextoNivel7();
     const mensaje = mensajeExtraccion('{NAME} apiló cuatro bloques.', contexto);
     expect(mensaje).toContain('Edad: 30 meses');
-    expect(mensaje).toContain('Nivel esperado para la edad: 7');
-    expect(mensaje).toContain('- MAN-L07-MF-01 [motor_fino] Apila 4 bloques');
+    expect(mensaje).toContain('Nivel de referencia (último validado): 7');
+    expect(mensaje).toContain('- MAN-L07-MF-01 [MF] Apila 4 bloques');
     expect(mensaje).toContain('<nota>\n{NAME} apiló cuatro bloques.\n</nota>');
     const niveles = [...mensaje.matchAll(/^Nivel (\d+):$/gm)].map((m) => Number(m[1]));
     expect(niveles).toEqual([6, 7, 8]);

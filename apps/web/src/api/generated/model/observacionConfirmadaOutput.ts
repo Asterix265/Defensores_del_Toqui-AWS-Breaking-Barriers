@@ -13,8 +13,10 @@ export interface ObservacionConfirmadaOutput {
   fecha: string;
   /**
    * @minimum 1
-   * @maximum 9
+   * @maximum 8
    */
-  nivelEstimado: number;
+  nivel: number;
+  /** @items.pattern ^[A-Z]{2}$ */
+  nucleos: string[];
   manifestaciones: ManifestacionCitadaOutput[];
 }

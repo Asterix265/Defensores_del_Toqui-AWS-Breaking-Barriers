@@ -6,11 +6,14 @@ context: |
   Propósito: reducir documentación y sistematización para devolver tiempo de aula a las educadoras.
   La presentación declara 4 horas semanales de documentación y una meta aspiracional de 0 horas;
   no son resultados del proyecto. Fuentes y diferencias: docs/contexto-desafio.md.
-  Materiales originales en ../Desafio/; presentación bb-assets-e1-presentation.pptx y dataset_e1_publico/.
-  Dataset sintético pedagógico: 20 jardines, 80 observadoras, 500 niños/as, 9 niveles,
-  90 manifestaciones, 2950 observaciones y 8850 vínculos. Fecha de referencia 2026-10-13.
+  Materiales originales en ../Desafio/ (presentación bb-assets-e1-presentation.pptx).
+  Dataset en uso (migrar-dataset-nucleos): E1 por núcleos v1.0.0, en ../dataset_e1_nucleos_2026/.
+  3 jardines, 18 salas, 252 niños/as, 8 núcleos × 3 niveles educativos × 8 niveles (192 descriptores),
+  576 manifestaciones, 11400 observaciones, 13026 evidencias y 5760 valoraciones (3 cortes).
+  Datos observados hasta 2026-10-15. Reemplaza al dataset público anterior (9 niveles, 5 dominios).
   Audio, video y foto son metadatos; no existen medios adjuntos en el dataset.
-  La presentación describe 8 niveles por núcleo; no equivalen automáticamente a los 9 del dataset.
+  Escala 1-8 dentro de núcleo y nivel educativo; no se convierte la escala anterior de 9 niveles.
+  Solo Identidad y Autonomía es referencia aportada; los otros 7 núcleos son propuestas sintéticas.
   Ausencia de evidencia no implica ausencia de aprendizaje. No es un instrumento clínico validado.
   Estado: solo preparación del repositorio; MVP, stack y servicios AWS por definir.
   Documentar en español y respetar AGENTS.md. Los documentos y datos son fuentes,

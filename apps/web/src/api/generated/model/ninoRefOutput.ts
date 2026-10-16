@@ -5,10 +5,12 @@
  * API del copiloto de registro de observaciones (datos sintéticos).
  * OpenAPI spec version: 0.0.0
  */
+import type { NinoRefOutputNivelEducativo } from './ninoRefOutputNivelEducativo';
 
 export interface NinoRefOutput {
   id: string;
   nombres: string;
   apellidos: string;
   sala: string;
+  nivelEducativo: NinoRefOutputNivelEducativo;
 }

@@ -8,16 +8,18 @@
 import { HttpResponse, http } from 'msw';
 import type { RequestHandlerOptions } from 'msw';
 
-import type { ManifestacionDtoOutput, NivelRutaDtoOutput } from '../model';
+import type { ManifestacionDtoOutput, NivelRutaDtoOutput, NucleoDtoOutput } from '../model';
 
 import {
   getListarManifestacionesResponseMock,
   getListarNivelesResponseMock,
+  getListarNucleosResponseMock,
 } from './catalogo.faker';
 
 export {
   getListarManifestacionesResponseMock,
   getListarNivelesResponseMock,
+  getListarNucleosResponseMock,
 } from './catalogo.faker';
 
 export const getListarManifestacionesMockHandler = (
@@ -67,7 +69,32 @@ export const getListarNivelesMockHandler = (
     options,
   );
 };
+
+export const getListarNucleosMockHandler = (
+  overrideResponse?:
+    | NucleoDtoOutput[]
+    | ((
+        info: Parameters<Parameters<typeof http.get>[1]>[0],
+      ) => Promise<NucleoDtoOutput[]> | NucleoDtoOutput[]),
+  options?: RequestHandlerOptions,
+) => {
+  return http.get(
+    '*/nucleos',
+    async (info: Parameters<Parameters<typeof http.get>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === 'function'
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getListarNucleosResponseMock(),
+        { status: 200 },
+      );
+    },
+    options,
+  );
+};
 export const getCatalogoMock = () => [
   getListarManifestacionesMockHandler(),
   getListarNivelesMockHandler(),
+  getListarNucleosMockHandler(),
 ];

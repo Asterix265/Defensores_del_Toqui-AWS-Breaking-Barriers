@@ -24,6 +24,7 @@ export const getCrearCapturaResponseMock = (
       nombres: faker.string.alpha({ length: { min: 10, max: 20 } }),
       apellidos: faker.string.alpha({ length: { min: 10, max: 20 } }),
       sala: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      nivelEducativo: faker.helpers.arrayElement(['SC', 'NM', 'TR'] as const),
     },
     autor: faker.string.alpha({ length: { min: 10, max: 20 } }),
     formato: faker.helpers.arrayElement(['texto', 'audio', 'foto'] as const),
@@ -44,7 +45,7 @@ export const getCrearCapturaResponseMock = (
     borrador: faker.helpers.arrayElement([
       {
         textoFuente: faker.string.alpha({ length: { min: 10, max: 20 } }),
-        nivelSugerido: faker.helpers.arrayElement([faker.number.int({ min: 1, max: 9 }), null]),
+        nivelSugerido: faker.helpers.arrayElement([faker.number.int({ min: 1, max: 8 }), null]),
         evidenciaInsuficiente: faker.datatype.boolean(),
         manifestaciones: Array.from(
           { length: faker.number.int({ min: 1, max: 10 }) },
@@ -52,13 +53,13 @@ export const getCrearCapturaResponseMock = (
         ).map(() => ({
           manifestacion: {
             id: faker.string.alpha({ length: { min: 10, max: 20 } }),
-            nivel: faker.number.int({ min: 1, max: 9 }),
-            dominio: faker.helpers.arrayElement([
-              'motor_grueso',
-              'motor_fino',
-              'lenguaje_comunicacion',
-              'socioemocional',
-              'cognitivo',
+            idDescriptor: faker.string.alpha({ length: { min: 10, max: 20 } }),
+            nucleo: faker.helpers.fromRegExp('^[A-Z]{2}$'),
+            nivelEducativo: faker.helpers.arrayElement(['SC', 'NM', 'TR'] as const),
+            nivel: faker.number.int({ min: 1, max: 8 }),
+            tipo: faker.helpers.arrayElement([
+              'conducta_descriptor',
+              'ejemplo_ilustrativo',
             ] as const),
             textoObservable: faker.string.alpha({ length: { min: 10, max: 20 } }),
           },
@@ -109,20 +110,23 @@ export const getCrearCapturaResponseMock = (
       {
         id: faker.string.alpha({ length: { min: 10, max: 20 } }),
         fecha: faker.date.past().toISOString().slice(0, 10),
-        nivelEstimado: faker.number.int({ min: 1, max: 9 }),
+        nivel: faker.number.int({ min: 1, max: 8 }),
+        nucleos: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+          () => faker.helpers.fromRegExp('^[A-Z]{2}$'),
+        ),
         manifestaciones: Array.from(
           { length: faker.number.int({ min: 1, max: 10 }) },
           (_, i) => i + 1,
         ).map(() => ({
           manifestacion: {
             id: faker.string.alpha({ length: { min: 10, max: 20 } }),
-            nivel: faker.number.int({ min: 1, max: 9 }),
-            dominio: faker.helpers.arrayElement([
-              'motor_grueso',
-              'motor_fino',
-              'lenguaje_comunicacion',
-              'socioemocional',
-              'cognitivo',
+            idDescriptor: faker.string.alpha({ length: { min: 10, max: 20 } }),
+            nucleo: faker.helpers.fromRegExp('^[A-Z]{2}$'),
+            nivelEducativo: faker.helpers.arrayElement(['SC', 'NM', 'TR'] as const),
+            nivel: faker.number.int({ min: 1, max: 8 }),
+            tipo: faker.helpers.arrayElement([
+              'conducta_descriptor',
+              'ejemplo_ilustrativo',
             ] as const),
             textoObservable: faker.string.alpha({ length: { min: 10, max: 20 } }),
           },
@@ -159,6 +163,7 @@ export const getListarCapturasResponseMock = (
       nombres: faker.string.alpha({ length: { min: 10, max: 20 } }),
       apellidos: faker.string.alpha({ length: { min: 10, max: 20 } }),
       sala: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      nivelEducativo: faker.helpers.arrayElement(['SC', 'NM', 'TR'] as const),
     },
     autor: faker.string.alpha({ length: { min: 10, max: 20 } }),
     formato: faker.helpers.arrayElement(['texto', 'audio', 'foto'] as const),
@@ -174,14 +179,10 @@ export const getListarCapturasResponseMock = (
       faker.string.alpha({ length: { min: 10, max: 20 } }),
       null,
     ]),
-    dominios: faker.helpers.arrayElements([
-      'motor_grueso',
-      'motor_fino',
-      'lenguaje_comunicacion',
-      'socioemocional',
-      'cognitivo',
-    ] as const),
-    nivel: faker.helpers.arrayElement([faker.number.int({ min: 1, max: 9 }), null]),
+    nucleos: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+      () => faker.helpers.fromRegExp('^[A-Z]{2}$'),
+    ),
+    nivel: faker.helpers.arrayElement([faker.number.int({ min: 1, max: 8 }), null]),
   })),
   total: faker.number.int({ min: -9007199254740991, max: 9007199254740991 }),
   pagina: faker.number.int({ min: -9007199254740991, max: 9007199254740991 }),
@@ -198,6 +199,7 @@ export const getAvisarSubidaResponseMock = (
     nombres: faker.string.alpha({ length: { min: 10, max: 20 } }),
     apellidos: faker.string.alpha({ length: { min: 10, max: 20 } }),
     sala: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    nivelEducativo: faker.helpers.arrayElement(['SC', 'NM', 'TR'] as const),
   },
   autor: faker.string.alpha({ length: { min: 10, max: 20 } }),
   formato: faker.helpers.arrayElement(['texto', 'audio', 'foto'] as const),
@@ -218,7 +220,7 @@ export const getAvisarSubidaResponseMock = (
   borrador: faker.helpers.arrayElement([
     {
       textoFuente: faker.string.alpha({ length: { min: 10, max: 20 } }),
-      nivelSugerido: faker.helpers.arrayElement([faker.number.int({ min: 1, max: 9 }), null]),
+      nivelSugerido: faker.helpers.arrayElement([faker.number.int({ min: 1, max: 8 }), null]),
       evidenciaInsuficiente: faker.datatype.boolean(),
       manifestaciones: Array.from(
         { length: faker.number.int({ min: 1, max: 10 }) },
@@ -226,14 +228,11 @@ export const getAvisarSubidaResponseMock = (
       ).map(() => ({
         manifestacion: {
           id: faker.string.alpha({ length: { min: 10, max: 20 } }),
-          nivel: faker.number.int({ min: 1, max: 9 }),
-          dominio: faker.helpers.arrayElement([
-            'motor_grueso',
-            'motor_fino',
-            'lenguaje_comunicacion',
-            'socioemocional',
-            'cognitivo',
-          ] as const),
+          idDescriptor: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          nucleo: faker.helpers.fromRegExp('^[A-Z]{2}$'),
+          nivelEducativo: faker.helpers.arrayElement(['SC', 'NM', 'TR'] as const),
+          nivel: faker.number.int({ min: 1, max: 8 }),
+          tipo: faker.helpers.arrayElement(['conducta_descriptor', 'ejemplo_ilustrativo'] as const),
           textoObservable: faker.string.alpha({ length: { min: 10, max: 20 } }),
         },
         cita: faker.helpers.arrayElement([
@@ -282,21 +281,21 @@ export const getAvisarSubidaResponseMock = (
     {
       id: faker.string.alpha({ length: { min: 10, max: 20 } }),
       fecha: faker.date.past().toISOString().slice(0, 10),
-      nivelEstimado: faker.number.int({ min: 1, max: 9 }),
+      nivel: faker.number.int({ min: 1, max: 8 }),
+      nucleos: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+        () => faker.helpers.fromRegExp('^[A-Z]{2}$'),
+      ),
       manifestaciones: Array.from(
         { length: faker.number.int({ min: 1, max: 10 }) },
         (_, i) => i + 1,
       ).map(() => ({
         manifestacion: {
           id: faker.string.alpha({ length: { min: 10, max: 20 } }),
-          nivel: faker.number.int({ min: 1, max: 9 }),
-          dominio: faker.helpers.arrayElement([
-            'motor_grueso',
-            'motor_fino',
-            'lenguaje_comunicacion',
-            'socioemocional',
-            'cognitivo',
-          ] as const),
+          idDescriptor: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          nucleo: faker.helpers.fromRegExp('^[A-Z]{2}$'),
+          nivelEducativo: faker.helpers.arrayElement(['SC', 'NM', 'TR'] as const),
+          nivel: faker.number.int({ min: 1, max: 8 }),
+          tipo: faker.helpers.arrayElement(['conducta_descriptor', 'ejemplo_ilustrativo'] as const),
           textoObservable: faker.string.alpha({ length: { min: 10, max: 20 } }),
         },
         cita: faker.helpers.arrayElement([
@@ -319,6 +318,7 @@ export const getObtenerCapturaResponseMock = (
     nombres: faker.string.alpha({ length: { min: 10, max: 20 } }),
     apellidos: faker.string.alpha({ length: { min: 10, max: 20 } }),
     sala: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    nivelEducativo: faker.helpers.arrayElement(['SC', 'NM', 'TR'] as const),
   },
   autor: faker.string.alpha({ length: { min: 10, max: 20 } }),
   formato: faker.helpers.arrayElement(['texto', 'audio', 'foto'] as const),
@@ -339,7 +339,7 @@ export const getObtenerCapturaResponseMock = (
   borrador: faker.helpers.arrayElement([
     {
       textoFuente: faker.string.alpha({ length: { min: 10, max: 20 } }),
-      nivelSugerido: faker.helpers.arrayElement([faker.number.int({ min: 1, max: 9 }), null]),
+      nivelSugerido: faker.helpers.arrayElement([faker.number.int({ min: 1, max: 8 }), null]),
       evidenciaInsuficiente: faker.datatype.boolean(),
       manifestaciones: Array.from(
         { length: faker.number.int({ min: 1, max: 10 }) },
@@ -347,14 +347,11 @@ export const getObtenerCapturaResponseMock = (
       ).map(() => ({
         manifestacion: {
           id: faker.string.alpha({ length: { min: 10, max: 20 } }),
-          nivel: faker.number.int({ min: 1, max: 9 }),
-          dominio: faker.helpers.arrayElement([
-            'motor_grueso',
-            'motor_fino',
-            'lenguaje_comunicacion',
-            'socioemocional',
-            'cognitivo',
-          ] as const),
+          idDescriptor: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          nucleo: faker.helpers.fromRegExp('^[A-Z]{2}$'),
+          nivelEducativo: faker.helpers.arrayElement(['SC', 'NM', 'TR'] as const),
+          nivel: faker.number.int({ min: 1, max: 8 }),
+          tipo: faker.helpers.arrayElement(['conducta_descriptor', 'ejemplo_ilustrativo'] as const),
           textoObservable: faker.string.alpha({ length: { min: 10, max: 20 } }),
         },
         cita: faker.helpers.arrayElement([
@@ -403,21 +400,21 @@ export const getObtenerCapturaResponseMock = (
     {
       id: faker.string.alpha({ length: { min: 10, max: 20 } }),
       fecha: faker.date.past().toISOString().slice(0, 10),
-      nivelEstimado: faker.number.int({ min: 1, max: 9 }),
+      nivel: faker.number.int({ min: 1, max: 8 }),
+      nucleos: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+        () => faker.helpers.fromRegExp('^[A-Z]{2}$'),
+      ),
       manifestaciones: Array.from(
         { length: faker.number.int({ min: 1, max: 10 }) },
         (_, i) => i + 1,
       ).map(() => ({
         manifestacion: {
           id: faker.string.alpha({ length: { min: 10, max: 20 } }),
-          nivel: faker.number.int({ min: 1, max: 9 }),
-          dominio: faker.helpers.arrayElement([
-            'motor_grueso',
-            'motor_fino',
-            'lenguaje_comunicacion',
-            'socioemocional',
-            'cognitivo',
-          ] as const),
+          idDescriptor: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          nucleo: faker.helpers.fromRegExp('^[A-Z]{2}$'),
+          nivelEducativo: faker.helpers.arrayElement(['SC', 'NM', 'TR'] as const),
+          nivel: faker.number.int({ min: 1, max: 8 }),
+          tipo: faker.helpers.arrayElement(['conducta_descriptor', 'ejemplo_ilustrativo'] as const),
           textoObservable: faker.string.alpha({ length: { min: 10, max: 20 } }),
         },
         cita: faker.helpers.arrayElement([
@@ -440,6 +437,7 @@ export const getConfirmarCapturaResponseMock = (
     nombres: faker.string.alpha({ length: { min: 10, max: 20 } }),
     apellidos: faker.string.alpha({ length: { min: 10, max: 20 } }),
     sala: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    nivelEducativo: faker.helpers.arrayElement(['SC', 'NM', 'TR'] as const),
   },
   autor: faker.string.alpha({ length: { min: 10, max: 20 } }),
   formato: faker.helpers.arrayElement(['texto', 'audio', 'foto'] as const),
@@ -460,7 +458,7 @@ export const getConfirmarCapturaResponseMock = (
   borrador: faker.helpers.arrayElement([
     {
       textoFuente: faker.string.alpha({ length: { min: 10, max: 20 } }),
-      nivelSugerido: faker.helpers.arrayElement([faker.number.int({ min: 1, max: 9 }), null]),
+      nivelSugerido: faker.helpers.arrayElement([faker.number.int({ min: 1, max: 8 }), null]),
       evidenciaInsuficiente: faker.datatype.boolean(),
       manifestaciones: Array.from(
         { length: faker.number.int({ min: 1, max: 10 }) },
@@ -468,14 +466,11 @@ export const getConfirmarCapturaResponseMock = (
       ).map(() => ({
         manifestacion: {
           id: faker.string.alpha({ length: { min: 10, max: 20 } }),
-          nivel: faker.number.int({ min: 1, max: 9 }),
-          dominio: faker.helpers.arrayElement([
-            'motor_grueso',
-            'motor_fino',
-            'lenguaje_comunicacion',
-            'socioemocional',
-            'cognitivo',
-          ] as const),
+          idDescriptor: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          nucleo: faker.helpers.fromRegExp('^[A-Z]{2}$'),
+          nivelEducativo: faker.helpers.arrayElement(['SC', 'NM', 'TR'] as const),
+          nivel: faker.number.int({ min: 1, max: 8 }),
+          tipo: faker.helpers.arrayElement(['conducta_descriptor', 'ejemplo_ilustrativo'] as const),
           textoObservable: faker.string.alpha({ length: { min: 10, max: 20 } }),
         },
         cita: faker.helpers.arrayElement([
@@ -524,21 +519,21 @@ export const getConfirmarCapturaResponseMock = (
     {
       id: faker.string.alpha({ length: { min: 10, max: 20 } }),
       fecha: faker.date.past().toISOString().slice(0, 10),
-      nivelEstimado: faker.number.int({ min: 1, max: 9 }),
+      nivel: faker.number.int({ min: 1, max: 8 }),
+      nucleos: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+        () => faker.helpers.fromRegExp('^[A-Z]{2}$'),
+      ),
       manifestaciones: Array.from(
         { length: faker.number.int({ min: 1, max: 10 }) },
         (_, i) => i + 1,
       ).map(() => ({
         manifestacion: {
           id: faker.string.alpha({ length: { min: 10, max: 20 } }),
-          nivel: faker.number.int({ min: 1, max: 9 }),
-          dominio: faker.helpers.arrayElement([
-            'motor_grueso',
-            'motor_fino',
-            'lenguaje_comunicacion',
-            'socioemocional',
-            'cognitivo',
-          ] as const),
+          idDescriptor: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          nucleo: faker.helpers.fromRegExp('^[A-Z]{2}$'),
+          nivelEducativo: faker.helpers.arrayElement(['SC', 'NM', 'TR'] as const),
+          nivel: faker.number.int({ min: 1, max: 8 }),
+          tipo: faker.helpers.arrayElement(['conducta_descriptor', 'ejemplo_ilustrativo'] as const),
           textoObservable: faker.string.alpha({ length: { min: 10, max: 20 } }),
         },
         cita: faker.helpers.arrayElement([
@@ -561,6 +556,7 @@ export const getDescartarCapturaResponseMock = (
     nombres: faker.string.alpha({ length: { min: 10, max: 20 } }),
     apellidos: faker.string.alpha({ length: { min: 10, max: 20 } }),
     sala: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    nivelEducativo: faker.helpers.arrayElement(['SC', 'NM', 'TR'] as const),
   },
   autor: faker.string.alpha({ length: { min: 10, max: 20 } }),
   formato: faker.helpers.arrayElement(['texto', 'audio', 'foto'] as const),
@@ -581,7 +577,7 @@ export const getDescartarCapturaResponseMock = (
   borrador: faker.helpers.arrayElement([
     {
       textoFuente: faker.string.alpha({ length: { min: 10, max: 20 } }),
-      nivelSugerido: faker.helpers.arrayElement([faker.number.int({ min: 1, max: 9 }), null]),
+      nivelSugerido: faker.helpers.arrayElement([faker.number.int({ min: 1, max: 8 }), null]),
       evidenciaInsuficiente: faker.datatype.boolean(),
       manifestaciones: Array.from(
         { length: faker.number.int({ min: 1, max: 10 }) },
@@ -589,14 +585,11 @@ export const getDescartarCapturaResponseMock = (
       ).map(() => ({
         manifestacion: {
           id: faker.string.alpha({ length: { min: 10, max: 20 } }),
-          nivel: faker.number.int({ min: 1, max: 9 }),
-          dominio: faker.helpers.arrayElement([
-            'motor_grueso',
-            'motor_fino',
-            'lenguaje_comunicacion',
-            'socioemocional',
-            'cognitivo',
-          ] as const),
+          idDescriptor: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          nucleo: faker.helpers.fromRegExp('^[A-Z]{2}$'),
+          nivelEducativo: faker.helpers.arrayElement(['SC', 'NM', 'TR'] as const),
+          nivel: faker.number.int({ min: 1, max: 8 }),
+          tipo: faker.helpers.arrayElement(['conducta_descriptor', 'ejemplo_ilustrativo'] as const),
           textoObservable: faker.string.alpha({ length: { min: 10, max: 20 } }),
         },
         cita: faker.helpers.arrayElement([
@@ -645,21 +638,21 @@ export const getDescartarCapturaResponseMock = (
     {
       id: faker.string.alpha({ length: { min: 10, max: 20 } }),
       fecha: faker.date.past().toISOString().slice(0, 10),
-      nivelEstimado: faker.number.int({ min: 1, max: 9 }),
+      nivel: faker.number.int({ min: 1, max: 8 }),
+      nucleos: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+        () => faker.helpers.fromRegExp('^[A-Z]{2}$'),
+      ),
       manifestaciones: Array.from(
         { length: faker.number.int({ min: 1, max: 10 }) },
         (_, i) => i + 1,
       ).map(() => ({
         manifestacion: {
           id: faker.string.alpha({ length: { min: 10, max: 20 } }),
-          nivel: faker.number.int({ min: 1, max: 9 }),
-          dominio: faker.helpers.arrayElement([
-            'motor_grueso',
-            'motor_fino',
-            'lenguaje_comunicacion',
-            'socioemocional',
-            'cognitivo',
-          ] as const),
+          idDescriptor: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          nucleo: faker.helpers.fromRegExp('^[A-Z]{2}$'),
+          nivelEducativo: faker.helpers.arrayElement(['SC', 'NM', 'TR'] as const),
+          nivel: faker.number.int({ min: 1, max: 8 }),
+          tipo: faker.helpers.arrayElement(['conducta_descriptor', 'ejemplo_ilustrativo'] as const),
           textoObservable: faker.string.alpha({ length: { min: 10, max: 20 } }),
         },
         cita: faker.helpers.arrayElement([

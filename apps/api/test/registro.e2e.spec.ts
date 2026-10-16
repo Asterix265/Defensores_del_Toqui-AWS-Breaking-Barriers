@@ -1,5 +1,6 @@
 // Pruebas de punta a punta contra PostgreSQL real (base aparte `toqui_test`, se recrea en cada corrida).
-// El dataset es un fixture sintético mínimo generado aquí; el dataset público no se copia al repositorio.
+// El dataset es un fixture sintético mínimo con el formato del dataset E1 por núcleos, generado
+// aquí; el dataset no se copia al repositorio.
 // S3 se reemplaza por un doble: la API solo firma URLs.
 import { execSync } from 'node:child_process';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
@@ -31,73 +32,101 @@ const DIRECTORA = 'Bearer local:directora:JAR-0001:dora';
 const EDUCADORA_J2 = 'Bearer local:educadora:JAR-0002:edu2';
 
 const HOY = hoyEn('America/Santiago');
-const DOMINIOS = {
-  MG: 'motor_grueso',
-  MF: 'motor_fino',
-  LC: 'lenguaje_comunicacion',
-  SE: 'socioemocional',
-  CO: 'cognitivo',
-};
-const RANGOS = [
-  [0, 2],
-  [2, 4],
-  [4, 7],
-  [7, 10],
-  [10, 13],
-  [13, 18],
-  [18, 24],
-  [24, 30],
-  [30, 36],
-] as const;
+const NUCLEOS = ['IA', 'CM', 'LV'];
+const NIVELES = [1, 2, 3, 4, 5, 6, 7, 8];
 
-/** Escribe un dataset sintético mínimo con el formato de los CSV públicos. */
+/** Manifestación de conducta del descriptor de prueba (`MAN-RUB-T-SC-CM-03-C`). */
+const man = (ne: string, nucleo: string, nivel: number, tipo: 'C' | 'E1' = 'C') =>
+  `MAN-RUB-T-${ne}-${nucleo}-0${nivel}-${tipo}`;
+
+/** Escribe un dataset sintético mínimo con el formato de los CSV del dataset E1 por núcleos. */
 function escribirFixture(dir: string): void {
   const csv = (nombre: string, filas: string[]) =>
     writeFileSync(join(dir, nombre), `${filas.join('\n')}\n`);
+  csv('niveles_educativos.csv', [
+    'id_nivel_educativo,nombre,edad_min_meses_contexto,edad_max_meses_exclusiva_contexto',
+    'SC,Sala Cuna,0,24',
+    'NM,Nivel Medio,24,48',
+    'TR,Transición,48,72',
+  ]);
+  csv('nucleos.csv', [
+    'id_nucleo,nombre,ambito,archivo_rubrica,origen',
+    'IA,Identidad y Autonomía,Desarrollo Personal y Social,rubricas/ia.md,referencia_aportada_usuario',
+    'CM,Corporalidad y Movimiento,Desarrollo Personal y Social,rubricas/cm.md,propuesta_sintetica',
+    'LV,Lenguaje Verbal,Comunicación Integral,rubricas/lv.md,propuesta_sintetica',
+  ]);
+  csv('niveles_trayectoria.csv', ['nivel,nombre_nivel', ...NIVELES.map((n) => `${n},Nivel ${n}`)]);
+  csv('versiones_rubrica.csv', [
+    'id_version,fecha_version,estado,archivo_referencia,nucleos_activos,niveles_activos',
+    'E1-TEST,2026-10-16,prueba,fuentes/ref.txt,3,8',
+  ]);
   csv('jardines.csv', [
-    'id_jardin,nombre_fantasia,comuna,region,numero_salas,numero_educadoras',
-    'JAR-0001,Jardín de Prueba Uno,Arica,Arica y Parinacota,2,1',
-    'JAR-0002,"Jardín de Prueba, Dos",Iquique,Tarapacá,1,1',
+    'id_jardin,nombre_fantasia,comuna,region,numero_salas,numero_educadoras,numero_asistentes,id_directora',
+    'JAR-0001,Jardín de Prueba Uno,Arica,Arica y Parinacota,2,1,1,DIR-0001',
+    'JAR-0002,"Jardín de Prueba, Dos",Iquique,Tarapacá,1,1,0,',
   ]);
   csv('educadoras.csv', [
-    'id_educadora,id_jardin,rol,anios_experiencia',
-    'EDU-0001,JAR-0001,educadora_parvulos,5',
-    'EDU-0002,JAR-0002,tecnico_parvulos,2',
+    'id_educadora,id_jardin,nombre_completo,rol,anios_experiencia',
+    'DIR-0001,JAR-0001,Directora Ficticia 1,directora,15',
+    'EDU-0001,JAR-0001,Educadora Ficticia 1,educadora_parvulos,5',
+    'ASI-0001,JAR-0001,Persona Ficticia ASI-0001,asistente_parvulos,2',
+    'EDU-0002,JAR-0002,Educadora Ficticia 2,educadora_parvulos,3',
   ]);
-  // NINO-00001 cumple 21 meses hoy o cerca: nivel esperado 7 (18–24 meses).
-  const nacimiento = sumarDias(HOY, -21 * 30.5);
+  csv('salas.csv', [
+    'id_sala,id_jardin,sala_grupo,id_nivel_educativo,id_educadora_responsable',
+    'JAR-0001-SC-01,JAR-0001,SC-01,SC,EDU-0001',
+    'JAR-0001-NM-01,JAR-0001,NM-01,NM,EDU-0001',
+    'JAR-0002-SC-01,JAR-0002,SC-01,SC,EDU-0002',
+  ]);
+  csv('personal_salas.csv', [
+    'id_educadora,id_sala',
+    'EDU-0001,JAR-0001-SC-01',
+    'ASI-0001,JAR-0001-SC-01',
+    'EDU-0001,JAR-0001-NM-01',
+    'EDU-0002,JAR-0002-SC-01',
+  ]);
+  const nacimiento = sumarDias(HOY, -14 * 30.5);
   csv('ninos.csv', [
-    'id_nino,fecha_nacimiento,sexo_registrado,id_jardin,sala_grupo,fecha_ingreso',
-    `NINO-00001,${nacimiento},f,JAR-0001,SG-A,${nacimiento}`,
-    'NINO-00002,2024-01-01,m,JAR-0001,SG-B,2024-03-01',
-    'NINO-00003,2024-01-01,x,JAR-0002,SG-A,2024-03-01',
+    'id_nino,nombre_completo,nombre_registro,fecha_nacimiento,sexo_registrado,id_jardin,sala_grupo,id_sala,id_nivel_educativo,fecha_ingreso',
+    `NINO-00001,Sofía Prueba 001,Sofía Prueba,${nacimiento},f,JAR-0001,SC-01,JAR-0001-SC-01,SC,${nacimiento}`,
+    'NINO-00002,Mateo Ejemplo 002,Mateo,2023-01-01,m,JAR-0001,NM-01,JAR-0001-NM-01,NM,2024-03-01',
+    'NINO-00003,Antonia Ejemplo 003,Antonia,2025-01-01,x,JAR-0002,SC-01,JAR-0002-SC-01,SC,2025-03-01',
   ]);
-  csv('ruta_niveles.csv', [
-    'nivel,nombre_nivel,edad_min_meses,edad_max_meses,dominios,descripcion',
-    ...RANGOS.map(
-      ([min, max], i) =>
-        `${i + 1},Nivel ${i + 1},${min},${max},motor_grueso|motor_fino|lenguaje_comunicacion|socioemocional|cognitivo,"Descripción, sintética"`,
-    ),
-  ]);
-  const manifestaciones = RANGOS.flatMap((_, i) =>
-    Object.entries(DOMINIOS).map(
-      ([codigo, dominio]) =>
-        `MAN-L${String(i + 1).padStart(2, '0')}-${codigo}-01,${i + 1},${dominio},Manifestación de prueba ${codigo} ${i + 1}.`,
-    ),
+  const descriptores = ['SC', 'NM'].flatMap((ne) =>
+    NUCLEOS.flatMap((nucleo) => NIVELES.map((nivel) => ({ ne, nucleo, nivel }))),
   );
+  csv('ruta_niveles.csv', [
+    'id_descriptor,id_version,id_nivel_educativo,id_nucleo,nivel,nombre_nivel,desarrollo_esperado,conducta_observable,ejemplo_1,ejemplo_2,origen,paso_siguiente_sugerido',
+    ...descriptores.map(
+      ({ ne, nucleo, nivel }) =>
+        `RUB-T-${ne}-${nucleo}-0${nivel},E1-TEST,${ne},${nucleo},${nivel},Nivel ${nivel},"Desarrollo, sintético",Conducta,Ejemplo 1,Ejemplo 2,propuesta_sintetica,`,
+    ),
+  ]);
   csv('manifestaciones.csv', [
-    'id_manifestacion,nivel,dominio,texto_observable',
-    ...manifestaciones,
+    'id_manifestacion,id_descriptor,tipo,texto_observable,origen',
+    ...descriptores.flatMap(({ ne, nucleo, nivel }) => [
+      `${man(ne, nucleo, nivel)},RUB-T-${ne}-${nucleo}-0${nivel},conducta_descriptor,Conducta ${nucleo} ${nivel}.,propuesta_sintetica`,
+      `${man(ne, nucleo, nivel, 'E1')},RUB-T-${ne}-${nucleo}-0${nivel},ejemplo_ilustrativo,Ejemplo ${nucleo} ${nivel}.,propuesta_sintetica`,
+    ]),
   ]);
   csv('observaciones.csv', [
-    'id_observacion,id_nino,id_educadora,fecha_observacion,formato_captura,nivel_estimado,nota_breve',
-    `OBS-0000001,NINO-00001,EDU-0001,${sumarDias(HOY, -10)},texto,6,`,
-    `OBS-0000002,NINO-00001,EDU-0001,${sumarDias(HOY, -400)},audio,5,Fuera del periodo`,
+    'id_observacion,id_nino,id_educadora,fecha_observacion,formato_captura,nota_breve,texto_observacion,contexto,apoyos,edad_meses_observacion,origen',
+    `OBS-0000001,NINO-00001,EDU-0001,${sumarDias(HOY, -10)},texto,,Se puso los zapatos sola y sonrió.,Hora de salida,Sin apoyo,14,registro_sintetico`,
+    `OBS-0000002,NINO-00001,ASI-0001,${sumarDias(HOY, -400)},texto,Fuera del periodo,Pidió ayuda para el zapato.,Patio,Con apoyo,1,registro_sintetico`,
   ]);
   csv('observacion_manifestaciones.csv', [
-    'id_observacion,id_manifestacion',
-    'OBS-0000001,MAN-L06-CO-01',
-    'OBS-0000002,MAN-L05-CO-01',
+    'id_evidencia,id_observacion,id_manifestacion,fragmento_evidencia,alcance',
+    `EVI-0000001,OBS-0000001,${man('SC', 'IA', 3)},Se puso los zapatos sola,componente_observado`,
+    `EVI-0000002,OBS-0000002,${man('SC', 'IA', 2)},Pidió ayuda,parcial_otro_descriptor`,
+  ]);
+  csv('valoraciones.csv', [
+    'id_valoracion,id_nino,id_sala,id_nivel_educativo,id_nucleo,id_version,fecha_corte,nivel_sugerido,nivel_validado,estado,id_educadora_decide,fecha_decision,id_observacion_sin_clasificar,justificacion_sugerencia,justificacion_decision,paso_siguiente_sugerido',
+    `VAL-0000001,NINO-00001,JAR-0001-SC-01,SC,IA,E1-TEST,${sumarDias(HOY, -9)},3,3,confirmada,EDU-0001,${sumarDias(HOY, -9)},,Evidencia EVI-0000001,Confirma,Observar el nivel 4`,
+    `VAL-0000002,NINO-00001,JAR-0001-SC-01,SC,CM,E1-TEST,${sumarDias(HOY, -9)},,,evidencia_insuficiente,EDU-0001,${sumarDias(HOY, -9)},OBS-0000001,Nota imprecisa,Pide más evidencia,`,
+  ]);
+  csv('valoracion_evidencias.csv', [
+    'id_valoracion,id_evidencia,uso',
+    'VAL-0000001,EVI-0000001,sustento_propuesta',
   ]);
 }
 
@@ -151,7 +180,15 @@ describe('API de registro (e2e)', () => {
     escribirFixture(dirDataset);
     await expect(cargarDataset(prisma, leerDataset(dirDataset))).resolves.toMatchObject({
       cargado: true,
-      conteos: { jardines: 2, ninos: 3, niveles: 9, manifestaciones: 45, vinculos: 2 },
+      conteos: {
+        jardines: 2,
+        salas: 3,
+        ninos: 3,
+        descriptores: 48,
+        manifestaciones: 96,
+        evidencias: 2,
+        valoraciones: 2,
+      },
     });
   });
 
@@ -209,25 +246,55 @@ describe('API de registro (e2e)', () => {
 
     it('falla con un error explícito si falta la carpeta, un archivo o una fila es inválida', () => {
       expect(() => leerDataset(undefined)).toThrow(/DATASET_DIR no está definida/);
-      expect(() => leerDataset(join(dirDataset, 'no-existe'))).toThrow(/no contiene: jardines.csv/);
+      expect(() => leerDataset(join(dirDataset, 'no-existe'))).toThrow(
+        /no contiene: niveles_educativos.csv, .*jardines.csv/,
+      );
       const roto = mkdtempSync(join(tmpdir(), 'dataset-roto-'));
       escribirFixture(roto);
       writeFileSync(
         join(roto, 'jardines.csv'),
-        'id_jardin,nombre_fantasia,comuna,region,numero_salas,numero_educadoras\nJAR-1,X,Y,Z,99,1\n',
+        'id_jardin,nombre_fantasia,comuna,region,numero_salas,numero_educadoras,numero_asistentes,id_directora\nJAR-1,X,Y,Z,99,1,0,\n',
       );
       expect(() => leerDataset(roto)).toThrow(/jardines.csv, fila 2/);
       rmSync(roto, { recursive: true, force: true });
     });
 
-    it('genera nombres sintéticos y conserva IDs, fechas y la nota vacía como null', async () => {
+    it('rechaza un fragmento que no está literalmente en la observación o una FK rota', () => {
+      const roto = mkdtempSync(join(tmpdir(), 'dataset-roto-'));
+      escribirFixture(roto);
+      writeFileSync(
+        join(roto, 'observacion_manifestaciones.csv'),
+        `id_evidencia,id_observacion,id_manifestacion,fragmento_evidencia,alcance\nEVI-0000001,OBS-0000001,${man('SC', 'IA', 3)},Se calzó sola,componente_observado\nEVI-0000002,OBS-0000009,${man('SC', 'IA', 2)},x,componente_observado\n`,
+      );
+      expect(() => leerDataset(roto)).toThrow(/EVI-0000001: el fragmento no está literalmente/);
+      expect(() => leerDataset(roto)).toThrow(/EVI-0000002: id_observacion OBS-0000009 no existe/);
+      rmSync(roto, { recursive: true, force: true });
+    });
+
+    it('conserva IDs, fechas, nombres ficticios, la nota vacía como null y las valoraciones', async () => {
       const nino = await prisma.nino.findUniqueOrThrow({ where: { id: 'NINO-00001' } });
-      expect(nino.nombres).toEqual(expect.any(String));
-      expect(nino.apellidos.split(' ')).toHaveLength(2);
+      expect(nino).toMatchObject({
+        nombreCompleto: 'Sofía Prueba 001',
+        idSala: 'JAR-0001-SC-01',
+        idNivelEducativo: 'SC',
+      });
       const obs = await prisma.observacion.findUniqueOrThrow({ where: { id: 'OBS-0000001' } });
-      expect(obs).toMatchObject({ notaBreve: null, origen: 'dataset', idEducadora: 'EDU-0001' });
+      expect(obs).toMatchObject({
+        notaBreve: null,
+        textoObservacion: 'Se puso los zapatos sola y sonrió.',
+        origen: 'dataset',
+        idEducadora: 'EDU-0001',
+      });
       const jardin = await prisma.jardin.findUniqueOrThrow({ where: { id: 'JAR-0002' } });
-      expect(jardin.nombreFantasia).toBe('Jardín de Prueba, Dos');
+      expect(jardin).toMatchObject({ nombreFantasia: 'Jardín de Prueba, Dos', idDirectora: null });
+      await expect(
+        prisma.valoracion.findUniqueOrThrow({ where: { id: 'VAL-0000002' } }),
+      ).resolves.toMatchObject({
+        estado: 'evidencia_insuficiente',
+        nivelSugerido: null,
+        nivelValidado: null,
+        idObservacionSinClasificar: 'OBS-0000001',
+      });
     });
   });
 
@@ -245,74 +312,122 @@ describe('API de registro (e2e)', () => {
         'NINO-00001',
         'NINO-00002',
       ]);
-      expect(todos.body[0]).toMatchObject({
+      expect(todos.body.find((n: { id: string }) => n.id === 'NINO-00001')).toMatchObject({
         edadMeses: expect.any(Number),
-        nombres: expect.any(String),
+        nombres: 'Sofía',
+        apellidos: 'Prueba 001',
+        nombreCompleto: 'Sofía Prueba 001',
+        sala: 'SC-01',
+        idSala: 'JAR-0001-SC-01',
+        nivelEducativo: 'SC',
       });
-      const sala = await http().get('/ninos?sala=SG-B').expect(200);
+      const sala = await http().get('/ninos?sala=NM-01').expect(200);
       expect(sala.body.map((n: { id: string }) => n.id)).toEqual(['NINO-00002']);
       const otro = await http().get('/ninos').set('Authorization', EDUCADORA_J2).expect(200);
       expect(otro.body.map((n: { id: string }) => n.id)).toEqual(['NINO-00003']);
     });
 
-    it('catálogo de manifestaciones filtrable por nivel y dominio', async () => {
-      const res = await http().get('/manifestaciones?nivel=7&dominio=motor_fino').expect(200);
+    it('catálogo de manifestaciones filtrable por núcleo, nivel educativo y nivel', async () => {
+      const res = await http()
+        .get('/manifestaciones?nivel=7&nucleo=CM&nivelEducativo=SC')
+        .expect(200);
       expect(res.body).toEqual([
         {
-          id: 'MAN-L07-MF-01',
+          id: man('SC', 'CM', 7),
+          idDescriptor: 'RUB-T-SC-CM-07',
+          nucleo: 'CM',
+          nivelEducativo: 'SC',
           nivel: 7,
-          dominio: 'motor_fino',
-          textoObservable: expect.any(String),
+          tipo: 'conducta_descriptor',
+          textoObservable: 'Conducta CM 7.',
         },
+        expect.objectContaining({ id: man('SC', 'CM', 7, 'E1'), tipo: 'ejemplo_ilustrativo' }),
       ]);
-      await http().get('/manifestaciones?nivel=10').expect(400);
+      const ia = await http().get('/manifestaciones?nucleo=IA&nivelEducativo=SC').expect(200);
+      expect(ia.body).toHaveLength(16);
+      await http().get('/manifestaciones?nivel=9').expect(400);
+      await http().get('/manifestaciones?nivelEducativo=XX').expect(400);
     });
   });
 
-  it('niveles de la ruta con su rango de edad', async () => {
-    const res = await http().get('/niveles').expect(200);
-    expect(res.body).toHaveLength(9);
-    expect(res.body[6]).toEqual({
-      nivel: 7,
-      nombre: 'Nivel 7',
-      edadMinMeses: 18,
-      edadMaxMeses: 24,
+  it('niveles de la trayectoria sin edades y catálogo de núcleos', async () => {
+    const niveles = await http().get('/niveles').expect(200);
+    expect(niveles.body).toHaveLength(8);
+    expect(niveles.body[6]).toEqual({ nivel: 7, nombre: 'Nivel 7' });
+    const nucleos = await http().get('/nucleos').expect(200);
+    expect(nucleos.body.map((n: { id: string }) => n.id)).toEqual(['CM', 'IA', 'LV']);
+    expect(nucleos.body.find((n: { id: string }) => n.id === 'IA')).toEqual({
+      id: 'IA',
+      nombre: 'Identidad y Autonomía',
+      ambito: 'Desarrollo Personal y Social',
+      origen: 'referencia_aportada_usuario',
     });
   });
 
   describe('trayectoria', () => {
-    it('por dominio, con «sin registros» y evidencia limitada', async () => {
+    it('por núcleo, con valoraciones, «sin registros» y evidencia limitada', async () => {
       const res = await http().get('/ninos/NINO-00001/trayectoria').expect(200);
       expect(res.body).toMatchObject({
         totalObservaciones: 1,
         evidenciaLimitada: true,
         hasta: HOY,
       });
-      const cognitivo = res.body.dominios.find(
-        (d: { dominio: string }) => d.dominio === 'cognitivo',
-      );
-      expect(cognitivo).toMatchObject({
-        sinRegistros: false,
-        puntos: [{ idObservacion: 'OBS-0000001', nivelEstimado: 6, origen: 'dataset' }],
-      });
-      const motor = res.body.dominios.find(
-        (d: { dominio: string }) => d.dominio === 'motor_grueso',
-      );
-      expect(motor).toEqual({ dominio: 'motor_grueso', sinRegistros: true, puntos: [] });
+      expect(res.body.nucleos).toEqual([
+        {
+          nucleo: 'CM',
+          sinRegistros: true,
+          // Sin nivel sugerido ni validado: no se muestra como un nivel bajo.
+          valoraciones: [
+            {
+              id: 'VAL-0000002',
+              fechaCorte: sumarDias(HOY, -9),
+              nivelSugerido: null,
+              nivelValidado: null,
+              estado: 'evidencia_insuficiente',
+              origen: 'dataset',
+            },
+          ],
+        },
+        {
+          nucleo: 'IA',
+          sinRegistros: false,
+          valoraciones: [
+            {
+              id: 'VAL-0000001',
+              fechaCorte: sumarDias(HOY, -9),
+              nivelSugerido: 3,
+              nivelValidado: 3,
+              estado: 'confirmada',
+              origen: 'dataset',
+            },
+          ],
+        },
+        { nucleo: 'LV', sinRegistros: true, valoraciones: [] },
+      ]);
+      const manifestacion = {
+        id: man('SC', 'IA', 3),
+        idDescriptor: 'RUB-T-SC-IA-03',
+        nucleo: 'IA',
+        nivelEducativo: 'SC',
+        nivel: 3,
+        tipo: 'conducta_descriptor',
+        textoObservable: 'Conducta IA 3.',
+      };
       expect(res.body.observaciones).toEqual([
         {
           id: 'OBS-0000001',
           fecha: sumarDias(HOY, -10),
           formato: 'texto',
           origen: 'dataset',
-          nivelEstimado: 6,
           notaBreve: null,
-          manifestaciones: [
+          textoObservacion: 'Se puso los zapatos sola y sonrió.',
+          manifestaciones: [manifestacion],
+          evidencias: [
             {
-              id: 'MAN-L06-CO-01',
-              nivel: 6,
-              dominio: 'cognitivo',
-              textoObservable: 'Manifestación de prueba CO 6.',
+              id: 'EVI-0000001',
+              manifestacion,
+              fragmento: 'Se puso los zapatos sola',
+              alcance: 'componente_observado',
             },
           ],
         },
@@ -354,12 +469,13 @@ describe('API de registro (e2e)', () => {
       expect(captura).toMatchObject({
         estado: 'borrador_listo',
         borrador: {
-          nivelSugerido: 7,
+          // Nivel de referencia: el último validado de NINO-00001 (IA, nivel 3).
+          nivelSugerido: 3,
           evidenciaInsuficiente: false,
           proveedor: 'fake',
           manifestaciones: [
             {
-              manifestacion: { id: 'MAN-L07-MF-01', dominio: 'motor_fino' },
+              manifestacion: { id: man('SC', 'CM', 3), nucleo: 'CM', nivelEducativo: 'SC' },
               cita: 'Apiló cuatro bloques solo y aplaudió.',
             },
           ],
@@ -531,9 +647,9 @@ describe('API de registro (e2e)', () => {
       const res = await http()
         .post(`/capturas/${id}/confirmacion`)
         .send({
-          nivel: 7,
+          nivel: 3,
           manifestaciones: [
-            { idManifestacion: 'MAN-L07-MF-01', cita: 'Apiló cuatro bloques solo y aplaudió.' },
+            { idManifestacion: man('SC', 'CM', 3), cita: 'Apiló cuatro bloques solo y aplaudió.' },
           ],
         })
         .expect(200);
@@ -541,11 +657,12 @@ describe('API de registro (e2e)', () => {
         estado: 'confirmada',
         observacion: {
           id: `APP-${id}`,
-          nivelEstimado: 7,
+          nivel: 3,
+          nucleos: ['CM'],
           fecha: HOY,
           manifestaciones: [
             {
-              manifestacion: { id: 'MAN-L07-MF-01' },
+              manifestacion: { id: man('SC', 'CM', 3) },
               cita: 'Apiló cuatro bloques solo y aplaudió.',
             },
           ],
@@ -562,16 +679,41 @@ describe('API de registro (e2e)', () => {
         idCaptura: id,
         idUsuario: 'local-educadora',
         formatoCaptura: 'texto',
+        textoObservacion: 'Apiló cuatro bloques solo y aplaudió. Luego siguió jugando.',
       });
+      // Una valoración de la app por núcleo, con la forma de las decisiones del dataset.
+      await expect(
+        prisma.valoracion.findMany({ where: { idCaptura: id }, include: { evidencias: true } }),
+      ).resolves.toEqual([
+        expect.objectContaining({
+          id: `VAL-APP-${id}-CM`,
+          idNino: 'NINO-00001',
+          idSala: 'JAR-0001-SC-01',
+          idNucleo: 'CM',
+          idVersion: 'E1-TEST',
+          nivelSugerido: 3,
+          nivelValidado: 3,
+          estado: 'confirmada',
+          origen: 'app',
+          idUsuarioDecide: 'local-educadora',
+          evidencias: [expect.objectContaining({ uso: 'sustento_propuesta' })],
+        }),
+      ]);
       await http()
         .post(`/capturas/${id}/confirmacion`)
-        .send({ nivel: 7, manifestaciones: [{ idManifestacion: 'MAN-L07-MF-01' }] })
+        .send({ nivel: 3, manifestaciones: [{ idManifestacion: man('SC', 'CM', 3) }] })
         .expect(409);
       const lista = await http().get(`/capturas?mias=true&estado=confirmada`).expect(200);
       expect(lista.body.items.find((c: { id: string }) => c.id === id)).toMatchObject({
-        nivel: 7,
-        dominios: ['motor_fino'],
+        nivel: 3,
+        nucleos: ['CM'],
       });
+      const trayectoria = await http().get('/ninos/NINO-00001/trayectoria').expect(200);
+      const cm = trayectoria.body.nucleos.find((n: { nucleo: string }) => n.nucleo === 'CM');
+      expect(cm.sinRegistros).toBe(false);
+      expect(cm.valoraciones).toContainEqual(
+        expect.objectContaining({ id: `VAL-APP-${id}-CM`, origen: 'app', nivelValidado: 3 }),
+      );
     });
 
     it('corregir conserva la sugerencia original de la IA', async () => {
@@ -580,48 +722,70 @@ describe('API de registro (e2e)', () => {
       await http()
         .post(`/capturas/${id}/confirmacion`)
         .send({
-          nivel: 6,
+          nivel: 2,
           manifestaciones: [
-            { idManifestacion: 'MAN-L06-SE-01' },
-            { idManifestacion: 'MAN-L06-MF-01' },
+            { idManifestacion: man('SC', 'IA', 2) },
+            { idManifestacion: man('SC', 'CM', 2) },
           ],
         })
         .expect(200);
       const correccion = await prisma.correccion.findUniqueOrThrow({ where: { idCaptura: id } });
       expect(correccion).toMatchObject({
         decision: 'corregida',
-        sugerencia: { nivel: 7, manifestaciones: [{ idManifestacion: 'MAN-L07-MF-01' }] },
-        final: { nivel: 6 },
+        sugerencia: { nivel: 3, manifestaciones: [{ idManifestacion: man('SC', 'CM', 3) }] },
+        final: { nivel: 2 },
       });
       await expect(prisma.borrador.findUnique({ where: { idCaptura: id } })).resolves.toMatchObject(
-        { nivelSugerido: 7 },
+        { nivelSugerido: 3 },
       );
+      // El borrador proponía CM (nivel 3) y no IA: ambas quedan ajustadas a 2.
+      const valoraciones = await prisma.valoracion.findMany({
+        where: { idCaptura: id },
+        orderBy: { idNucleo: 'asc' },
+      });
+      expect(
+        valoraciones.map((v) => [v.idNucleo, v.nivelSugerido, v.nivelValidado, v.estado]),
+      ).toEqual([
+        ['CM', 3, 2, 'ajustada'],
+        ['IA', null, 2, 'ajustada'],
+      ]);
     });
 
-    it('422 si una manifestación no existe o no es del nivel elegido; 400 si hay más de 5 o repetidas', async () => {
+    it('422 si una manifestación no existe, no es del nivel elegido o es de otro nivel educativo; 400 si hay más de 5 o repetidas', async () => {
       const id = await crearTexto();
       await esperarBorrador(id);
       const confirmar = (body: object) => http().post(`/capturas/${id}/confirmacion`).send(body);
-      await confirmar({ nivel: 7, manifestaciones: [{ idManifestacion: 'MAN-L06-MF-01' }] }).expect(
-        422,
-      );
-      await confirmar({ nivel: 7, manifestaciones: [{ idManifestacion: 'MAN-NO-EXISTE' }] }).expect(
-        422,
-      );
       await confirmar({
-        nivel: 7,
+        nivel: 3,
+        manifestaciones: [{ idManifestacion: man('SC', 'CM', 2) }],
+      }).expect(422);
+      await confirmar({ nivel: 3, manifestaciones: [{ idManifestacion: 'MAN-NO-EXISTE' }] }).expect(
+        422,
+      );
+      const otroNivelEducativo = await confirmar({
+        nivel: 3,
+        manifestaciones: [{ idManifestacion: man('NM', 'CM', 3) }],
+      }).expect(422);
+      expect(otroNivelEducativo.body.message).toMatch(/es de NM; el niño o niña está en SC/);
+      await confirmar({
+        nivel: 3,
         manifestaciones: [
-          { idManifestacion: 'MAN-L07-MF-01' },
-          { idManifestacion: 'MAN-L07-MF-01' },
+          { idManifestacion: man('SC', 'CM', 3) },
+          { idManifestacion: man('SC', 'CM', 3) },
         ],
       }).expect(400);
-      await confirmar({ nivel: 7, manifestaciones: [] }).expect(400);
+      await confirmar({ nivel: 3, manifestaciones: [] }).expect(400);
+      await confirmar({
+        nivel: 9,
+        manifestaciones: [{ idManifestacion: man('SC', 'CM', 3) }],
+      }).expect(400);
+      await expect(prisma.valoracion.count({ where: { idCaptura: id } })).resolves.toBe(0);
     });
 
     it('solo quien registró decide; la directora y otras educadoras reciben 403', async () => {
       const id = await crearTexto();
       await esperarBorrador(id);
-      const body = { nivel: 7, manifestaciones: [{ idManifestacion: 'MAN-L07-MF-01' }] };
+      const body = { nivel: 3, manifestaciones: [{ idManifestacion: man('SC', 'CM', 3) }] };
       await http()
         .post(`/capturas/${id}/confirmacion`)
         .set('Authorization', OTRA_EDUCADORA)
@@ -654,7 +818,7 @@ describe('API de registro (e2e)', () => {
       expect(eventos.map((e) => e.tipo)).toContain('descarte');
       await http()
         .post(`/capturas/${id}/confirmacion`)
-        .send({ nivel: 7, manifestaciones: [{ idManifestacion: 'MAN-L07-MF-01' }] })
+        .send({ nivel: 3, manifestaciones: [{ idManifestacion: man('SC', 'CM', 3) }] })
         .expect(409);
     });
   });
@@ -681,9 +845,9 @@ describe('API de registro (e2e)', () => {
       http().post(`/interno/capturas/${id}/borrador`).set('x-pipeline-token', token).send(body);
     const valido = {
       textoFuente: 'Saltó en la rampa con los dos pies.',
-      nivelSugerido: 7,
+      nivelSugerido: 3,
       evidenciaInsuficiente: false,
-      manifestaciones: [{ idManifestacion: 'MAN-L07-MG-01', cita: 'Saltó en la rampa' }],
+      manifestaciones: [{ idManifestacion: man('SC', 'CM', 3), cita: 'Saltó en la rampa' }],
       proveedor: 'bedrock',
       modelo: 'us.anthropic.claude-sonnet-5-5',
     };
@@ -702,23 +866,27 @@ describe('API de registro (e2e)', () => {
         entregar(id, valido),
       ]);
       expect(respuestas.map((r) => r.status)).toEqual([200, 200, 200]);
-      await entregar(id, { ...valido, nivelSugerido: 6, manifestaciones: [] }).expect(200);
+      await entregar(id, { ...valido, nivelSugerido: 2, manifestaciones: [] }).expect(200);
       await expect(prisma.borrador.count({ where: { idCaptura: id } })).resolves.toBe(1);
       await expect(prisma.borrador.findUnique({ where: { idCaptura: id } })).resolves.toMatchObject(
-        { nivelSugerido: 7 },
+        { nivelSugerido: 3 },
       );
       await expect(prisma.captura.findUnique({ where: { id } })).resolves.toMatchObject({
         estado: 'borrador_listo',
       });
     });
 
-    it('422 si una cita no está en el texto, el nivel no calza o la evidencia es contradictoria', async () => {
+    it('422 si una cita no está en el texto, el nivel o el nivel educativo no calzan o la evidencia es contradictoria', async () => {
       const id = await capturaProcesando();
       await entregar(id, {
         ...valido,
-        manifestaciones: [{ idManifestacion: 'MAN-L07-MG-01', cita: 'inventada' }],
+        manifestaciones: [{ idManifestacion: man('SC', 'CM', 3), cita: 'inventada' }],
       }).expect(422);
-      await entregar(id, { ...valido, nivelSugerido: 6 }).expect(422);
+      await entregar(id, { ...valido, nivelSugerido: 2 }).expect(422);
+      await entregar(id, {
+        ...valido,
+        manifestaciones: [{ idManifestacion: man('NM', 'CM', 3), cita: 'Saltó en la rampa' }],
+      }).expect(422);
       await entregar(id, { ...valido, evidenciaInsuficiente: true }).expect(422);
       await entregar(id, { ...valido, manifestaciones: [] }).expect(422);
       await expect(prisma.borrador.count({ where: { idCaptura: id } })).resolves.toBe(0);
@@ -733,7 +901,7 @@ describe('API de registro (e2e)', () => {
         .expect(200, { id, estado: 'error' });
       const res = await http()
         .post(`/capturas/${id}/confirmacion`)
-        .send({ nivel: 7, manifestaciones: [{ idManifestacion: 'MAN-L07-MG-01' }] })
+        .send({ nivel: 3, manifestaciones: [{ idManifestacion: man('SC', 'CM', 3) }] })
         .expect(200);
       expect(res.body.estado).toBe('confirmada');
       await expect(
@@ -742,6 +910,36 @@ describe('API de registro (e2e)', () => {
         decision: 'corregida',
         sugerencia: { nivel: null, manifestaciones: [] },
       });
+    });
+
+    it('sin borrador, la observación no copia el texto original de la captura', async () => {
+      const original = 'Texto original sin anonimizar: Sofía apiló bloques.';
+      const id = (
+        await prisma.captura.create({
+          data: {
+            idNino: 'NINO-00001',
+            idJardin: 'JAR-0001',
+            idUsuario: 'local-educadora',
+            autor: 'Educadora local',
+            formato: 'texto',
+            texto: original,
+            fecha: new Date(`${HOY}T00:00:00Z`),
+          },
+        })
+      ).id;
+      await http()
+        .post(`/interno/capturas/${id}/error`)
+        .set('x-pipeline-token', TOKEN_PIPELINE)
+        .send({ detalle: 'Guardrail no disponible' })
+        .expect(200, { id, estado: 'error' });
+      await http()
+        .post(`/capturas/${id}/confirmacion`)
+        .send({ nivel: 3, manifestaciones: [{ idManifestacion: man('SC', 'CM', 3) }] })
+        .expect(200);
+      // La retención vacía `capturas.texto` a los 7 días; la observación no lo conserva.
+      await expect(
+        prisma.observacion.findUniqueOrThrow({ where: { id: `APP-${id}` } }),
+      ).resolves.toMatchObject({ textoObservacion: null, notaBreve: null });
     });
 
     it('404 para capturas inexistentes o ids inválidos', async () => {
@@ -769,7 +967,7 @@ describe('API de registro (e2e)', () => {
       expect(pagina.body.items).toHaveLength(1);
       expect(pagina.body.total).toBeGreaterThan(2);
 
-      const sala = await http().get(`/capturas?sala=SG-B&desde=${HOY}&hasta=${HOY}`).expect(200);
+      const sala = await http().get(`/capturas?sala=NM-01&desde=${HOY}&hasta=${HOY}`).expect(200);
       expect(sala.body.total).toBe(0);
       const deOtroJardin = await http()
         .get('/capturas')
@@ -780,9 +978,9 @@ describe('API de registro (e2e)', () => {
       const item = mias.body.items.find((c: { id: string }) => c.id === mia);
       expect(item).toMatchObject({
         estado: 'borrador_listo',
-        dominios: ['motor_fino'],
+        nucleos: ['CM'],
         nivel: null,
-        nino: { sala: 'SG-A' },
+        nino: { sala: 'SC-01', nivelEducativo: 'SC' },
       });
     });
 
@@ -834,9 +1032,12 @@ describe('API de registro (e2e)', () => {
         formato: 'texto',
         texto: 'Nota que procesa la Lambda.',
       });
-      // Catálogo completo de la ruta, y nada que identifique al niño o niña.
-      expect(mensaje.catalogo).toHaveLength(45);
-      expect(new Set(mensaje.catalogo.map((m) => m.nivel)).size).toBe(9);
+      // Catálogo del nivel educativo, nivel de referencia y nada que identifique al niño o niña.
+      // El nivel de referencia ya incluye las confirmaciones de la app de pruebas anteriores.
+      expect(mensaje).toMatchObject({ nivelEducativo: 'SC', nivelEsperado: expect.any(Number) });
+      expect(mensaje.catalogo).toHaveLength(48);
+      expect(mensaje.catalogo.every((m) => m.nivelEducativo === 'SC')).toBe(true);
+      expect(new Set(mensaje.catalogo.map((m) => m.nivel)).size).toBe(8);
       expect(JSON.stringify(mensaje)).not.toMatch(/NINO-|idNino|nombres|apellidos/);
       await new Promise((r) => setTimeout(r, 200));
       await expect(prisma.captura.findUnique({ where: { id } })).resolves.toMatchObject({
@@ -924,9 +1125,9 @@ describe('API de registro (e2e)', () => {
       await http()
         .post(`/capturas/${id}/confirmacion`)
         .send({
-          nivel: 7,
+          nivel: 3,
           manifestaciones: [
-            { idManifestacion: 'MAN-L07-MF-01', cita: 'Apiló cuatro bloques solo y aplaudió.' },
+            { idManifestacion: man('SC', 'CM', 3), cita: 'Apiló cuatro bloques solo y aplaudió.' },
           ],
         })
         .expect(200);
@@ -938,10 +1139,11 @@ describe('API de registro (e2e)', () => {
       await expect(prisma.eventoTiempo.count({ where: { idCaptura: id } })).resolves.toBe(0);
       await expect(
         prisma.observacion.findUnique({ where: { id: `APP-${id}` } }),
-      ).resolves.toMatchObject({
-        idCaptura: null,
-        nivelEstimado: 7,
-      });
+      ).resolves.toMatchObject({ idCaptura: null });
+      // La valoración confirmada también se conserva, sin la referencia a la captura.
+      await expect(
+        prisma.valoracion.findUnique({ where: { id: `VAL-APP-${id}-CM` } }),
+      ).resolves.toMatchObject({ idCaptura: null, nivelValidado: 3 });
     });
   });
 });

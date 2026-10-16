@@ -48,7 +48,7 @@ function semilla(bytes: Uint8Array): number {
 }
 
 /**
- * Determinista y sin red: elige la manifestación del nivel esperado que más palabras comparte
+ * Determinista y sin red: elige la manifestación del nivel de referencia que más palabras comparte
  * con la nota. No conoce núcleos ni dominios; solo usa el catálogo recibido.
  */
 export class ProveedorFake implements IaProvider {

@@ -2,6 +2,8 @@
 // y arranca la API. En local basta con definir DATABASE_URL directamente.
 // `--migrar` (contenedor `migraciones` en AWS, con el administrador): aplica las migraciones,
 // prepara el usuario de la API (APP_DB_USER, sin DDL) y termina sin arrancar la API.
+// `--cargar-dataset` (tarea única de `pnpm aws:prod:seed`): carga el dataset desde
+// DATASET_S3_URI con el usuario de la API y termina (migrar-dataset-nucleos, D4).
 import { spawnSync } from 'node:child_process';
 
 const PRISMA = 'node_modules/.bin/prisma';
@@ -85,6 +87,12 @@ if (process.argv.includes('--migrar')) {
   migrar();
   prepararUsuarioApp();
   process.exit(0);
+}
+
+if (process.argv.includes('--cargar-dataset')) {
+  // Las migraciones ya las aplicó el contenedor `migraciones` de la misma tarea.
+  const { status } = spawnSync('node', ['dist/seed/cargar-dataset.js'], { stdio: 'inherit', env });
+  process.exit(status ?? 1);
 }
 
 if (env.RUN_MIGRATIONS !== 'false') migrar();

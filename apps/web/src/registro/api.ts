@@ -22,9 +22,9 @@ import type {
   NivelRutaDtoOutput,
   ObservacionTrayectoriaOutput,
 } from '../api/generated/model';
-import type { Dominio, Nino } from './datos';
+import type { Nucleo, Nino } from './datos';
 
-export type Manifestacion = ManifestacionDtoOutput & { dominio: Dominio };
+export type Manifestacion = ManifestacionDtoOutput & { nucleo: Nucleo };
 export type NivelRuta = NivelRutaDtoOutput;
 export type ObservacionApi = ObservacionTrayectoriaOutput;
 
@@ -86,13 +86,22 @@ export function aNino(n: NinoDtoOutput): Nino {
     nombreCompleto: `${n.nombres} ${n.apellidos}`,
     iniciales: `${nombre.charAt(0)}${apellido.charAt(0)}`.toUpperCase(),
     sala: n.sala,
+    nivelEducativo: n.nivelEducativo,
     edadMeses: n.edadMeses,
     ...(PALETA_AVATAR[hash(n.id) % PALETA_AVATAR.length] as (typeof PALETA_AVATAR)[number]),
   };
 }
 
-/** «SG-A» → «Sala A». El dataset solo trae el código del grupo. */
+const NOMBRE_NIVEL_EDUCATIVO: Record<string, string> = {
+  SC: 'Sala Cuna',
+  NM: 'Nivel Medio',
+  TR: 'Transición',
+};
+
+/** «SC-01» → «Sala Cuna 1» (y el formato anterior «SG-A» → «Sala A»). */
 export function etiquetaSala(sala: string): string {
+  const [, nivel, numero] = /^(SC|NM|TR)-0*(\d+)$/.exec(sala) ?? [];
+  if (nivel && numero) return `${NOMBRE_NIVEL_EDUCATIVO[nivel]} ${numero}`;
   const letra = /^SG-(.+)$/.exec(sala)?.[1];
   return letra ? `Sala ${letra}` : sala;
 }

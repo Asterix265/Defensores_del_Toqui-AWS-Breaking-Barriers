@@ -211,15 +211,15 @@ describe('validar con rúbricas distintas', () => {
     catalogo: catalogoDataset(),
   };
 
-  it.each([1, 2, 3, 4, 5, 6, 7, 8, 9])('ruta del dataset: acepta el nivel %i', (nivel) => {
+  it.each([1, 2, 3, 4, 5, 6, 7, 8])('rúbrica tipo dataset: acepta el nivel %i', (nivel) => {
     const id = `MAN-L0${nivel}-SE-01`;
     const resultado = validar(propuesta(nivel, [id, 'aplaudió']), NOTA, dataset);
     expect(resultado.ok && resultado.borrador.nivelSugerido).toBe(nivel);
   });
 
-  it('ruta del dataset: los 5 dominios valen sin conocerlos de antemano', () => {
+  it('rúbrica tipo dataset: los 5 núcleos valen sin conocerlos de antemano', () => {
     const ids = dataset.catalogo.filter((m) => m.nivel === 4 && m.id.endsWith('-01'));
-    expect(new Set(ids.map((m) => m.dominio)).size).toBe(5);
+    expect(new Set(ids.map((m) => m.nucleo)).size).toBe(5);
     const resultado = validar(
       propuesta(4, ...ids.map((m): [string, string] => [m.id, 'Apiló'])),
       NOTA,
@@ -249,12 +249,12 @@ describe('validar con rúbricas distintas', () => {
     );
   });
 
-  it('catálogo con niveles 6, 7 y 8 rechaza el nivel 9 aunque exista en la ruta completa', () => {
-    const recortado = { ...dataset, catalogo: filtrarNiveles(catalogoDataset(), [6, 7, 8]) };
-    const resultado = validar(propuesta(9, ['MAN-L09-SE-01', 'aplaudió']), NOTA, recortado);
+  it('catálogo con niveles 5, 6 y 7 rechaza el nivel 8 aunque exista en la rúbrica completa', () => {
+    const recortado = { ...dataset, catalogo: filtrarNiveles(catalogoDataset(), [5, 6, 7]) };
+    const resultado = validar(propuesta(8, ['MAN-L08-SE-01', 'aplaudió']), NOTA, recortado);
     expect(problemas(resultado)).toEqual([
-      'el nivel 9 no está entre los del catálogo (6, 7, 8)',
-      'MAN-L09-SE-01 no está en el catálogo',
+      'el nivel 8 no está entre los del catálogo (5, 6, 7)',
+      'MAN-L08-SE-01 no está en el catálogo',
     ]);
   });
 });

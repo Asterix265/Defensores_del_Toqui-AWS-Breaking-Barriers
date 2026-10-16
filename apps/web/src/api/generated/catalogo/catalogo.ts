@@ -22,6 +22,7 @@ import type {
   ListarManifestacionesParams,
   ManifestacionDtoOutput,
   NivelRutaDtoOutput,
+  NucleoDtoOutput,
 } from '../model';
 
 import { fetchConToken } from '../../fetch-con-token';
@@ -70,7 +71,7 @@ export const getListarManifestacionesUrl = (params?: ListarManifestacionesParams
 };
 
 /**
- * @summary Catálogo de manifestaciones, filtrable por nivel y dominio
+ * @summary Catálogo de manifestaciones, filtrable por núcleo, nivel educativo y nivel
  */
 export const listarManifestaciones = async (
   params?: ListarManifestacionesParams,
@@ -173,7 +174,7 @@ export function useListarManifestaciones<
   queryClient?: QueryClient,
 ): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
 /**
- * @summary Catálogo de manifestaciones, filtrable por nivel y dominio
+ * @summary Catálogo de manifestaciones, filtrable por núcleo, nivel educativo y nivel
  */
 
 export function useListarManifestaciones<
@@ -213,7 +214,7 @@ export const getListarNivelesUrl = () => {
 };
 
 /**
- * @summary Niveles de la ruta sintética con su rango de edad en meses
+ * @summary Nombres de los 8 niveles de la trayectoria (sin edades)
  */
 export const listarNiveles = async (
   options?: Parameters<typeof fetchConToken>[1],
@@ -299,7 +300,7 @@ export function useListarNiveles<
   queryClient?: QueryClient,
 ): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
 /**
- * @summary Niveles de la ruta sintética con su rango de edad en meses
+ * @summary Nombres de los 8 niveles de la trayectoria (sin edades)
  */
 
 export function useListarNiveles<
@@ -313,6 +314,129 @@ export function useListarNiveles<
   queryClient?: QueryClient,
 ): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
   const queryOptions = getListarNivelesQueryOptions(options);
+
+  const query = useQuery(queryOptions, queryClient) as UseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+  };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+export type listarNucleosResponse200 = {
+  data: NucleoDtoOutput[];
+  status: 200;
+};
+
+export type listarNucleosResponseSuccess = listarNucleosResponse200 & {
+  headers: Headers;
+};
+export type listarNucleosResponse = listarNucleosResponseSuccess;
+
+export const getListarNucleosUrl = () => {
+  return `/api/nucleos`;
+};
+
+/**
+ * @summary Núcleos de aprendizaje; `origen` distingue la referencia aportada de las propuestas
+ */
+export const listarNucleos = async (
+  options?: Parameters<typeof fetchConToken>[1],
+): Promise<listarNucleosResponse> => {
+  return fetchConToken<listarNucleosResponse>(getListarNucleosUrl(), {
+    ...options,
+    method: 'GET',
+  });
+};
+
+export const getListarNucleosQueryKey = () => {
+  return [`/api/nucleos`] as const;
+};
+
+export const getListarNucleosQueryOptions = <
+  TData = Awaited<ReturnType<typeof listarNucleos>>,
+  TError = unknown,
+>(options?: {
+  query?: Partial<UseQueryOptions<Awaited<ReturnType<typeof listarNucleos>>, TError, TData>>;
+  request?: SecondParameter<typeof fetchConToken>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListarNucleosQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listarNucleos>>> = ({ signal }) =>
+    listarNucleos({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listarNucleos>>,
+    TError,
+    TData
+  > & { queryKey: DataTag<QueryKey, TData, TError> };
+};
+
+export type ListarNucleosQueryResult = NonNullable<Awaited<ReturnType<typeof listarNucleos>>>;
+export type ListarNucleosQueryError = unknown;
+
+export function useListarNucleos<
+  TData = Awaited<ReturnType<typeof listarNucleos>>,
+  TError = unknown,
+>(
+  options: {
+    query: Partial<UseQueryOptions<Awaited<ReturnType<typeof listarNucleos>>, TError, TData>> &
+      Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof listarNucleos>>,
+          TError,
+          Awaited<ReturnType<typeof listarNucleos>>
+        >,
+        'initialData'
+      >;
+    request?: SecondParameter<typeof fetchConToken>;
+  },
+  queryClient?: QueryClient,
+): DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+export function useListarNucleos<
+  TData = Awaited<ReturnType<typeof listarNucleos>>,
+  TError = unknown,
+>(
+  options?: {
+    query?: Partial<UseQueryOptions<Awaited<ReturnType<typeof listarNucleos>>, TError, TData>> &
+      Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof listarNucleos>>,
+          TError,
+          Awaited<ReturnType<typeof listarNucleos>>
+        >,
+        'initialData'
+      >;
+    request?: SecondParameter<typeof fetchConToken>;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+export function useListarNucleos<
+  TData = Awaited<ReturnType<typeof listarNucleos>>,
+  TError = unknown,
+>(
+  options?: {
+    query?: Partial<UseQueryOptions<Awaited<ReturnType<typeof listarNucleos>>, TError, TData>>;
+    request?: SecondParameter<typeof fetchConToken>;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+/**
+ * @summary Núcleos de aprendizaje; `origen` distingue la referencia aportada de las propuestas
+ */
+
+export function useListarNucleos<
+  TData = Awaited<ReturnType<typeof listarNucleos>>,
+  TError = unknown,
+>(
+  options?: {
+    query?: Partial<UseQueryOptions<Awaited<ReturnType<typeof listarNucleos>>, TError, TData>>;
+    request?: SecondParameter<typeof fetchConToken>;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+  const queryOptions = getListarNucleosQueryOptions(options);
 
   const query = useQuery(queryOptions, queryClient) as UseQueryResult<TData, TError> & {
     queryKey: DataTag<QueryKey, TData, TError>;

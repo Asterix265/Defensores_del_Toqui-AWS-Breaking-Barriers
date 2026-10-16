@@ -46,7 +46,7 @@ describe('handler proceso', () => {
       nivelSugerido: 4,
       evidenciaInsuficiente: false,
       manifestaciones: [
-        { idManifestacion: 'M-4-MF-1', cita: 'Apiló cinco bloques sin ayuda y sonrió.' },
+        { idManifestacion: 'M-4-CM-1', cita: 'Apiló cinco bloques sin ayuda y sonrió.' },
       ],
       proveedor: 'fake',
       // Con el proveedor fake la web muestra el aviso de procesamiento simulado.
@@ -106,14 +106,14 @@ describe('handler proceso', () => {
     const clasificar = vi.fn<Clasificador['clasificar']>(async () => ({
       nivelSugerido: 4,
       evidenciaInsuficiente: false,
-      manifestaciones: [{ idManifestacion: 'M-4-MF-1', cita: 'texto inventado' }],
+      manifestaciones: [{ idManifestacion: 'M-4-CM-1', cita: 'texto inventado' }],
     }));
     const deps = depsFalsas({ clasificador: { proveedor: 'prueba', clasificar } });
     await ejecutar(deps, mensajeTexto());
 
     expect(clasificar).toHaveBeenCalledTimes(2);
     expect(clasificar.mock.calls[1]![0]).toMatchObject({
-      correccion: ['la cita de M-4-MF-1 no aparece literalmente en el texto'],
+      correccion: ['la cita de M-4-CM-1 no aparece literalmente en el texto'],
       catalogo: CATALOGO,
     });
     expect(deps.api.entregarBorrador).toHaveBeenCalledWith(

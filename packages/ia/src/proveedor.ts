@@ -2,18 +2,19 @@ import type { BedrockRuntimeClient } from '@aws-sdk/client-bedrock-runtime';
 import { BorradorEntranteSchema, type BorradorEntrante } from '@toqui/shared';
 import { ErrorIa } from './errores.js';
 
-/** Estructuralmente compatible con `Manifestacion` de shared, pero con `dominio` abierto. */
+/** Estructuralmente compatible con `Manifestacion` de shared, pero con `nucleo` abierto. */
 export interface ManifestacionCatalogo {
   id: string;
   nivel: number;
-  dominio: string;
+  nucleo: string;
   textoObservable: string;
 }
 
 export interface ContextoExtraccion {
   edadMeses: number;
+  /** Nivel de referencia (último validado del niño o niña); contexto, no un límite. */
   nivelEsperado: number;
-  /** Ya filtrado por el llamador (niveles esperado ±1). Define los niveles y núcleos válidos. */
+  /** Ya filtrado por el llamador (nivel educativo). Define los niveles y núcleos válidos. */
   catalogo: ManifestacionCatalogo[];
 }
 

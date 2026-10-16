@@ -12,7 +12,7 @@ La línea base declarada en la presentación es de **4 horas semanales** de docu
 
 ## Estado actual
 
-La base técnica del monorepo está lista (cambio OpenSpec `levantar-stack-base`): web, API, pipeline, paquete compartido e infraestructura compilan, tienen pruebas de humo y se comunican en local. De `definir-mvp-e1`, la **API** ya implementa el modelo de dominio, la carga del dataset, la autenticación con Cognito (y modo local), la captura con borrador y confirmación, el endpoint interno del pipeline y la trayectoria (ver [API de registro](#api-de-registro)). La Lambda de proceso (`apps/pipeline`, cambio `cola-ia-y-amplify`) ya normaliza con Transcribe y Textract, anonimiza con el Guardrail y entrega al endpoint interno; faltan la clasificación con Claude, el encolado desde la API, la conexión de la web a la API y el panel de impacto. Los servicios AWS de desarrollo (stack `ToquiDev`) y la arquitectura de producción (`ToquiRed`, `ToquiDatos`, `ToquiApp`) están desplegados; la API y el pipeline de producción todavía solo tienen los endpoints y pasos técnicos de ejemplo.
+La base técnica del monorepo está lista (cambio OpenSpec `levantar-stack-base`): web, API, pipeline, paquete compartido e infraestructura compilan, tienen pruebas de humo y se comunican en local. De `definir-mvp-e1`, la **API** ya implementa el modelo de dominio, la carga del dataset, la autenticación con Cognito (y modo local), la captura con borrador y confirmación, el endpoint interno del pipeline y la trayectoria (ver [API de registro](#api-de-registro)). La Lambda de proceso (`apps/pipeline`, cambio `cola-ia-y-amplify`) ya normaliza con Transcribe y Textract, anonimiza con el Guardrail y entrega al endpoint interno; faltan la clasificación con Claude, el encolado desde la API, la conexión de la web a la API y el panel de impacto. Los servicios AWS de desarrollo (stack `ToquiDev`) y la arquitectura de producción (`ToquiRed`, `ToquiDatos`, `ToquiApp`) están desplegados; la API y el pipeline de producción todavía solo tienen los endpoints y pasos técnicos de ejemplo. El cambio `migrar-dataset-nucleos` adopta el dataset E1 por núcleos (modelo, carga, API y adaptación mínima de la IA y la web). Su migración vacía las tablas, y la carga en Aurora (`pnpm aws:prod:seed`) está preparada, pero aún no se ha ejecutado.
 
 ## Stack
 
@@ -37,7 +37,7 @@ cp .env.example apps/api/.env      # en PowerShell: Copy-Item .env.example apps/
 pnpm setup                          # instala dependencias, compila shared y genera Prisma
 pnpm db:up                          # Postgres en localhost:5432
 pnpm db:deploy                      # aplica las migraciones versionadas
-pnpm db:seed                        # carga el dataset E-1 desde DATASET_DIR (una vez)
+pnpm db:seed                        # carga el dataset E1 por núcleos desde DATASET_DIR (una vez)
 pnpm dev                            # web en http://localhost:5173 y API en http://localhost:3000
 ```
 
@@ -48,7 +48,7 @@ La web abre «Registro Simple». Los niños y niñas, el catálogo, los niveles 
 | `pnpm dev` | Web y API en modo desarrollo |
 | `pnpm db:up` / `pnpm db:down` | Inicia o detiene Postgres local |
 | `pnpm db:deploy` | Aplica las migraciones existentes sin crear nuevas (primera vez y tras cada `git pull`) |
-| `pnpm db:seed` | Carga el dataset E-1 desde `DATASET_DIR` (ver `.env.example`); no hace nada si ya está cargado |
+| `pnpm db:seed` | Carga el dataset E1 por núcleos desde `DATASET_DIR` (carpeta `datos_publicos/`, ver `.env.example`); valida todo antes de escribir y no hace nada si ya está cargado |
 | `pnpm db:migrate` | Solo al modificar `schema.prisma`: crea una migración nueva y la aplica (`prisma migrate dev`) |
 | `pnpm contract` | Exporta `apps/api/openapi.json` y regenera el cliente web en `apps/web/src/api/generated` |
 | `pnpm lint` / `pnpm format` | ESLint y Prettier |
@@ -70,12 +70,13 @@ API NestJS en Fargate (`apps/api`), según `definir-mvp-e1`. Contrato completo e
 | Ruta | Grupo | Qué hace |
 | --- | --- | --- |
 | `GET /me` | ambos | Identidad, grupo y jardín del token |
-| `GET /ninos?sala=` | ambos | Niños y niñas del jardín (nombres sintéticos) |
-| `GET /ninos/:id/trayectoria` | ambos | Observaciones por dominio en el periodo, con «sin registros» y evidencia limitada |
-| `GET /manifestaciones?nivel=&dominio=` | ambos | Catálogo para agregar o quitar manifestaciones |
+| `GET /ninos?sala=` | ambos | Niños y niñas del jardín (nombres ficticios), con sala y nivel educativo |
+| `GET /ninos/:id/trayectoria` | ambos | Por núcleo: valoraciones del periodo (sugerido, validado y estado), «sin registros» y observaciones con su evidencia |
+| `GET /manifestaciones?nucleo=&nivelEducativo=&nivel=` | ambos | Catálogo de la rúbrica para agregar o quitar manifestaciones |
+| `GET /nucleos`, `GET /niveles` | ambos | Los 8 núcleos (con su origen) y los nombres de los 8 niveles |
 | `POST /capturas` | educadora | Nota de texto, audio o foto; audio y foto devuelven un PUT firmado a `capturas/<id>.<ext>` |
 | `GET /capturas`, `GET /capturas/:id` | ambos | Notas del jardín (filtros de fecha, sala, niño, estado, `mias`) y su borrador |
-| `POST /capturas/:id/confirmacion` | educadora | Confirma o corrige (1 a 5 manifestaciones del nivel elegido); guarda la corrección |
+| `POST /capturas/:id/confirmacion` | educadora | Confirma o corrige (1 a 5 manifestaciones del nivel elegido y del nivel educativo del niño o niña); guarda la corrección y una valoración por núcleo |
 | `POST /capturas/:id/descarte` | educadora | Descarta sin crear observación |
 | `GET /capturas/:id/archivo` | ambos | URL temporal del original (S3 lo borra a los 7 días) |
 | `POST /capturas/:id/subida` | educadora | El audio o la foto ya está en S3: la API lo comprueba y manda la captura a procesar |
@@ -93,7 +94,7 @@ API NestJS en Fargate (`apps/api`), según `definir-mvp-e1`. Contrato completo e
 
 - `crearProveedor({ proveedor: 'fake' })`: determinista y sin AWS. `crearProveedor({ proveedor: 'bedrock', modelo, region?, guardrail: { id, version } })`: Guardrail → Claude (Converse con la herramienta `registrar_borrador`) → validación → un reintento → evidencia insuficiente. El Guardrail es obligatorio salvo `sinGuardrail: true` (solo desarrollo) y falla cerrado: sin texto anonimizado no se llama al modelo.
 - El proveedor expone `extraer(texto, { edadMeses, nivelEsperado, catalogo })` y `normalizarFoto(bytes, 'jpeg' | 'png')` (máximo 3,75 MB). También se exportan `validar`, `normalizarTexto`, `textoDeTranscripcion` (JSON de Transcribe) y `ErrorIa`.
-- Niveles y núcleos salen del catálogo recibido (sirven la ruta 9 × 5 del dataset y rúbricas de 8 niveles × 10 núcleos). `textoFuente` es la nota original normalizada; las citas que el modelo toma del texto anonimizado (`{NAME}`) se ubican en el original.
+- Niveles y núcleos salen del catálogo recibido (sirve la rúbrica del dataset, 8 niveles × 8 núcleos por nivel educativo, y otras). `nivelEsperado` es el nivel de referencia que arma la API: la mediana de los últimos niveles validados del niño o niña. `textoFuente` es la nota original normalizada; las citas que el modelo toma del texto anonimizado (`{NAME}`) se ubican en el original.
 - `ErrorIa` (`codigo`: `FOTO_NO_VALIDA`, `GUARDRAIL_NO_DISPONIBLE` o `CONFIGURACION_INVALIDA`) marca fallas que reintentar no corrige. Los errores del SDK de Bedrock (`ThrottlingException` y otros) se propagan con su nombre para que quien lo use los reintente (en el pipeline, la cola SQS). Una nota sin respaldo no es un error: es un borrador con `evidenciaInsuficiente: true`.
 
 Comandos (verificados el 15-10-2026 en Windows con Node 24.22.0 y pnpm 11.13.0, después de `pnpm --filter @toqui/shared build`):
@@ -119,10 +120,9 @@ Los originales se mantienen en la carpeta hermana `../Desafio/`; no se copian al
 | Recurso | Ubicación relativa a este repositorio |
 | --- | --- |
 | Presentación de Integra | `../Desafio/bb-assets-e1-presentation.pptx` |
-| Dataset público y documentación | `../Desafio/dataset_e1_publico/` |
-| Diccionario | `../Desafio/dataset_e1_publico/diccionario_datos.md` |
-| Distribución y validación publicada | `../Desafio/dataset_e1_publico/distribucion_y_validacion.md` |
-| Ejemplos de trayectorias | `../Desafio/dataset_e1_publico/ejemplos_trayectorias.md` |
+| Dataset E1 por núcleos (v1.0.0, el que usa la app) | `../dataset_e1_nucleos_2026/` (`dataset_e1_nucleos_2026.zip`, recibido el 16-10-2026) |
+| Diccionario, metodología y rúbricas | `../dataset_e1_nucleos_2026/diccionario_datos.md`, `metodologia.md`, `rubricas/` |
+| Dataset público anterior (9 niveles, 5 dominios; reemplazado) | `../Desafio/dataset_e1_publico/` |
 
 Portal proporcionado: [Fundación Integra — desafíos](https://d78v2swml9yu2.cloudfront.net/?inst=integra).
 
@@ -130,19 +130,21 @@ Quien clone solo este repositorio deberá obtener los materiales públicos y ubi
 
 ## Dataset disponible
 
-Datos sintéticos de uso pedagógico, con fecha de referencia **2026-10-13**. Se verificaron los conteos leyendo los siete CSV locales:
+Dataset sintético **E1 por núcleos de aprendizaje** v1.0.0 (cambio `migrar-dataset-nucleos`): elaborado el 16-10-2026, con datos observados hasta el 15-10-2026. Reemplaza al dataset público anterior (9 niveles y 5 dominios) y **cambia el esquema**: 8 núcleos, escala 1–8 dentro de cada núcleo y nivel educativo (Sala Cuna, Nivel Medio y Transición), evidencia con fragmento literal y valoraciones con nivel sugerido y validado. No se convierte la escala anterior.
+
+Conteos verificados con `pnpm db:seed` el 16-10-2026:
 
 | Entidad | Registros |
 | --- | ---: |
-| Jardines | 20 |
-| Personal observador | 80 |
-| Niños y niñas | 500 |
-| Niveles de la ruta sintética | 9 |
-| Manifestaciones | 90 |
-| Observaciones | 2.950 |
-| Vínculos observación–manifestación | 8.850 |
+| Jardines · salas · personas | 3 · 18 · 57 |
+| Niños y niñas | 252 |
+| Descriptores de rúbrica (8 núcleos × 3 niveles educativos × 8 niveles) | 192 |
+| Manifestaciones (conducta y 2 ejemplos por descriptor) | 576 |
+| Observaciones (todas `texto`) | 11.400 |
+| Evidencias (fragmentos) | 13.026 |
+| Valoraciones (3 fechas de corte) | 5.760 |
 
-`datos_publicos/consolidado.json` ofrece una vista anidada de los datos. Los formatos `texto`, `audio`, `foto` y `video` son metadatos: **no se entregan archivos multimedia**. La ausencia de un registro no implica ausencia de aprendizaje. La ruta sintética no es un instrumento clínico ni una evaluación validada.
+Solo Identidad y Autonomía es referencia aportada. Los otros 7 núcleos son propuestas sintéticas sin aprobación institucional. Los formatos `audio`, `foto` y `video` son metadatos: **no se entregan archivos multimedia**. La ausencia de un registro no implica ausencia de aprendizaje, y los niveles no son diagnósticos. Modelo y reglas: [modelo de datos](docs/modelo-datos.md).
 
 ## Trabajo con OpenSpec
 

@@ -1,12 +1,13 @@
 import { Inject, Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
-import type { MensajeCaptura, TipoArchivo } from '@toqui/shared';
+import type { MensajeCaptura, NivelEducativo, TipoArchivo } from '@toqui/shared';
 import { ColaService } from '../aws/cola.service';
 import type { ArchivoSubido } from '../capturas/capturas.service';
+import { SELECT_MANIFESTACION, aManifestacion } from '../catalogo/catalogo.service';
 import { desdeColumnaFecha, edadEnMeses } from '../comun/fechas';
 import { ENV } from '../config/config.module';
 import type { Env } from '../config/env';
 import { PrismaService } from '../prisma/prisma.service';
-import { nivelEsperado } from './nivel';
+import { nivelReferencia } from './nivel';
 import { PipelineInlineService } from './pipeline-inline.service';
 
 /** Lo que ve la educadora si la nota no se pudo enviar a procesar. */
@@ -68,26 +69,30 @@ export class DespachadorService {
         archivoClave: true,
         archivoTipo: true,
         fecha: true,
-        nino: { select: { fechaNacimiento: true } },
+        nino: { select: { id: true, fechaNacimiento: true, idNivelEducativo: true } },
       },
     });
     const edadMeses = edadEnMeses(
       desdeColumnaFecha(c.nino.fechaNacimiento),
       desdeColumnaFecha(c.fecha),
     );
-    const nivel = await nivelEsperado(this.prisma, edadMeses);
-    // Catálogo completo (90 manifestaciones, ~15 KB): la IA puede proponer cualquier nivel.
-    const catalogo = await this.prisma.manifestacion.findMany({
-      select: { id: true, nivel: true, dominio: true, textoObservable: true },
-      orderBy: [{ nivel: 'asc' }, { id: 'asc' }],
-    });
+    const nivelEducativo = c.nino.idNivelEducativo as NivelEducativo;
+    // Catálogo del nivel educativo (192 manifestaciones, ~40 KB): cualquier núcleo y nivel (D7).
+    const catalogo = (
+      await this.prisma.manifestacion.findMany({
+        where: { descriptor: { idNivelEducativo: nivelEducativo } },
+        select: SELECT_MANIFESTACION,
+        orderBy: [{ descriptor: { nivel: 'asc' } }, { id: 'asc' }],
+      })
+    ).map(aManifestacion);
     const base = {
       version: 1 as const,
       idCaptura,
       idUsuario: c.idUsuario,
       idJardin: c.idJardin,
       edadMeses,
-      nivelEsperado: nivel,
+      nivelEducativo,
+      nivelEsperado: await nivelReferencia(this.prisma, c.nino.id),
       catalogo,
     };
     if (c.formato === 'texto') return { ...base, formato: 'texto', texto: c.texto ?? '' };

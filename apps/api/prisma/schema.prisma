@@ -257,7 +257,7 @@ model Borrador {
   procesamiento         Json?
   creadoEn              DateTime @default(now()) @map("creado_en")
 
-  captura Captura @relation(fields: [idCaptura], references: [id])
+  captura Captura @relation(fields: [idCaptura], references: [id], onDelete: Cascade)
 
   @@map("borradores")
 }
@@ -274,7 +274,7 @@ model Correccion {
   final      Json?
   creadoEn   DateTime           @default(now()) @map("creado_en")
 
-  captura Captura @relation(fields: [idCaptura], references: [id])
+  captura Captura @relation(fields: [idCaptura], references: [id], onDelete: Cascade)
 
   @@map("correcciones")
 }
@@ -285,7 +285,7 @@ model EventoTiempo {
   tipo      TipoEventoTiempo
   ocurrioEn DateTime         @default(now()) @map("ocurrio_en")
 
-  captura Captura @relation(fields: [idCaptura], references: [id])
+  captura Captura @relation(fields: [idCaptura], references: [id], onDelete: Cascade)
 
   @@unique([idCaptura, tipo])
   @@map("eventos_tiempo")

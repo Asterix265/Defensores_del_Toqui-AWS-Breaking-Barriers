@@ -21,8 +21,6 @@ import * as lambda from 'aws-cdk-lib/aws-lambda';
 import { SqsEventSource } from 'aws-cdk-lib/aws-lambda-event-sources';
 import * as logs from 'aws-cdk-lib/aws-logs';
 import type * as rds from 'aws-cdk-lib/aws-rds';
-import * as s3 from 'aws-cdk-lib/aws-s3';
-import * as s3deploy from 'aws-cdk-lib/aws-s3-deployment';
 import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager';
 import * as sqs from 'aws-cdk-lib/aws-sqs';
 import type { Construct } from 'constructs';
@@ -30,7 +28,6 @@ import { crearBucketCapturas, crearGuardrail, crearIdentidad } from './component
 import { NOMBRE_BASE } from './datos-stack.js';
 
 const RAIZ_REPO = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
-const DIST_WEB = resolve(RAIZ_REPO, 'apps/web/dist');
 const DIST_PIPELINE = resolve(RAIZ_REPO, 'apps/pipeline/dist');
 
 /** Prefix list administrada de CloudFront (origin-facing) en us-east-1. */
@@ -56,11 +53,13 @@ export const ORIGEN_WEB_AMPLIFY = 'https://main.dgsos3g6dvh6h.amplifyapp.com';
 export interface AppStackProps extends StackProps {
   vpc: ec2.IVpc;
   cluster: rds.DatabaseCluster;
+  /** Credenciales de `toqui_app` (sin DDL) para la API. */
+  secretoApp: secretsmanager.ISecret;
 }
 
 /**
- * Aplicación del ambiente de producción: web (S3 + CloudFront), API (Fargate + ALB),
- * procesamiento (API → SQS → Lambda → API), identidad y Guardrail.
+ * Aplicación del ambiente de producción: API (CloudFront → ALB interno → Fargate),
+ * procesamiento (API → SQS → Lambda → API), identidad y Guardrail. La web está en Amplify.
  */
 export class AppStack extends Stack {
   constructor(scope: Construct, id: string, props: AppStackProps) {
@@ -79,9 +78,9 @@ export class AppStack extends Stack {
       descripcionVersion: 'Producción: anonimiza PII y RUT en entrada y salida',
     });
 
-    // --- API: NestJS en Fargate detrás de un ALB que solo acepta tráfico de CloudFront ---
-    const secreto = props.cluster.secret;
-    if (!secreto) throw new Error('El cluster de Aurora no tiene secreto de credenciales.');
+    // --- API: NestJS en Fargate detrás de un ALB interno; solo CloudFront llega a él ---
+    const secretoAdmin = props.cluster.secret;
+    if (!secretoAdmin) throw new Error('El cluster de Aurora no tiene secreto de credenciales.');
 
     // Secreto compartido del endpoint interno: la API lo exige y la Lambda lo presenta (D12).
     const tokenPipeline = new secretsmanager.Secret(this, 'TokenPipeline', {
@@ -102,14 +101,34 @@ export class AppStack extends Stack {
       removalPolicy: RemovalPolicy.DESTROY,
     });
 
+    // Sin NAT, la tarea sale a internet por su IP pública; el SG solo permite HTTPS y Aurora (D4).
+    const sgApi = new ec2.SecurityGroup(this, 'SgApi', {
+      vpc: props.vpc,
+      description: 'API: entrada desde el ALB; salida HTTPS y Aurora',
+      allowAllOutbound: false,
+    });
+    sgApi.addEgressRule(
+      ec2.Peer.anyIpv4(),
+      ec2.Port.tcp(443),
+      'HTTPS a servicios de AWS y Cognito',
+    );
+
+    const imagenApi = ecs.ContainerImage.fromAsset(RAIZ_REPO, {
+      file: 'apps/api/Dockerfile',
+      platform: Platform.LINUX_ARM64,
+      ignoreMode: IgnoreMode.DOCKER,
+    });
+
     const api = new ecsPatterns.ApplicationLoadBalancedFargateService(this, 'Api', {
       cluster,
       serviceName: 'toqui-api',
-      loadBalancerName: 'toqui-prod-api',
-      publicLoadBalancer: true,
+      // Interno (D1): cambiar el esquema reemplaza el ALB, que necesita un nombre nuevo.
+      loadBalancerName: 'toqui-prod-api-int',
+      publicLoadBalancer: false,
       openListener: false,
       assignPublicIp: true,
       taskSubnets: { subnetType: ec2.SubnetType.PUBLIC },
+      securityGroups: [sgApi],
       cpu: 512,
       memoryLimitMiB: 1024,
       desiredCount: 1,
@@ -123,11 +142,7 @@ export class AppStack extends Stack {
       healthCheckGracePeriod: Duration.seconds(120),
       circuitBreaker: { rollback: true },
       taskImageOptions: {
-        image: ecs.ContainerImage.fromAsset(RAIZ_REPO, {
-          file: 'apps/api/Dockerfile',
-          platform: Platform.LINUX_ARM64,
-          ignoreMode: IgnoreMode.DOCKER,
-        }),
+        image: imagenApi,
         containerPort: 3000,
         logDriver: ecs.LogDrivers.awsLogs({ streamPrefix: 'api', logGroup: logsApi }),
         environment: {
@@ -136,23 +151,51 @@ export class AppStack extends Stack {
           AWS_REGION: this.region,
           DB_NAME: NOMBRE_BASE,
           DATABASE_SSL_CA: '/app/rds-ca.pem',
+          // Las aplica el contenedor `migraciones` con el administrador (D5).
+          RUN_MIGRATIONS: 'false',
           COGNITO_USER_POOL_ID: pool.userPoolId,
           COGNITO_CLIENT_ID: cliente.userPoolClientId,
-          BEDROCK_GUARDRAIL_ID: guardrail.attrGuardrailId,
-          BEDROCK_GUARDRAIL_VERSION: version.attrVersion,
-          BEDROCK_MODEL_EXTRACCION: MODELOS.extraccion,
-          BEDROCK_MODEL_RESUMEN: MODELOS.resumen,
         },
         secrets: {
-          DB_HOST: ecs.Secret.fromSecretsManager(secreto, 'host'),
-          DB_PORT: ecs.Secret.fromSecretsManager(secreto, 'port'),
-          DB_USER: ecs.Secret.fromSecretsManager(secreto, 'username'),
-          DB_PASSWORD: ecs.Secret.fromSecretsManager(secreto, 'password'),
+          DB_HOST: ecs.Secret.fromSecretsManager(props.secretoApp, 'host'),
+          DB_PORT: ecs.Secret.fromSecretsManager(props.secretoApp, 'port'),
+          DB_USER: ecs.Secret.fromSecretsManager(props.secretoApp, 'username'),
+          DB_PASSWORD: ecs.Secret.fromSecretsManager(props.secretoApp, 'password'),
           PIPELINE_TOKEN: ecs.Secret.fromSecretsManager(tokenPipeline),
         },
       },
     });
     api.targetGroup.configureHealthCheck({ path: '/health', healthyHttpCodes: '200' });
+
+    // Migraciones y usuario `toqui_app` antes de cada arranque de la API, con el administrador:
+    // sus credenciales solo llegan a este contenedor, que termina antes de que arranque la API (D5).
+    const migraciones = api.taskDefinition.addContainer('Migraciones', {
+      containerName: 'migraciones',
+      image: imagenApi,
+      essential: false,
+      command: ['node', 'docker-entrypoint.mjs', '--migrar'],
+      logging: ecs.LogDrivers.awsLogs({ streamPrefix: 'migraciones', logGroup: logsApi }),
+      environment: {
+        NODE_ENV: 'production',
+        DB_NAME: NOMBRE_BASE,
+        DATABASE_SSL_CA: '/app/rds-ca.pem',
+      },
+      secrets: {
+        DB_HOST: ecs.Secret.fromSecretsManager(secretoAdmin, 'host'),
+        DB_PORT: ecs.Secret.fromSecretsManager(secretoAdmin, 'port'),
+        DB_USER: ecs.Secret.fromSecretsManager(secretoAdmin, 'username'),
+        DB_PASSWORD: ecs.Secret.fromSecretsManager(secretoAdmin, 'password'),
+        APP_DB_USER: ecs.Secret.fromSecretsManager(props.secretoApp, 'username'),
+        APP_DB_PASSWORD: ecs.Secret.fromSecretsManager(props.secretoApp, 'password'),
+      },
+    });
+    api.taskDefinition.defaultContainer?.addContainerDependencies({
+      container: migraciones,
+      condition: ecs.ContainerDependencyCondition.SUCCESS,
+    });
+
+    // VPC Origin (D1): CloudFront llega al ALB interno por la red de AWS. Con el ALB sin IP
+    // pública, la prefix list solo deja pasar a las distribuciones que usan este VPC Origin.
     api.loadBalancer.connections.allowFrom(
       ec2.Peer.prefixList(PREFIX_LIST_CLOUDFRONT),
       ec2.Port.tcp(80),
@@ -162,21 +205,17 @@ export class AppStack extends Stack {
     const escalado = api.service.autoScaleTaskCount({ minCapacity: 1, maxCapacity: 4 });
     escalado.scaleOnCpuUtilization('Cpu', { targetUtilizationPercent: 60 });
 
-    // --- Web: PWA en S3 privado detrás de CloudFront; /api/* va al ALB ---
-    const web = new s3.Bucket(this, 'Web', {
-      blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
-      encryption: s3.BucketEncryption.S3_MANAGED,
-      enforceSSL: true,
-      removalPolicy: RemovalPolicy.DESTROY,
-      autoDeleteObjects: true,
-    });
-    const rutasSpa = new cloudfront.Function(this, 'RutasSpa', {
-      functionName: 'toqui-prod-rutas-spa',
-      runtime: cloudfront.FunctionRuntime.JS_2_0,
-      code: cloudfront.FunctionCode.fromInline(
-        "function handler(event) { var r = event.request; if (r.uri.indexOf('.') === -1) { r.uri = '/index.html'; } return r; }",
-      ),
-    });
+    // --- CloudFront: entrada HTTPS de la API (la web está en Amplify, que reenvía /api/* aquí) ---
+    const comportamientoApi: cloudfront.BehaviorOptions = {
+      origin: origins.VpcOrigin.withApplicationLoadBalancer(api.loadBalancer, {
+        vpcOriginName: 'toqui-prod-api',
+        protocolPolicy: cloudfront.OriginProtocolPolicy.HTTP_ONLY,
+      }),
+      viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+      allowedMethods: cloudfront.AllowedMethods.ALLOW_ALL,
+      cachePolicy: cloudfront.CachePolicy.CACHING_DISABLED,
+      originRequestPolicy: cloudfront.OriginRequestPolicy.ALL_VIEWER_EXCEPT_HOST_HEADER,
+    };
     const prefijoApi = new cloudfront.Function(this, 'PrefijoApi', {
       functionName: 'toqui-prod-prefijo-api',
       runtime: cloudfront.FunctionRuntime.JS_2_0,
@@ -185,48 +224,24 @@ export class AppStack extends Stack {
       ),
     });
     const distribucion = new cloudfront.Distribution(this, 'Distribucion', {
-      comment: 'Defensores del Toqui: web y API',
-      defaultRootObject: 'index.html',
+      comment: 'Defensores del Toqui: API',
       priceClass: cloudfront.PriceClass.PRICE_CLASS_ALL,
-      defaultBehavior: {
-        origin: origins.S3BucketOrigin.withOriginAccessControl(web),
-        viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
-        functionAssociations: [
-          { function: rutasSpa, eventType: cloudfront.FunctionEventType.VIEWER_REQUEST },
-        ],
-      },
+      defaultBehavior: comportamientoApi,
       additionalBehaviors: {
         '/api/*': {
-          origin: new origins.LoadBalancerV2Origin(api.loadBalancer, {
-            protocolPolicy: cloudfront.OriginProtocolPolicy.HTTP_ONLY,
-          }),
-          viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
-          allowedMethods: cloudfront.AllowedMethods.ALLOW_ALL,
-          cachePolicy: cloudfront.CachePolicy.CACHING_DISABLED,
-          originRequestPolicy: cloudfront.OriginRequestPolicy.ALL_VIEWER_EXCEPT_HOST_HEADER,
+          ...comportamientoApi,
           functionAssociations: [
             { function: prefijoApi, eventType: cloudfront.FunctionEventType.VIEWER_REQUEST },
           ],
         },
       },
     });
-    new s3deploy.BucketDeployment(this, 'PublicarWeb', {
-      // Sin build de la web (por ejemplo en CI) se publica un aviso; el despliegue real compila antes.
-      sources: [
-        existsSync(DIST_WEB)
-          ? s3deploy.Source.asset(DIST_WEB)
-          : s3deploy.Source.data('index.html', '<!doctype html><p>Web sin compilar</p>'),
-      ],
-      destinationBucket: web,
-      distribution: distribucion,
-      distributionPaths: ['/*'],
-    });
-    const urlWeb = `https://${distribucion.distributionDomainName}`;
+    const urlCloudFront = `https://${distribucion.distributionDomainName}`;
 
     // --- Capturas: bucket privado (audio, foto y transcripciones), borrado a los 7 días ---
     const capturas = crearBucketCapturas(this, {
       nombre: `toqui-prod-capturas-${this.account}`,
-      origenes: [urlWeb, ORIGEN_WEB_AMPLIFY],
+      origenes: [ORIGEN_WEB_AMPLIFY],
     });
 
     // --- Procesamiento: API → SQS → Lambda `proceso` → /interno/capturas de la API (D4) ---
@@ -262,7 +277,7 @@ export class AppStack extends Stack {
       memorySize: 1024,
       timeout: timeoutProceso,
       environment: {
-        API_URL: `${urlWeb}/api`,
+        API_URL: `${urlCloudFront}/api`,
         PIPELINE_TOKEN_SECRETO: tokenPipeline.secretArn,
         BUCKET_CAPTURAS: capturas.bucketName,
         GUARDRAIL_ID: guardrail.attrGuardrailId,
@@ -287,8 +302,9 @@ export class AppStack extends Stack {
       }),
     );
 
-    // --- Permisos (D12) ---
-    const permisosIa = [
+    // --- Permisos (D12; endurecer-seguridad-aws D3) ---
+    // Solo la Lambda usa Bedrock: la API no invoca modelos.
+    proceso.addToRolePolicy(
       new iam.PolicyStatement({
         actions: ['bedrock:InvokeModel', 'bedrock:InvokeModelWithResponseStream'],
         resources: [
@@ -297,15 +313,13 @@ export class AppStack extends Stack {
           `arn:aws:bedrock:${this.region}:${this.account}:inference-profile/*`,
         ],
       }),
+    );
+    proceso.addToRolePolicy(
       new iam.PolicyStatement({
         actions: ['bedrock:ApplyGuardrail'],
         resources: [guardrail.attrGuardrailArn],
       }),
-    ];
-    for (const declaracion of permisosIa) {
-      api.taskDefinition.addToTaskRolePolicy(declaracion);
-      proceso.addToRolePolicy(declaracion);
-    }
+    );
     // Transcribe y Textract leen el archivo (y Transcribe escribe su resultado) con los permisos
     // de quien los llama. Ninguno de los dos admite restringir el recurso.
     proceso.addToRolePolicy(
@@ -323,7 +337,17 @@ export class AppStack extends Stack {
     capturas.grantPut(proceso, 'transcripciones/*');
     tokenPipeline.grantRead(proceso);
 
-    capturas.grantReadWrite(api.taskDefinition.taskRole);
+    // La API firma subidas y lecturas y comprueba archivos con HeadObject, sin borrar ni tocar
+    // `transcripciones/`. ListBucket hace que un archivo ausente dé 404 (no 403) y permite HeadBucket.
+    api.taskDefinition.addToTaskRolePolicy(
+      new iam.PolicyStatement({
+        actions: ['s3:PutObject', 's3:GetObject'],
+        resources: [capturas.arnForObjects(`${PREFIJO_CAPTURAS}*`)],
+      }),
+    );
+    api.taskDefinition.addToTaskRolePolicy(
+      new iam.PolicyStatement({ actions: ['s3:ListBucket'], resources: [capturas.bucketArn] }),
+    );
     cola.grantSendMessages(api.taskDefinition.taskRole);
     api.taskDefinition.addToTaskRolePolicy(
       new iam.PolicyStatement({
@@ -336,7 +360,8 @@ export class AppStack extends Stack {
     api.taskDefinition.defaultContainer?.addEnvironment('PIPELINE_MODE', 'cola');
     api.taskDefinition.defaultContainer?.addEnvironment('SQS_URL_CAPTURAS', cola.queueUrl);
 
-    new CfnOutput(this, 'WebUrl', { value: urlWeb });
+    // `WebUrl` conserva su nombre: la leen `pnpm aws:prod:amplify` y el smoke. Es la entrada de la API.
+    new CfnOutput(this, 'WebUrl', { value: urlCloudFront });
     new CfnOutput(this, 'AlbDns', { value: api.loadBalancer.loadBalancerDnsName });
     new CfnOutput(this, 'BucketCapturas', { value: capturas.bucketName });
     new CfnOutput(this, 'UserPoolId', { value: pool.userPoolId });

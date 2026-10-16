@@ -5,10 +5,11 @@ import { PipelineInlineService } from '../pipeline/pipeline-inline.service';
 import { CapturasController } from './capturas.controller';
 import { CapturasService } from './capturas.service';
 import { InternoController } from './interno.controller';
+import { RetencionService } from './retencion.service';
 
 @Module({
   imports: [CatalogoModule],
   controllers: [CapturasController, InternoController],
-  providers: [CapturasService, PipelineInlineService, DespachadorService],
+  providers: [CapturasService, PipelineInlineService, DespachadorService, RetencionService],
 })
 export class CapturasModule {}

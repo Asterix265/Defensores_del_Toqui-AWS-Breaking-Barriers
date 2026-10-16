@@ -36,6 +36,11 @@ export class ErrorApi extends Error {
   }
 }
 
+/** ¿La API respondió 403 (sin grupo o jardín en el token)? */
+export function esSinPermiso(error: unknown): boolean {
+  return error instanceof ErrorApi && error.status === 403;
+}
+
 /** El cliente generado no lanza ante un error HTTP: se convierte aquí para que React Query lo vea. */
 async function datos<T>(respuesta: Promise<{ data: T; status: number }>): Promise<T> {
   const { data, status } = await respuesta;
@@ -120,6 +125,7 @@ export function useCatalogo() {
     niveles: niveles.data,
     isPending: manifestaciones.isPending || niveles.isPending,
     isError: manifestaciones.isError || niveles.isError,
+    error: manifestaciones.error ?? niveles.error,
   };
 }
 

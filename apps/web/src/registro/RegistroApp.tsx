@@ -29,7 +29,7 @@ import {
   modoLocal,
 } from '../auth/sesion';
 import type { MeResponseDtoOutput } from '../api/generated/model';
-import { ErrorApi, useCatalogo, useIdentidad, useNinos } from './api';
+import { esSinPermiso, useCatalogo, useIdentidad, useNinos } from './api';
 import type { Formato, Nino } from './datos';
 import { FichaNino } from './FichaNino';
 import { Ingreso } from './Ingreso';
@@ -47,6 +47,9 @@ const CLAVE_SALA = 'toqui.registro.sala';
 const CLAVE_CORREO_ANTERIOR = 'toqui.registro.correo';
 
 export const AVISO_SESION_TERMINADA = 'Tu sesión terminó. Ingresa de nuevo.';
+/** Sin «pnpm dev»: el mensaje también se ve en producción. */
+export const MENSAJE_SIN_API =
+  'No se pudo conectar con la API. Revisa tu conexión y vuelve a intentarlo.';
 export const AVISO_SIN_JARDIN =
   'Tu cuenta no tiene un jardín o un rol asignado. Pide ayuda a quien administra la app.';
 
@@ -111,8 +114,6 @@ function Marco({ children }: { children: ReactNode }) {
   );
 }
 
-const marco = (contenido: ReactNode) => <Marco>{contenido}</Marco>;
-
 /**
  * App «Registro Simple». Primero el ingreso con Cognito (o el modo local sin Cognito); con
  * sesión, en el celular el flujo de la tía (diseño 1b + pantallas comunes 1d) y en pantallas
@@ -125,8 +126,13 @@ export function RegistroApp() {
   const [estado, setEstado] = useState<EstadoSesion>('verificando');
   const [aviso, setAviso] = useState<string | null>(null);
   const cliente = useQueryClient();
-  /** Evita cerrar la sesión varias veces cuando llegan varios 401 a la vez. */
+  /**
+   * Cierre en curso o terminado. Queda activo hasta el próximo ingreso: los 401 de peticiones que
+   * todavía estaban en vuelo no vuelven a cerrar la sesión ni cambian el aviso.
+   */
   const cerrando = useRef(false);
+  /** Revocación en Cognito en curso; el próximo ingreso la espera para no perder sus tokens. */
+  const cierre = useRef<Promise<void>>(Promise.resolve());
 
   useEffect(() => {
     let vigente = true;
@@ -138,36 +144,48 @@ export function RegistroApp() {
     };
   }, []);
 
-  /** Revoca la sesión del dispositivo y borra lo que quedó del jardín en memoria. */
+  /**
+   * Cierra la sesión: primero quita la app de la pantalla (ninguna consulta nueva), cancela las
+   * peticiones en curso y borra lo que quedó del jardín en memoria; después revoca el refresh
+   * token del dispositivo en Cognito.
+   */
   const salir = useCallback(
-    async (motivo: string | null) => {
+    (motivo: string | null) => {
       if (cerrando.current) return;
       cerrando.current = true;
-      try {
-        await cerrarSesion();
+      setAviso(motivo);
+      setEstado('fuera');
+      cierre.current = (async () => {
+        await cliente.cancelQueries();
         cliente.clear();
         olvidar(CLAVE_SALA, CLAVE_CORREO_ANTERIOR);
-        setAviso(motivo);
-        setEstado('fuera');
-      } finally {
-        cerrando.current = false;
-      }
+        await cerrarSesion();
+      })();
     },
     [cliente],
   );
 
   // La API rechazó el token (vencido, revocado o de otro pool).
-  useEffect(() => alTerminarSesion(() => void salir(AVISO_SESION_TERMINADA)), [salir]);
+  useEffect(() => alTerminarSesion(() => salir(AVISO_SESION_TERMINADA)), [salir]);
 
-  if (estado === 'verificando') return marco(<Estado mensaje="Abriendo…" cargando />);
+  if (estado === 'verificando') {
+    return (
+      <Marco>
+        <Estado mensaje="Abriendo…" cargando />
+      </Marco>
+    );
+  }
   if (estado === 'fuera') {
     return (
       <Ingreso
         aviso={aviso}
         modoLocal={modoLocal()}
         onIngresar={async (correo, clave) => {
+          // Si la revocación anterior sigue en curso, terminaría borrando los tokens nuevos.
+          await cierre.current;
           const resultado = await iniciarSesion(correo, clave);
           if (!resultado.ok) return resultado.error;
+          cerrando.current = false;
           setAviso(null);
           setEstado('dentro');
           return null;
@@ -179,24 +197,24 @@ export function RegistroApp() {
 }
 
 /** Con sesión: identidad y datos del jardín, y la confirmación para cerrar sesión. */
-function AppSesion({ salir }: { salir: (motivo: string | null) => Promise<void> }) {
+function AppSesion({ salir }: { salir: (motivo: string | null) => void }) {
   const identidad = useIdentidad();
   const ninos = useNinos();
   const catalogo = useCatalogo();
   const escritorio = useMediaQuery(useTheme().breakpoints.up('md'));
   const [confirmando, setConfirmando] = useState(false);
-  const [saliendo, setSaliendo] = useState(false);
-  const sinPermiso = identidad.error instanceof ErrorApi && identidad.error.status === 403;
+  // Cualquier 403 (identidad, niños o catálogo) significa que el token no trae grupo o jardín.
+  const sinPermiso = [identidad.error, ninos.error, catalogo.error].some(esSinPermiso);
 
   useEffect(() => {
-    if (sinPermiso) void salir(AVISO_SIN_JARDIN);
+    if (sinPermiso) salir(AVISO_SIN_JARDIN);
   }, [sinPermiso, salir]);
 
   const pedirSalida = () => setConfirmando(true);
   const confirmacion = (
     <Dialog
       open={confirmando}
-      onClose={() => !saliendo && setConfirmando(false)}
+      onClose={() => setConfirmando(false)}
       aria-labelledby="titulo-salir"
       aria-describedby="detalle-salir"
     >
@@ -210,16 +228,13 @@ function AppSesion({ salir }: { salir: (motivo: string | null) => Promise<void> 
         </DialogContentText>
       </DialogContent>
       <DialogActions sx={{ px: 3, pb: 2.5, gap: 1 }}>
-        <Button variant="text" onClick={() => setConfirmando(false)} disabled={saliendo}>
+        <Button variant="text" onClick={() => setConfirmando(false)}>
           Cancelar
         </Button>
         <Button
           variant="contained"
-          disabled={saliendo}
-          onClick={() => {
-            setSaliendo(true);
-            void salir(null);
-          }}
+          // Cambia de pantalla al instante: el diálogo no espera a Cognito.
+          onClick={() => salir(null)}
         >
           Cerrar sesión
         </Button>
@@ -229,17 +244,27 @@ function AppSesion({ salir }: { salir: (motivo: string | null) => Promise<void> 
 
   let pantalla;
   if (sinPermiso) {
-    pantalla = marco(<Estado mensaje="Cerrando sesión…" cargando />);
+    pantalla = (
+      <Marco>
+        <Estado mensaje="Cerrando sesión…" cargando />
+      </Marco>
+    );
   } else if (identidad.isError || ninos.isError || catalogo.isError) {
-    pantalla = marco(
-      <Estado
-        mensaje="No se pudo conectar con la API. Revisa que esté levantada (pnpm dev)."
-        onReintentar={() => window.location.reload()}
-        onSalir={pedirSalida}
-      />,
+    pantalla = (
+      <Marco>
+        <Estado
+          mensaje={MENSAJE_SIN_API}
+          onReintentar={() => window.location.reload()}
+          onSalir={pedirSalida}
+        />
+      </Marco>
     );
   } else if (!identidad.data || !ninos.data || !catalogo.niveles || !catalogo.manifestaciones) {
-    pantalla = marco(<Estado mensaje="Cargando tu jardín…" cargando />);
+    pantalla = (
+      <Marco>
+        <Estado mensaje="Cargando tu jardín…" cargando />
+      </Marco>
+    );
   } else {
     pantalla = (
       <AppConDatos
@@ -247,7 +272,6 @@ function AppSesion({ salir }: { salir: (motivo: string | null) => Promise<void> 
         ninos={ninos.data}
         catalogo={{ niveles: catalogo.niveles, manifestaciones: catalogo.manifestaciones }}
         escritorio={escritorio}
-        marco={marco}
         onSalir={pedirSalida}
       />
     );
@@ -306,14 +330,12 @@ function AppConDatos({
   ninos,
   catalogo,
   escritorio,
-  marco,
   onSalir,
 }: {
   nombre: string;
   ninos: Nino[];
   catalogo: ComponentProps<typeof NuevaNota>['catalogo'];
   escritorio: boolean;
-  marco: (contenido: ReactNode) => ReactNode;
   onSalir: () => void;
 }) {
   const salas = [...new Set(ninos.map((n) => n.sala))].sort();
@@ -431,7 +453,7 @@ function AppConDatos({
 
   return (
     <>
-      {marco(contenido)}
+      <Marco>{contenido}</Marco>
       {avisoGuardado}
     </>
   );

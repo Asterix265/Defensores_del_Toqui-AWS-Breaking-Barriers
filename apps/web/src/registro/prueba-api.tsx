@@ -25,6 +25,7 @@ import type {
   ObservacionTrayectoriaOutput,
   TrayectoriaResponseDtoOutput,
 } from '../api/generated/model';
+import { CLAVE_SESION_LOCAL } from '../auth/sesion';
 import { tema } from './tema';
 
 const DOMINIOS = {
@@ -374,8 +375,8 @@ export const EDUCADORA = {
   idJardin: 'JAR-0001',
 };
 
-/** Clave del ingreso en modo local (sin Cognito), la que usan las pruebas. */
-export const CLAVE_SESION_LOCAL = 'toqui.sesion.local';
+/** Clave del ingreso en modo local (sin Cognito), la misma de `sesion.ts`. */
+export { CLAVE_SESION_LOCAL };
 
 /** Deja una sesión local guardada, como si la educadora ya hubiera ingresado. */
 export function conSesion() {

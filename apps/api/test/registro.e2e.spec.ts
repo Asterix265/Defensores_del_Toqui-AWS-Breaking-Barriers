@@ -912,6 +912,36 @@ describe('API de registro (e2e)', () => {
       });
     });
 
+    it('sin borrador, la observación no copia el texto original de la captura', async () => {
+      const original = 'Texto original sin anonimizar: Sofía apiló bloques.';
+      const id = (
+        await prisma.captura.create({
+          data: {
+            idNino: 'NINO-00001',
+            idJardin: 'JAR-0001',
+            idUsuario: 'local-educadora',
+            autor: 'Educadora local',
+            formato: 'texto',
+            texto: original,
+            fecha: new Date(`${HOY}T00:00:00Z`),
+          },
+        })
+      ).id;
+      await http()
+        .post(`/interno/capturas/${id}/error`)
+        .set('x-pipeline-token', TOKEN_PIPELINE)
+        .send({ detalle: 'Guardrail no disponible' })
+        .expect(200, { id, estado: 'error' });
+      await http()
+        .post(`/capturas/${id}/confirmacion`)
+        .send({ nivel: 3, manifestaciones: [{ idManifestacion: man('SC', 'CM', 3) }] })
+        .expect(200);
+      // La retención vacía `capturas.texto` a los 7 días; la observación no lo conserva.
+      await expect(
+        prisma.observacion.findUniqueOrThrow({ where: { id: `APP-${id}` } }),
+      ).resolves.toMatchObject({ textoObservacion: null, notaBreve: null });
+    });
+
     it('404 para capturas inexistentes o ids inválidos', async () => {
       await entregar('00000000-0000-4000-8000-000000000000', valido).expect(404);
       await entregar('no-es-uuid', valido).expect(404);

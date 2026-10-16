@@ -6,6 +6,7 @@ import {
   CONCURRENCIA_PROCESO,
   MAX_INTENTOS_PROCESO,
   ORIGEN_WEB_AMPLIFY,
+  PREFIJO_DATASET,
   PREFIX_LIST_CLOUDFRONT,
 } from './app-stack.js';
 import { DatosStack } from './datos-stack.js';
@@ -142,6 +143,8 @@ describe('stacks de producción', () => {
     if (dataset.length !== 1 || dataset[0]!.Action !== 's3:GetObject') {
       throw new Error(`Permisos sobre dataset/: ${JSON.stringify(dataset)}`);
     }
+    // `aws:prod:seed` se niega a lanzar la carga si el stack desplegado no expone esta salida.
+    app.hasOutput('PrefijoDataset', { Value: PREFIJO_DATASET });
   });
 
   it('migra con el administrador en un contenedor previo y la API usa toqui_app', () => {

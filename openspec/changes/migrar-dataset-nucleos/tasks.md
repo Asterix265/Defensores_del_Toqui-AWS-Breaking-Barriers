@@ -45,6 +45,7 @@
 - [x] 5.1 Dar al rol de tarea de la API `s3:GetObject` sobre `dataset/*` del bucket de capturas. Verificar con `pnpm --filter @toqui/infra test` y `cdk synth`
 - [x] 5.2 Script `pnpm aws:prod:seed --dataset <dir>` (D4). Verificar el armado del comando con una prueba o una ejecución en seco (`--dry-run`)
   - Verificado con `--dry-run` contra la cuenta el 16-10-2026: definición `ToquiAppApiTaskDef…:1`, contenedor `web`, 15 CSV (12,3 MB).
+  - Revisión del PR: el script se niega si `ToquiApp` no terminó bien su último despliegue o no expone `PrefijoDataset`, y detiene la tarea si la espera falla. Verificado con `scripts/cargar-dataset-prod.test.ts` y con `--dry-run` contra la cuenta el 16-10-2026 (se niega: `UPDATE_ROLLBACK_COMPLETE`).
 
 ## 6. Cierre
 
@@ -55,4 +56,5 @@
     - pruebas: API 69, web 80, IA 121, pipeline 30, infra 20 y shared 3;
     - contrato regenerado sin diferencias;
     - `openspec validate` correcto.
+  - Tras la revisión del PR (16-10-2026): API 70 e infra 26 pruebas; lint, formato, tipos, `infra:synth` y contrato sin cambios.
 - [ ] 6.3 Con aviso al equipo: `pnpm aws:prod:deploy`, `pnpm aws:prod:seed` y `pnpm aws:prod:smoke` (fuera de este PR)

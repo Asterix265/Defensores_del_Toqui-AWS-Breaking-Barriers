@@ -43,3 +43,11 @@ El sistema SHALL permitir cargar el dataset en Aurora de producción con una tar
 #### Scenario: Carga fallida
 - **WHEN** la validación de la carga falla dentro de la tarea
 - **THEN** la tarea termina con un código distinto de 0 y el comando lo informa como error
+
+#### Scenario: Stack sin un despliegue estable de este cambio
+- **WHEN** `ToquiApp` no está en `CREATE_COMPLETE` ni `UPDATE_COMPLETE` (por ejemplo, en `UPDATE_ROLLBACK_COMPLETE`) o no expone la salida `PrefijoDataset`
+- **THEN** el comando se niega, incluso con `--dry-run`, sin subir archivos ni lanzar la tarea
+
+#### Scenario: Espera agotada
+- **WHEN** la tarea no termina dentro de 15 minutos o la espera falla
+- **THEN** el comando detiene la tarea y lo informa como error

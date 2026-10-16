@@ -126,7 +126,7 @@ Columnas completas en `schema.prisma`.
 1. `POST /capturas` crea la captura y el evento `inicio`. Audio y foto reciben un PUT firmado; en modo `aws` el texto se guarda en S3 como `.txt`.
 2. El pipeline (o el modo `inline` con el proveedor `fake`) entrega el borrador por `POST /interno/capturas/:id/borrador`. Es idempotente: un solo borrador por captura.
 3. La educadora que registró confirma (con o sin cambios) o descarta. En ambos casos queda una fila en `correcciones` con la sugerencia y la decisión. Confirmar crea:
-   - la observación `origen = app`, con el texto fuente y una evidencia por manifestación;
+   - la observación `origen = app`, con el texto fuente del borrador (anonimizado) y una evidencia por manifestación. Sin borrador, la observación queda sin texto: el original de la captura no se copia, porque la retención lo borra a los 7 días;
    - **una valoración por núcleo** (`origen = app`, `fecha_corte` igual al día de la captura), con `nivel_sugerido` del borrador si proponía ese núcleo y `nivel_validado` de la educadora. Su estado es `confirmada` si coinciden y `ajustada` si no.
 
 ## Reglas

@@ -29,6 +29,10 @@ Al confirmar una nota, todas las manifestaciones SHALL ser del nivel elegido y d
 - **WHEN** la educadora de una sala `SC` intenta confirmar con una manifestación de `NM`
 - **THEN** la API responde 422 y no guarda la decisión
 
+#### Scenario: Confirmación sin borrador
+- **WHEN** la educadora confirma a mano una nota de texto cuyo procesamiento falló y que no tiene borrador
+- **THEN** la observación de la app queda sin `texto_observacion` ni `nota_breve`, y el texto original sigue solo en la captura, donde la retención lo borra a los 7 días
+
 ### Requirement: Contexto de la IA por nivel educativo
 El mensaje de procesamiento SHALL incluir el nivel educativo del niño o niña y solo el catálogo de ese nivel educativo. El nivel de referencia SHALL calcularse a partir de los últimos niveles validados, sin datos personales.
 

@@ -382,5 +382,8 @@ export class AppStack extends Stack {
     new CfnOutput(this, 'ColaCapturasDlqUrl', { value: colaErrores.queueUrl });
     new CfnOutput(this, 'FuncionProceso', { value: proceso.functionName });
     new CfnOutput(this, 'GrupoLogsProceso', { value: '/toqui/prod/proceso' });
+    // Lo exige `pnpm aws:prod:seed`: sin esta salida, la definición de tarea desplegada es
+    // anterior a migrar-dataset-nucleos y no conoce `--cargar-dataset`.
+    new CfnOutput(this, 'PrefijoDataset', { value: PREFIJO_DATASET });
   }
 }

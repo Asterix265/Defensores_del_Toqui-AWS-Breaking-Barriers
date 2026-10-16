@@ -69,10 +69,11 @@ Se elimina `seed/nombres.ts`: el dataset ya trae nombres ficticios.
 
 `pnpm aws:prod:seed --dataset <dir>`:
 
-1. sube los 15 CSV a `s3://toqui-prod-capturas-<cuenta>/dataset/<sha256 corto>/`;
-2. lee el servicio `toqui-api` (definición de tarea, subredes y grupo de seguridad);
-3. ejecuta `RunTask` con la misma definición y reemplaza el comando del contenedor de la API por `node docker-entrypoint.mjs --cargar-dataset` con `DATASET_S3_URI`;
-4. espera a que la tarea termine e informa el código de salida y dónde ver el log.
+1. comprueba que `ToquiApp` esté en `CREATE_COMPLETE` o `UPDATE_COMPLETE` y exponga la salida `PrefijoDataset` (la agrega este cambio); si no, se niega, también con `--dry-run`. Tras un rollback, con un despliegue en curso o con un despliegue sin este cambio, el servicio corre una definición de tarea que ignora `--cargar-dataset`: arrancaría la API y la tarea no terminaría;
+2. sube los 15 CSV a `s3://toqui-prod-capturas-<cuenta>/dataset/<sha256 corto>/`;
+3. lee el servicio `toqui-api` (definición de tarea, subredes y grupo de seguridad);
+4. ejecuta `RunTask` con la misma definición y reemplaza el comando del contenedor de la API por `node docker-entrypoint.mjs --cargar-dataset` con `DATASET_S3_URI`;
+5. espera hasta 15 minutos a que la tarea termine e informa el código de salida y dónde ver el log. Si la espera falla, detiene la tarea (`StopTask`) antes de informar el error.
 
 El entrypoint arma `DATABASE_URL` igual que al arrancar la API y ejecuta `dist/seed/cargar-dataset.js`, que descarga los CSV de `DATASET_S3_URI` a una carpeta temporal (o usa `DATASET_DIR`). El contenedor `migraciones` corre primero, como en cada arranque, y asegura que el esquema esté al día. La carga usa `toqui_app` (solo DML), que alcanza para insertar.
 
@@ -102,7 +103,7 @@ Se mantiene la regla de un nivel por nota (las manifestaciones elegidas deben se
 
 Confirmar crea:
 
-- la observación de la app, con `texto_observacion` igual al texto fuente del borrador;
+- la observación de la app, con `texto_observacion` igual al texto fuente del borrador (el texto anonimizado). Sin borrador (por ejemplo, si el pipeline falló), `texto_observacion` y `nota_breve` quedan en null: el texto original de la captura no se copia, porque la retención lo borra a los 7 días (`endurecer-seguridad-aws`, D6) y en la observación quedaría para siempre;
 - una evidencia por manifestación;
 - **una valoración por núcleo** presente, con `origen = app`, `fecha_corte = fecha de la captura`, `nivel_validado = nivel elegido` y `nivel_sugerido` igual al nivel del borrador si este proponía ese núcleo (null si no);
 - `estado`: `confirmada` si el sugerido coincide con el validado, `ajustada` si no.
@@ -126,6 +127,7 @@ Antes, sin propuesta de la IA, la web proponía el nivel esperado para la edad. 
 ## Risks / Trade-offs
 
 - **[Pérdida de datos sintéticos de la app en Aurora]** → avisar al equipo antes del despliegue; la migración lo explica en su comentario.
+- **[Rollback sin vuelta atrás del esquema]** → la migración no se revierte con un redespliegue, y `/health` no detecta un esquema que no calza con el código. Ver el plan de rollback.
 - **[Choques con trabajo en curso]** → el cambio va en la rama `feat/dataset-nucleos` con PR; los archivos de la web cambian solo en tipos y etiquetas.
 - **[Catálogo más largo en el prompt]** → se limita al nivel educativo del niño o niña; el modelo sigue validado contra el catálogo.
 - **[La tarea de carga comparte la definición de la API]** → no se registra en el balanceador y termina al acabar la carga; el entrypoint sale con un código distinto de 0 si falla.
@@ -137,4 +139,9 @@ Antes, sin propuesta de la IA, la web proponía el nivel esperado para la edad. 
 3. `pnpm aws:prod:seed --dataset <ruta a datos_publicos>`.
 4. `pnpm aws:prod:smoke`.
 
-Rollback: volver al commit anterior y redesplegar. Los datos del dataset anterior se pueden recargar con el seed anterior.
+Rollback: la migración es destructiva y Prisma no tiene migraciones de reversa, así que **redesplegar el commit anterior no basta**. El contenedor `migraciones` de la versión anterior no deshace `20261016100000_dataset_nucleos`: `prisma migrate deploy` responde «No pending migrations» y deja el esquema nuevo. La API anterior arranca, pero falla en cada consulta porque busca columnas que ya no existen (`nombres`, `nivel_estimado`, el enum `dominio`). Además `/health` solo hace `SELECT 1`, así que el circuit breaker de ECS no detecta el problema ni revierte.
+
+- **Preferido: corregir hacia adelante.** Un commit nuevo y `pnpm aws:prod:deploy`. Todo es sintético, y el dataset se vuelve a cargar con `pnpm aws:prod:seed` (si la base ya tiene jardines no repite la carga, así que puede hacer falta vaciarla antes).
+- **Volver a la versión anterior:** primero devolver la base al esquema anterior y después redesplegar.
+  - En local: en el commit anterior, `prisma migrate reset --force` (desde `apps/api`) borra el esquema y aplica las 5 migraciones anteriores. Después, `pnpm db:seed` con `DATASET_DIR` apuntando al dataset anterior. Verificado el 16-10-2026 sobre una base temporal.
+  - En Aurora: hay que vaciar el esquema `public` con el usuario administrador desde la VPC, o restaurar el respaldo automático (retención de 1 día) a un momento previo al despliegue, lo que crea un clúster nuevo fuera de CDK. **No hay un comando verificado para ninguna de las dos.** Después, `pnpm aws:prod:deploy` desde el commit anterior: el contenedor `migraciones` aplica las migraciones anteriores y vuelve a dar los permisos a `toqui_app`. La versión anterior no tiene cómo cargar el dataset en Aurora, que nunca se cargó, así que la base queda vacía como antes de este cambio.

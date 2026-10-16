@@ -206,7 +206,9 @@ export class CapturasService {
 
     await this.prisma.$transaction(async (tx) => {
       await this.tomarDecision(tx, id, 'confirmada');
-      const textoFuente = captura.borrador?.textoFuente ?? captura.texto;
+      // Solo el texto fuente del borrador (anonimizado por el pipeline). El texto original de la
+      // captura no se copia: la retención lo borra a los 7 días y aquí quedaría para siempre.
+      const textoFuente = captura.borrador?.textoFuente ?? null;
       const observacion = await tx.observacion.create({
         data: {
           id: `APP-${id}`,
@@ -215,7 +217,7 @@ export class CapturasService {
           fechaObservacion: captura.fecha,
           formatoCaptura: captura.formato,
           notaBreve: textoFuente?.slice(0, 280) ?? null,
-          textoObservacion: textoFuente ?? null,
+          textoObservacion: textoFuente,
           origen: 'app',
           idCaptura: id,
           vinculos: { create: final.manifestaciones },

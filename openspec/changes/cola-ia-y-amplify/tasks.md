@@ -90,6 +90,7 @@ Verificado el 15-10-2026: 56 pruebas de la API (e2e con Postgres en Docker), con
 
   Si `Authorization` no pasa, aplicar el plan B de D10
 - [ ] 7.4 Con 7.3 en verde: cambiar el comportamiento por defecto de CloudFront al ALB, eliminar el bucket web, `BucketDeployment` y la función de rutas SPA, quitar la URL de CloudFront del CORS y quitar el build de la web de `pnpm aws:prod:deploy`. Verificar con una prueba de CDK y con `pnpm aws:prod:smoke`, ajustado para que revise la web en Amplify
+  - Implementado en código por `endurecer-seguridad-aws` (tareas 1.1 y 1.2), con CloudFront hacia un ALB interno por VPC Origin. Pendiente: desplegar y verificar con `pnpm aws:prod:smoke`.
 - [ ] 7.5 Documentar en el README y en `docs/arquitectura-aws.md` la URL, el flujo de publicación (push a `main`) y `pnpm aws:prod:amplify` una vez verificado
 
 ## 8. Memoria y base de conocimiento

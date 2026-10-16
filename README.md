@@ -91,7 +91,7 @@ API NestJS en Fargate (`apps/api`), según `definir-mvp-e1`. Contrato completo e
 
 Bedrock (Claude y Guardrail), Transcribe, S3 y Cognito están desplegados para desarrollo en la cuenta del evento (`us-east-1`, stack CDK `ToquiDev`). Configuración, comandos (`pnpm aws:smoke`, `pnpm aws:env`, `pnpm aws:deploy`), usuarios de prueba, costos y limpieza: [guía AWS](docs/guia-aws.md).
 
-El ambiente de producción (CloudFront, Fargate, Aurora Serverless v2, procesamiento con SQS y Lambda) se despliega con `pnpm aws:prod:deploy`; diagrama, stacks y decisiones en [arquitectura AWS](docs/arquitectura-aws.md).
+El ambiente de producción (web en Amplify; API por CloudFront → ALB interno → Fargate; Aurora Serverless v2; procesamiento con SQS y Lambda) se despliega con `pnpm aws:prod:deploy`; diagrama, stacks y decisiones en [arquitectura AWS](docs/arquitectura-aws.md).
 
 ## Materiales del desafío
 

@@ -16,6 +16,7 @@ import { ColaService } from '../src/aws/cola.service';
 import { hoyEn, sumarDias } from '../src/comun/fechas';
 import { PrismaClient } from '../src/generated/prisma/client';
 import { PrismaService } from '../src/prisma/prisma.service';
+import { RetencionService } from '../src/capturas/retencion.service';
 import { cargarDataset, leerDataset } from '../src/seed/dataset';
 
 const URL_ADMIN =
@@ -877,6 +878,69 @@ describe('API de registro (e2e)', () => {
         prisma.captura.findFirst({ where: { texto: 'Falla al subir.' } }),
       ).resolves.toMatchObject({
         estado: 'error',
+      });
+    });
+  });
+
+  describe('retención y borrado (endurecer-seguridad-aws)', () => {
+    const HACE_8_DIAS = () => new Date(Date.now() - 8 * 24 * 60 * 60 * 1000);
+
+    it('a los 7 días vacía el texto original y el archivo, y conserva el texto anonimizado', async () => {
+      const vieja = await crearTexto('Nota antigua: apiló cuatro bloques solo.');
+      await esperarBorrador(vieja);
+      const audio = await http()
+        .post('/capturas')
+        .send({
+          idNino: 'NINO-00001',
+          formato: 'audio',
+          archivo: { tipo: 'audio/webm', tamano: 50_000 },
+        })
+        .expect(201);
+      const idAudio = audio.body.captura.id as string;
+      const reciente = await crearTexto('Nota reciente con bloques.');
+      await prisma.captura.updateMany({
+        where: { id: { in: [vieja, idAudio] } },
+        data: { creadoEn: HACE_8_DIAS() },
+      });
+
+      const retencion = app.get(RetencionService);
+      await expect(retencion.purgar()).resolves.toBe(2);
+
+      const detalle = (await http().get(`/capturas/${vieja}`).expect(200)).body;
+      expect(detalle.texto).toBeNull();
+      expect(detalle.borrador.textoFuente).toContain('bloques');
+      const deAudio = (await http().get(`/capturas/${idAudio}`).expect(200)).body;
+      expect(deAudio.tieneArchivo).toBe(false);
+      await http().get(`/capturas/${idAudio}/archivo`).expect(404);
+      const deReciente = (await http().get(`/capturas/${reciente}`).expect(200)).body;
+      expect(deReciente.texto).toBe('Nota reciente con bloques.');
+      // Idempotente: una segunda pasada no encuentra nada.
+      await expect(retencion.purgar()).resolves.toBe(0);
+    });
+
+    it('borrar una captura confirmada borra borrador, corrección y eventos, y conserva la observación', async () => {
+      const id = await crearTexto();
+      await esperarBorrador(id);
+      await http()
+        .post(`/capturas/${id}/confirmacion`)
+        .send({
+          nivel: 7,
+          manifestaciones: [
+            { idManifestacion: 'MAN-L07-MF-01', cita: 'Apiló cuatro bloques solo y aplaudió.' },
+          ],
+        })
+        .expect(200);
+
+      await prisma.captura.delete({ where: { id } });
+
+      await expect(prisma.borrador.count({ where: { idCaptura: id } })).resolves.toBe(0);
+      await expect(prisma.correccion.count({ where: { idCaptura: id } })).resolves.toBe(0);
+      await expect(prisma.eventoTiempo.count({ where: { idCaptura: id } })).resolves.toBe(0);
+      await expect(
+        prisma.observacion.findUnique({ where: { id: `APP-${id}` } }),
+      ).resolves.toMatchObject({
+        idCaptura: null,
+        nivelEstimado: 7,
       });
     });
   });

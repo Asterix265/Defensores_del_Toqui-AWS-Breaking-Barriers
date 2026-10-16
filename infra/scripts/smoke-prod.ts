@@ -1,9 +1,10 @@
-// Prueba de humo del ambiente de producción: CloudFront → web, API → Aurora y S3, aislamiento del ALB
-// y procesamiento SQS → Lambda → API interna.
+// Prueba de humo del ambiente de producción: web en Amplify, API por CloudFront → Aurora y S3,
+// ALB interno y procesamiento SQS → Lambda → API interna.
 import { randomUUID } from 'node:crypto';
 import { setTimeout as esperar } from 'node:timers/promises';
 import { CloudWatchLogsClient, FilterLogEventsCommand } from '@aws-sdk/client-cloudwatch-logs';
 import { SendMessageCommand, SQSClient } from '@aws-sdk/client-sqs';
+import { ORIGEN_WEB_AMPLIFY } from '../lib/app-stack.js';
 import { REGION, leerSalidasStack, prepararCredenciales } from './comun.js';
 
 let fallidos = 0;
@@ -21,25 +22,29 @@ async function paso(nombre: string, fn: () => Promise<string>): Promise<void> {
 
 prepararCredenciales();
 const salidas = await leerSalidasStack('ToquiApp');
-const web = salidas['WebUrl'];
-if (!web) throw new Error('El stack ToquiApp no expone WebUrl. ¿Está desplegado?');
+// CloudFront es la entrada de la API; la web se publica en Amplify (endurecer-seguridad-aws, D2).
+const api = salidas['WebUrl'];
+if (!api) throw new Error('El stack ToquiApp no expone WebUrl. ¿Está desplegado?');
+const web = ORIGEN_WEB_AMPLIFY;
 
-await paso('1. Web por CloudFront (HTTPS)', async () => {
+await paso('1. Web en Amplify (HTTPS)', async () => {
   const r = await fetch(`${web}/`);
   const html = await r.text();
   if (!r.ok || !html.includes('<div id="root">')) throw new Error(`respondió ${r.status}`);
   return `${web} sirve la PWA`;
 });
 
-await paso('2. Rutas de la SPA', async () => {
+await paso('2. Rutas de la SPA y proxy /api de Amplify', async () => {
   const r = await fetch(`${web}/ninos/NINO-00002`);
   const html = await r.text();
-  if (!r.ok || !html.includes('<div id="root">')) throw new Error(`respondió ${r.status}`);
-  return 'una ruta de la app devuelve index.html';
+  if (!r.ok || !html.includes('<div id="root">')) throw new Error(`ruta interna: ${r.status}`);
+  const salud = await fetch(`${web}/api/health`);
+  if (!salud.ok) throw new Error(`/api/health por Amplify respondió ${salud.status}`);
+  return 'una ruta de la app devuelve index.html y /api llega a la API';
 });
 
-await paso('3. API → Aurora y S3 (/api/health)', async () => {
-  const r = await fetch(`${web}/api/health`);
+await paso('3. API → Aurora y S3 (/api/health por CloudFront)', async () => {
+  const r = await fetch(`${api}/api/health`);
   const cuerpo = (await r.json()) as {
     status?: string;
     dependencies?: { database?: string; storage?: string };
@@ -51,14 +56,14 @@ await paso('3. API → Aurora y S3 (/api/health)', async () => {
   ) {
     throw new Error(`respondió ${r.status}: ${JSON.stringify(cuerpo)}`);
   }
-  return 'API en Fargate conectada a Aurora (migraciones aplicadas) y al bucket de capturas con su rol';
+  return 'API en Fargate conectada a Aurora (toqui_app, migraciones aplicadas) y al bucket de capturas';
 });
 
-await paso('4. ALB cerrado fuera de CloudFront', async () => {
+await paso('4. ALB interno, sin acceso directo', async () => {
   try {
     await fetch(`http://${salidas['AlbDns']}/health`, { signal: AbortSignal.timeout(5000) });
   } catch {
-    return 'acceso directo al ALB rechazado';
+    return 'el ALB no es alcanzable desde internet (solo por el VPC Origin de CloudFront)';
   }
   throw new Error('el ALB respondió sin pasar por CloudFront');
 });

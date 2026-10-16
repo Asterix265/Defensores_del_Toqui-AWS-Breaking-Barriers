@@ -21,7 +21,12 @@ describe('stacks de producción', () => {
     const env = { account: '111111111111', region: 'us-east-1' };
     const r = new RedStack(raiz, 'Red', { env });
     const d = new DatosStack(raiz, 'Datos', { env, vpc: r.vpc });
-    const a = new AppStack(raiz, 'Aplicacion', { env, vpc: r.vpc, cluster: d.cluster });
+    const a = new AppStack(raiz, 'Aplicacion', {
+      env,
+      vpc: r.vpc,
+      cluster: d.cluster,
+      secretoApp: d.secretoApp,
+    });
     red = Template.fromStack(r);
     datos = Template.fromStack(d);
     app = Template.fromStack(a);
@@ -43,11 +48,11 @@ describe('stacks de producción', () => {
   it('corre la API en Fargate ARM64 con credenciales desde Secrets Manager', () => {
     app.hasResourceProperties('AWS::ECS::TaskDefinition', {
       RuntimePlatform: { CpuArchitecture: 'ARM64', OperatingSystemFamily: 'LINUX' },
-      ContainerDefinitions: [
+      ContainerDefinitions: Match.arrayWith([
         Match.objectLike({
           Secrets: Match.arrayWith([Match.objectLike({ Name: 'DB_PASSWORD' })]),
         }),
-      ],
+      ]),
     });
   });
 
@@ -65,20 +70,104 @@ describe('stacks de producción', () => {
     if (Object.keys(abiertos).length > 0) throw new Error('Hay un grupo de seguridad abierto');
   });
 
-  it('sirve la web y /api/* desde la misma distribución', () => {
+  it('deja el ALB interno y CloudFront llega a él por un VPC Origin', () => {
+    app.hasResourceProperties('AWS::ElasticLoadBalancingV2::LoadBalancer', {
+      Name: 'toqui-prod-api-int',
+      Scheme: 'internal',
+    });
+    app.resourceCountIs('AWS::CloudFront::VpcOrigin', 1);
     app.hasResourceProperties('AWS::CloudFront::Distribution', {
       DistributionConfig: Match.objectLike({
+        Origins: [Match.objectLike({ VpcOriginConfig: Match.anyValue() })],
         CacheBehaviors: [Match.objectLike({ PathPattern: '/api/*' })],
       }),
     });
   });
 
-  it('acepta subidas de capturas desde la web en Amplify', () => {
+  it('no publica la web: CloudFront solo sirve la API (la web está en Amplify)', () => {
+    app.resourceCountIs('Custom::CDKBucketDeployment', 0);
+    // El único bucket es el de capturas.
+    app.resourceCountIs('AWS::S3::Bucket', 1);
+  });
+
+  it('acepta subidas de capturas solo desde la web en Amplify', () => {
     app.hasResourceProperties('AWS::S3::Bucket', {
       CorsConfiguration: {
-        CorsRules: [Match.objectLike({ AllowedOrigins: Match.arrayWith([ORIGEN_WEB_AMPLIFY]) })],
+        CorsRules: [Match.objectLike({ AllowedOrigins: [ORIGEN_WEB_AMPLIFY] })],
       },
     });
+  });
+
+  it('la API solo sale por HTTPS a internet y por 5432 a Aurora', () => {
+    app.hasResourceProperties('AWS::EC2::SecurityGroup', {
+      GroupDescription: Match.stringLikeRegexp('^API'),
+      SecurityGroupEgress: [
+        Match.objectLike({ CidrIp: '0.0.0.0/0', IpProtocol: 'tcp', FromPort: 443, ToPort: 443 }),
+      ],
+    });
+    app.hasResourceProperties('AWS::EC2::SecurityGroupEgress', {
+      IpProtocol: 'tcp',
+      FromPort: 5432,
+      ToPort: 5432,
+    });
+  });
+
+  it('el rol de la API no borra en S3 ni invoca Bedrock', () => {
+    const politicas = app.findResources('AWS::IAM::Policy', {
+      Properties: { Roles: [{ Ref: Match.stringLikeRegexp('^ApiTaskDefTaskRole') }] },
+    });
+    const texto = JSON.stringify(politicas);
+    if (Object.keys(politicas).length !== 1)
+      throw new Error('No se encontró la política de la API');
+    for (const prohibido of ['s3:DeleteObject', 's3:*', 'bedrock:', 'transcripciones']) {
+      if (texto.includes(prohibido)) throw new Error(`La API tiene ${prohibido}`);
+    }
+    for (const requerido of ['s3:PutObject', 's3:GetObject', 's3:ListBucket', '/capturas/*']) {
+      if (!texto.includes(requerido)) throw new Error(`A la API le falta ${requerido}`);
+    }
+  });
+
+  it('migra con el administrador en un contenedor previo y la API usa toqui_app', () => {
+    const [tarea] = Object.values(app.findResources('AWS::ECS::TaskDefinition'));
+    const contenedores = (
+      tarea as {
+        Properties: {
+          ContainerDefinitions: {
+            Name: string;
+            Essential?: boolean;
+            DependsOn?: { ContainerName: string; Condition: string }[];
+            Environment?: { Name: string; Value: unknown }[];
+            Secrets?: { Name: string; ValueFrom: unknown }[];
+          }[];
+        };
+      }
+    ).Properties.ContainerDefinitions;
+    const migraciones = contenedores.find((c) => c.Name === 'migraciones');
+    const apiWeb = contenedores.find((c) => c.Name !== 'migraciones');
+    if (!migraciones || !apiWeb) throw new Error('Faltan contenedores');
+    if (migraciones.Essential !== false) throw new Error('migraciones debe ser no esencial');
+    if (
+      JSON.stringify(apiWeb.DependsOn) !== '[{"Condition":"SUCCESS","ContainerName":"migraciones"}]'
+    )
+      throw new Error(`La API no espera a migraciones: ${JSON.stringify(apiWeb.DependsOn)}`);
+    if (!apiWeb.Environment?.some((e) => e.Name === 'RUN_MIGRATIONS' && e.Value === 'false'))
+      throw new Error('La API no debe migrar');
+    // Solo `migraciones` recibe el secreto del administrador (el adjunto de ToquiDatos).
+    const admin = /AuroraSecretAttachment/;
+    if (admin.test(JSON.stringify(apiWeb.Secrets)))
+      throw new Error('La API recibe el administrador');
+    if (!admin.test(JSON.stringify(migraciones.Secrets))) throw new Error('migraciones sin admin');
+    if (!/SecretoApp/.test(JSON.stringify(apiWeb.Secrets))) throw new Error('La API sin toqui_app');
+  });
+
+  it('crea el secreto de toqui_app adjunto al cluster', () => {
+    datos.hasResourceProperties('AWS::SecretsManager::Secret', {
+      Name: 'toqui-prod/aurora-app',
+      GenerateSecretString: Match.objectLike({
+        SecretStringTemplate: '{"username":"toqui_app","dbname":"toqui"}',
+      }),
+    });
+    datos.resourceCountIs('AWS::SecretsManager::SecretTargetAttachment', 2);
   });
 
   it('procesa las capturas desde una cola con DLQ y sin Step Functions', () => {
@@ -135,12 +224,12 @@ describe('stacks de producción', () => {
 
   it('comparte el token del pipeline por Secrets Manager y no en texto plano', () => {
     app.hasResourceProperties('AWS::ECS::TaskDefinition', {
-      ContainerDefinitions: [
+      ContainerDefinitions: Match.arrayWith([
         Match.objectLike({
           Secrets: Match.arrayWith([Match.objectLike({ Name: 'PIPELINE_TOKEN' })]),
           Environment: Match.arrayWith([Match.objectLike({ Name: 'SQS_URL_CAPTURAS' })]),
         }),
-      ],
+      ]),
     });
     const plantilla = JSON.stringify(app.toJSON());
     if (plantilla.includes('"PIPELINE_TOKEN","Value"')) throw new Error('Token en texto plano');
@@ -148,11 +237,11 @@ describe('stacks de producción', () => {
 
   it('la API encola las capturas en SQS (PIPELINE_MODE=cola) con permiso de envío', () => {
     app.hasResourceProperties('AWS::ECS::TaskDefinition', {
-      ContainerDefinitions: [
+      ContainerDefinitions: Match.arrayWith([
         Match.objectLike({
           Environment: Match.arrayWith([{ Name: 'PIPELINE_MODE', Value: 'cola' }]),
         }),
-      ],
+      ]),
     });
     const politicas = JSON.stringify(app.findResources('AWS::IAM::Policy'));
     if (!politicas.includes('sqs:SendMessage')) throw new Error('La API no puede enviar a la cola');

@@ -81,9 +81,15 @@ describe('handler proceso', () => {
     };
     await ejecutar(deps, mensaje);
 
-    const entrada = (clasificar.mock.calls[0] as unknown as [{ contexto: { ejemplos: unknown[] } }])[0];
+    const entrada = (
+      clasificar.mock.calls[0] as unknown as [{ contexto: { ejemplos: unknown[] } }]
+    )[0];
     expect(entrada.contexto.ejemplos).toEqual([
-      { textoFuente: 'Apiló cuatro bloques sin ayuda.', nivel: 5, idsManifestaciones: ['M-5-CM-1'] },
+      {
+        textoFuente: 'Apiló cuatro bloques sin ayuda.',
+        nivel: 5,
+        idsManifestaciones: ['M-5-CM-1'],
+      },
       { textoFuente: 'Dijo agua.', nivel: 4, idsManifestaciones: ['M-4-LV-1'] },
     ]);
     expect(deps.api.entregarBorrador).toHaveBeenCalledWith(

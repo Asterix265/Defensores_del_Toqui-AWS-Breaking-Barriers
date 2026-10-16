@@ -36,7 +36,13 @@ describe('reglas de alertas', () => {
   it('una decisión de más de 45 días no es vigente y se usa la última', () => {
     const vigentes = decisionesVigentes(
       [
-        { idNino: 'A', nucleo: 'IA', nivel: 2, fechaCorte: '2026-08-15', fechaDecision: '2026-08-15' },
+        {
+          idNino: 'A',
+          nucleo: 'IA',
+          nivel: 2,
+          fechaCorte: '2026-08-15',
+          fechaDecision: '2026-08-15',
+        },
         { idNino: 'B', nucleo: 'IA', nivel: 3, fechaCorte: '2026-09-15', fechaDecision: null },
         { idNino: 'B', nucleo: 'IA', nivel: 4, fechaCorte: '2026-10-15', fechaDecision: null },
         { idNino: 'C', nucleo: 'IA', nivel: 5, fechaCorte: '2026-10-20', fechaDecision: null },
@@ -54,7 +60,9 @@ describe('reglas de alertas', () => {
   it('alerta de sala frente a la otra sala equivalente', () => {
     const sala = (idSala: string, m: number | null) => ({
       idSala,
-      nucleos: [{ nucleo: 'CC', conDecision: 1, sinDecision: 0, distribucion: [], mediana: m, modas: [] }],
+      nucleos: [
+        { nucleo: 'CC', conDecision: 1, sinDecision: 0, distribucion: [], mediana: m, modas: [] },
+      ],
     });
     const alertas = alertasDeSalas([sala('NM-01', 5.5), sala('NM-02', 3.5)]);
     expect(alertas.get('NM-02')).toEqual([

@@ -38,7 +38,10 @@ function directorioFalso(cambios: Partial<Record<keyof DirectorioService, unknow
     disponible: true,
     listar: jest.fn(async () => [
       { usuario: usuario({ usuario: 'sub-a', email: 'b@example.com' }), grupo: 'educadora' },
-      { usuario: usuario({ usuario: 'sub-b', email: 'a@example.com', idJardin: 'JAR-0002' }), grupo: 'educadora' },
+      {
+        usuario: usuario({ usuario: 'sub-b', email: 'a@example.com', idJardin: 'JAR-0002' }),
+        grupo: 'educadora',
+      },
       { usuario: usuario({ usuario: 'sub-dora', email: 'd@example.com' }), grupo: 'directora' },
     ]),
     obtener: jest.fn(async (u: string) => usuario({ usuario: u, sub: u })),
@@ -76,7 +79,12 @@ describe('CuentasService', () => {
   });
 
   it('el cuerpo no puede traer el jardín', () => {
-    const cuerpo = { email: 'x@example.com', nombre: 'X Y', grupo: 'educadora', idJardin: 'JAR-0002' };
+    const cuerpo = {
+      email: 'x@example.com',
+      nombre: 'X Y',
+      grupo: 'educadora',
+      idJardin: 'JAR-0002',
+    };
     expect(InvitarCuentaRequestSchema.safeParse(cuerpo).success).toBe(false);
   });
 
@@ -115,10 +123,12 @@ describe('CuentasService', () => {
 
   it('reenvía solo invitaciones pendientes', async () => {
     const directorio = directorioFalso();
-    await expect(new CuentasService(directorio).reenviar(DIRECTORA, 'sub-a')).rejects.toBeInstanceOf(
-      BadRequestException,
+    await expect(
+      new CuentasService(directorio).reenviar(DIRECTORA, 'sub-a'),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    (directorio.obtener as jest.Mock).mockResolvedValueOnce(
+      usuario({ estadoCognito: 'FORCE_CHANGE_PASSWORD' }),
     );
-    directorio.obtener.mockResolvedValueOnce(usuario({ estadoCognito: 'FORCE_CHANGE_PASSWORD' }));
     await new CuentasService(directorio).reenviar(DIRECTORA, 'sub-x');
     expect(directorio.reenviar).toHaveBeenCalledWith('sub-x');
   });

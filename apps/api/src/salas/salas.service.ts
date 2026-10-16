@@ -57,7 +57,10 @@ export class SalasService {
     if (!sala) throw new NotFoundException('Sala no encontrada en el jardín');
 
     const [nucleos, ninos] = await Promise.all([this.nucleos(), this.ninos([sala.id], corte)]);
-    const decisiones = await this.decisiones(ninos.map((n) => n.id), corte);
+    const decisiones = await this.decisiones(
+      ninos.map((n) => n.id),
+      corte,
+    );
     const niveles = decisionesVigentes(decisiones, corte);
     return {
       sala: sala.salaGrupo,
@@ -151,7 +154,10 @@ export class SalasService {
   }
 
   private async nucleos(): Promise<string[]> {
-    const filas = await this.prisma.nucleo.findMany({ orderBy: { id: 'asc' }, select: { id: true } });
+    const filas = await this.prisma.nucleo.findMany({
+      orderBy: { id: 'asc' },
+      select: { id: true },
+    });
     return filas.map((n) => n.id);
   }
 

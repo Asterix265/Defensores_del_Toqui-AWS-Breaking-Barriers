@@ -64,7 +64,13 @@ export class DirectorioService {
           }),
         );
         for (const u of res.Users ?? []) {
-          const usuario = aUsuario(u.Username!, u.Attributes, u.Enabled, u.UserStatus, u.UserCreateDate);
+          const usuario = aUsuario(
+            u.Username!,
+            u.Attributes,
+            u.Enabled,
+            u.UserStatus,
+            u.UserCreateDate,
+          );
           // `directora` se recorre al final y gana si la persona está en ambos grupos.
           porUsuario.set(usuario.usuario, { usuario, grupo });
         }
@@ -79,7 +85,13 @@ export class DirectorioService {
       const res = await this.cognito.send(
         new AdminGetUserCommand({ UserPoolId: this.pool(), Username: usuario }),
       );
-      return aUsuario(res.Username!, res.UserAttributes, res.Enabled, res.UserStatus, res.UserCreateDate);
+      return aUsuario(
+        res.Username!,
+        res.UserAttributes,
+        res.Enabled,
+        res.UserStatus,
+        res.UserCreateDate,
+      );
     } catch (error) {
       if ((error as Error).name === 'UserNotFoundException') throw new UsuarioNoEncontrado();
       throw error;

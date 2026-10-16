@@ -12,12 +12,18 @@ const CONSULTA = {
 function servicio(maximo: number, filas: unknown[] = []) {
   const findMany = jest.fn(async () => filas);
   const prisma = { correccion: { findMany } } as unknown as PrismaService;
-  return { findMany, ejemplos: new EjemplosService({ EJEMPLOS_CORRECCIONES: maximo } as Env, prisma) };
+  return {
+    findMany,
+    ejemplos: new EjemplosService({ EJEMPLOS_CORRECCIONES: maximo } as Env, prisma),
+  };
 }
 
 const fila = (decision: string, nivel: number, ids: string[], texto = 'Apiló bloques.') => ({
   decision,
-  final: { nivel, manifestaciones: ids.map((idManifestacion) => ({ idManifestacion, cita: null })) },
+  final: {
+    nivel,
+    manifestaciones: ids.map((idManifestacion) => ({ idManifestacion, cita: null })),
+  },
   captura: { borrador: { textoFuente: texto } },
 });
 
@@ -38,7 +44,11 @@ describe('EjemplosService', () => {
     ]);
     const resultado = await ejemplos.ejemplos(CONSULTA);
     expect(resultado).toHaveLength(2);
-    expect(resultado[0]).toMatchObject({ nivel: 3, idsManifestaciones: ['MAN-1'], corregida: true });
+    expect(resultado[0]).toMatchObject({
+      nivel: 3,
+      idsManifestaciones: ['MAN-1'],
+      corregida: true,
+    });
     expect(Array.from(resultado[0]!.textoFuente)).toHaveLength(400);
     expect(resultado[1]).toMatchObject({ nivel: 5, corregida: false });
   });

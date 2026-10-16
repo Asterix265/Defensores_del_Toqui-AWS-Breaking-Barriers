@@ -38,7 +38,7 @@ export async function procesarCaptura(
   log('info', 'Texto anonimizado', { ...base, ms: medir() });
 
   const contexto = await deps.contexto
-    .recuperar({ textoFuente, idJardin: mensaje.idJardin })
+    .recuperar({ textoFuente, idJardin: mensaje.idJardin, ejemplos: mensaje.ejemplos ?? [] })
     .catch((error: unknown) => {
       // Sin memoria ni base de conocimiento se clasifica igual con el catálogo del mensaje.
       log('warn', 'Contexto no disponible', { ...base, ...describirError(error) });
@@ -53,7 +53,10 @@ export async function procesarCaptura(
 
   const borrador = {
     ...(await clasificar(mensaje, textoFuente, contexto, deps, log)),
-    procesamiento: declararProcesamiento(mensaje, normalizado, deps.clasificador),
+    procesamiento: {
+      ...declararProcesamiento(mensaje, normalizado, deps.clasificador),
+      ejemplosUsados: contexto.ejemplos.length,
+    },
   };
   log('info', 'Borrador listo', {
     ...base,

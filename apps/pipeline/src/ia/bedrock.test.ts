@@ -199,8 +199,27 @@ describe('ClasificadorBedrock en el orquestador', () => {
         pasos: [
           { paso: 'extraccion', estado: 'completado', detalle: 'Clasificada con modelo-prueba.' },
         ],
+        ejemplosUsados: 0,
       },
     });
+  });
+
+  it('las decisiones previas del jardín llegan al prompt como casos parecidos', async () => {
+    const simulado = clienteSimulado(valida());
+    const deps = conBedrock(simulado);
+    const ejemplo = {
+      textoFuente: 'Apiló cuatro bloques con ayuda.',
+      nivel: 3,
+      idsManifestaciones: ['M-4-CM-1'],
+      corregida: true,
+    };
+    await procesarCaptura({ ...mensajeTexto(), ejemplos: [ejemplo] }, deps, vi.fn());
+
+    const [comando] = simulado.comandos();
+    expect(mensajeUsuario(comando)).toContain('Casos parecidos de decisiones previas del jardín');
+    expect(mensajeUsuario(comando)).toContain(
+      '- Nota: «Apiló cuatro bloques con ayuda.» → nivel 3, manifestaciones M-4-CM-1',
+    );
   });
 
   it('con un id inventado reintenta con el problema y entrega la segunda propuesta', async () => {

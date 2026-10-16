@@ -54,12 +54,42 @@ describe('handler proceso', () => {
         simulado: true,
         entrada: { formato: 'texto', tipoArchivo: null, bytes: 41, claveS3: null },
         pasos: [{ paso: 'extraccion', estado: 'simulado', detalle: expect.any(String) }],
+        // Mensaje antiguo, sin el campo `ejemplos`.
+        ejemplosUsados: 0,
       },
     });
     expect(deps.avisador.avisar).toHaveBeenCalledWith('sub-educadora-1', {
       idCaptura: ID_CAPTURA,
       estado: 'borrador_listo',
     });
+  });
+
+  it('ejemplos del mensaje: llegan al clasificador ordenados por palabras en común', async () => {
+    const clasificar = vi.fn(async () => ({ evidenciaInsuficiente: true }));
+    const deps = depsFalsas({ clasificador: { proveedor: 'prueba', clasificar } });
+    const mensaje = {
+      ...mensajeTexto(),
+      ejemplos: [
+        { textoFuente: 'Dijo agua.', nivel: 4, idsManifestaciones: ['M-4-LV-1'], corregida: true },
+        {
+          textoFuente: 'Apiló cuatro bloques sin ayuda.',
+          nivel: 5,
+          idsManifestaciones: ['M-5-CM-1'],
+          corregida: false,
+        },
+      ],
+    };
+    await ejecutar(deps, mensaje);
+
+    const entrada = (clasificar.mock.calls[0] as unknown as [{ contexto: { ejemplos: unknown[] } }])[0];
+    expect(entrada.contexto.ejemplos).toEqual([
+      { textoFuente: 'Apiló cuatro bloques sin ayuda.', nivel: 5, idsManifestaciones: ['M-5-CM-1'] },
+      { textoFuente: 'Dijo agua.', nivel: 4, idsManifestaciones: ['M-4-LV-1'] },
+    ]);
+    expect(deps.api.entregarBorrador).toHaveBeenCalledWith(
+      ID_CAPTURA,
+      expect.objectContaining({ procesamiento: expect.objectContaining({ ejemplosUsados: 2 }) }),
+    );
   });
 
   it('audio: transcribe antes de clasificar', async () => {

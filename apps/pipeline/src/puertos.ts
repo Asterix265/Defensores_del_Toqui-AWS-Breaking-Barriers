@@ -1,5 +1,6 @@
 import type {
   AvisoCaptura,
+  EjemploDecision,
   BorradorEntrante,
   EstadoCaptura,
   Manifestacion,
@@ -45,7 +46,12 @@ export interface Contexto {
 }
 
 export interface FuenteContexto {
-  recuperar(consulta: { textoFuente: string; idJardin: string }): Promise<Contexto>;
+  recuperar(consulta: {
+    textoFuente: string;
+    idJardin: string;
+    /** Decisiones previas que trae el mensaje de la cola (aprender de las correcciones). */
+    ejemplos: EjemploDecision[];
+  }): Promise<Contexto>;
 }
 
 export interface EntradaClasificacion {

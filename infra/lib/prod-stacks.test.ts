@@ -3,6 +3,7 @@ import { App } from 'aws-cdk-lib';
 import { Match, Template } from 'aws-cdk-lib/assertions';
 import { beforeAll, describe, expect, it } from 'vitest';
 import {
+  ACCIONES_CUENTAS,
   AppStack,
   CONCURRENCIA_PROCESO,
   IA_PROVIDER_PROCESO,
@@ -149,6 +150,34 @@ describe('stacks de producción', () => {
     for (const requerido of ['s3:PutObject', 's3:GetObject', 's3:ListBucket', '/capturas/*']) {
       if (!texto.includes(requerido)) throw new Error(`A la API le falta ${requerido}`);
     }
+  });
+
+  it('el rol de la API administra cuentas solo sobre el pool de producción', () => {
+    const politicas = app.findResources('AWS::IAM::Policy', {
+      Properties: { Roles: [{ Ref: Match.stringLikeRegexp('^ApiTaskDefTaskRole') }] },
+    });
+    const [politica] = Object.values(politicas) as {
+      Properties: {
+        PolicyDocument: { Statement: { Action: string | string[]; Resource: unknown }[] };
+      };
+    }[];
+    const cognito = politica!.Properties.PolicyDocument.Statement.filter((s) =>
+      JSON.stringify(s.Action).includes('cognito-idp:'),
+    );
+    expect(cognito).toHaveLength(1);
+    expect(cognito[0]!.Action).toEqual(ACCIONES_CUENTAS);
+    expect(JSON.stringify(cognito[0]!.Resource)).toMatch(/Usuarios.*Arn/);
+    expect(JSON.stringify(cognito)).not.toMatch(/AdminDeleteUser|AdminSetUserPassword|\*"/);
+  });
+
+  it('la invitación de cuentas llega en español con la contraseña temporal', () => {
+    app.hasResourceProperties('AWS::Cognito::UserPool', {
+      AdminCreateUserConfig: Match.objectLike({
+        InviteMessageTemplate: Match.objectLike({
+          EmailMessage: Match.stringLikeRegexp('\\{username\\}.*\\{####\\}'),
+        }),
+      }),
+    });
   });
 
   it('el rol de la API solo lee el prefijo dataset/ (carga con `aws:prod:seed`)', () => {

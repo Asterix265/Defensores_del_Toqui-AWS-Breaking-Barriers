@@ -4,7 +4,7 @@ import { TextractClient } from '@aws-sdk/client-textract';
 import { TranscribeClient } from '@aws-sdk/client-transcribe';
 import { ApiInternaHttp } from './adaptadores/api-interna.js';
 import { AnonimizadorGuardrail } from './adaptadores/guardrail.js';
-import { AvisadorSoloLog, ContextoVacio } from './adaptadores/nulos.js';
+import { AvisadorSoloLog, ContextoDesdeMensaje } from './adaptadores/nulos.js';
 import { LectorImagenTextract } from './adaptadores/textract.js';
 import { tokenDesdeSecreto } from './adaptadores/token.js';
 import { TranscriptorAws } from './adaptadores/transcribe.js';
@@ -62,7 +62,7 @@ export function crearDependencias(env: PipelineEnv, log: Log): Dependencias {
       id: env.GUARDRAIL_ID,
       version: env.GUARDRAIL_VERSION,
     }),
-    contexto: new ContextoVacio(),
+    contexto: new ContextoDesdeMensaje(),
     clasificador: ia.clasificador,
     lectorImagen,
     api: new ApiInternaHttp({ url: env.API_URL, token }),

@@ -28,6 +28,15 @@ import type { Construct } from 'constructs';
 import { crearBucketCapturas, crearGuardrail, crearIdentidad } from './componentes.js';
 import { NOMBRE_BASE } from './datos-stack.js';
 
+/** Acciones de Cognito que necesita el módulo `cuentas` de la API. */
+export const ACCIONES_CUENTAS = [
+  'cognito-idp:ListUsersInGroup',
+  'cognito-idp:AdminGetUser',
+  'cognito-idp:AdminCreateUser',
+  'cognito-idp:AdminAddUserToGroup',
+  'cognito-idp:AdminDisableUser',
+  'cognito-idp:AdminEnableUser',
+];
 const RAIZ_REPO = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const DIST_PIPELINE = resolve(RAIZ_REPO, 'apps/pipeline/dist');
 
@@ -387,6 +396,14 @@ export class AppStack extends Stack {
       }),
     );
     cola.grantSendMessages(api.taskDefinition.taskRole);
+    // La directora administra las cuentas de su jardín desde la web (panel-directora-y-aprendizaje,
+    // D5): solo estas acciones y solo sobre el pool de producción.
+    api.taskDefinition.addToTaskRolePolicy(
+      new iam.PolicyStatement({
+        actions: ACCIONES_CUENTAS,
+        resources: [pool.userPoolArn],
+      }),
+    );
     api.taskDefinition.addToTaskRolePolicy(
       new iam.PolicyStatement({
         actions: ['sqs:GetQueueAttributes'],

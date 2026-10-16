@@ -29,16 +29,18 @@ import {
   modoLocal,
 } from '../auth/sesion';
 import type { MeResponseDtoOutput } from '../api/generated/model';
-import { esSinPermiso, useCatalogo, useIdentidad, useNinos } from './api';
+import { esSinPermiso, ordenarSalas, useCatalogo, useIdentidad, useNinos } from './api';
 import type { Formato, Nino } from './datos';
 import { FichaNino } from './FichaNino';
 import { Ingreso } from './Ingreso';
 import { Inicio } from './Inicio';
 import { MiSala } from './MiSala';
 import { MisNotas } from './MisNotas';
-import { NuevaNota } from './NuevaNota';
+import { useVistaConHistorial } from './historial';
+import { NuevaNota, RevisarCaptura } from './NuevaNota';
 import { PanelSalas } from './PanelSalas';
 import { useNotas } from './registrar';
+import { useSalidaNota } from './salida';
 import { colores } from './tema';
 
 /** Sala de la educadora: el token no la trae, así que se recuerda en el dispositivo. */
@@ -54,15 +56,20 @@ export const AVISO_SIN_JARDIN =
   'Tu cuenta no tiene un jardín o un rol asignado. Pide ayuda a quien administra la app.';
 
 /**
- * Pantalla del celular. El niño o niña elegido viaja solo en la vista `nueva` abierta desde su
- * ficha: no hay un «niño actual» global que Grabar de la barra pueda heredar.
+ * Pantalla del celular, guardada en el historial del navegador para que Atrás vuelva dentro de
+ * la app. El niño o niña elegido viaja solo en la vista `nueva` abierta desde su ficha: no hay
+ * un «niño actual» global que Grabar de la barra pueda heredar. `revisar` abre una nota
+ * «Sin revisar» desde «Mis notas».
  */
 type Vista =
   | { tipo: 'inicio' }
   | { tipo: 'notas' }
   | { tipo: 'sala' }
   | { tipo: 'ficha'; ninoId: string }
-  | { tipo: 'nueva'; formato: Formato; ninoId?: string };
+  | { tipo: 'nueva'; formato: Formato; ninoId?: string }
+  | { tipo: 'revisar'; capturaId: string };
+
+const INICIO: Vista = { tipo: 'inicio' };
 
 type EstadoSesion = 'verificando' | 'fuera' | 'dentro';
 
@@ -338,10 +345,23 @@ function AppConDatos({
   escritorio: boolean;
   onSalir: () => void;
 }) {
-  const salas = [...new Set(ninos.map((n) => n.sala))].sort();
+  const salas = ordenarSalas([...new Set(ninos.map((n) => n.sala))]);
   const guardada = leerSala();
   const salaPropia = guardada && salas.includes(guardada) ? guardada : (salas[0] ?? '');
-  const [vista, setVista] = useState<Vista>({ tipo: 'inicio' });
+  const salida = useSalidaNota();
+  const { vista, ir, volver } = useVistaConHistorial<Vista>({
+    clave: 'celular',
+    inicial: INICIO,
+    // En pantallas anchas el historial lo maneja el panel.
+    activo: !escritorio,
+    // Adelante no rearma una nota a medio hacer (volvería a abrir el micrófono).
+    restaurable: (v) => v.tipo !== 'nueva',
+    interceptar: () => {
+      if (!salida.hayEnCurso()) return false;
+      salida.pedir(() => volver());
+      return true;
+    },
+  });
   const [aviso, setAviso] = useState<string | null>(null);
   // Sala que se consulta en «Mi sala». Queda fuera de `Vista`: Grabar de la barra no la hereda.
   const [salaVista, setSalaVista] = useState(salaPropia);
@@ -349,7 +369,7 @@ function AppConDatos({
   const confirmadas = useNotas(ninos, { mias: 'true', estado: 'confirmada' });
 
   const ahora = new Date();
-  const nueva = (formato: Formato) => setVista({ tipo: 'nueva', formato });
+  const nueva = (formato: Formato) => ir({ tipo: 'nueva', formato });
   const alGuardar = (nino: Nino) => setAviso(`Nota guardada para ${nino.nombre}`);
 
   const avisoGuardado = (
@@ -386,7 +406,8 @@ function AppConDatos({
   let contenido;
   if (vista.tipo === 'nueva') {
     const { ninoId } = vista;
-    const volver = () => setVista(ninoId ? { tipo: 'ficha', ninoId } : { tipo: 'inicio' });
+    // Vuelve a donde se abrió la nota (la ficha, Inicio o la pestaña de la barra).
+    const salir = () => volver(ninoId ? { tipo: 'ficha', ninoId } : INICIO);
     contenido = (
       <NuevaNota
         formato={vista.formato}
@@ -394,10 +415,28 @@ function AppConDatos({
         // Desde la ficha puede venir un niño o niña de otra sala.
         ninoFijo={ninos.find((n) => n.id === ninoId)}
         catalogo={catalogo}
-        onCancelar={volver}
+        onCancelar={() => salida.pedir(salir)}
+        onBorrada={salir}
+        onEnCurso={salida.marcar}
         onGuardada={(nino) => {
           alGuardar(nino);
-          volver();
+          salir();
+        }}
+      />
+    );
+  } else if (vista.tipo === 'revisar') {
+    const salir = () => volver({ tipo: 'notas' });
+    contenido = (
+      <RevisarCaptura
+        capturaId={vista.capturaId}
+        ninos={ninos}
+        catalogo={catalogo}
+        onCancelar={() => salida.pedir(salir)}
+        onBorrada={salir}
+        onEnCurso={salida.marcar}
+        onGuardada={(nino) => {
+          alGuardar(nino);
+          salir();
         }}
       />
     );
@@ -409,8 +448,8 @@ function AppConDatos({
         <FichaNino
           nino={fichaDe}
           ahora={ahora}
-          onVolver={() => setVista({ tipo: 'sala' })}
-          onGrabar={() => setVista({ tipo: 'nueva', formato: 'audio', ninoId: fichaDe.id })}
+          onVolver={() => volver({ tipo: 'sala' })}
+          onGrabar={() => ir({ tipo: 'nueva', formato: 'audio', ninoId: fichaDe.id })}
         />
       );
     } else if (vista.tipo === 'sala' || vista.tipo === 'ficha') {
@@ -422,11 +461,17 @@ function AppConDatos({
           ahora={ahora}
           sala={salaVista}
           onCambiarSala={setSalaVista}
-          onAbrir={(ninoId) => setVista({ tipo: 'ficha', ninoId })}
+          onAbrir={(ninoId) => ir({ tipo: 'ficha', ninoId })}
         />
       );
     } else if (vista.tipo === 'notas') {
-      pantalla = <MisNotas ninos={ninos} ahora={ahora} />;
+      pantalla = (
+        <MisNotas
+          ninos={ninos}
+          ahora={ahora}
+          onRevisar={(capturaId) => ir({ tipo: 'revisar', capturaId })}
+        />
+      );
     } else {
       pantalla = (
         <Inicio
@@ -442,10 +487,10 @@ function AppConDatos({
         {pantalla}
         <BarraInferior
           activa={vista.tipo === 'ficha' ? 'sala' : vista.tipo}
-          onInicio={() => setVista({ tipo: 'inicio' })}
-          onSala={() => setVista({ tipo: 'sala' })}
+          onInicio={() => ir(INICIO)}
+          onSala={() => ir({ tipo: 'sala' })}
           onGrabar={() => nueva('audio')}
-          onNotas={() => setVista({ tipo: 'notas' })}
+          onNotas={() => ir({ tipo: 'notas' })}
         />
       </>
     );
@@ -455,6 +500,7 @@ function AppConDatos({
     <>
       <Marco>{contenido}</Marco>
       {avisoGuardado}
+      {salida.dialogo}
     </>
   );
 }

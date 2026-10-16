@@ -285,6 +285,13 @@ const handlersCapturas = [
     return HttpResponse.json(captura);
   }),
   http.get('*/capturas/:id', ({ params }) => HttpResponse.json(CAPTURAS.get(String(params['id'])))),
+  http.get('*/capturas/:id/archivo', ({ params }) =>
+    HttpResponse.json({
+      url: `https://s3.prueba/capturas/${String(params['id'])}`,
+      tipo: CAPTURAS.get(String(params['id']))?.formato === 'foto' ? 'image/jpeg' : 'audio/webm',
+      expiraEn: new Date(Date.now() + 300_000).toISOString(),
+    }),
+  ),
   http.post('*/capturas/:id/confirmacion', async ({ params, request }) => {
     const captura = CAPTURAS.get(String(params['id']))!;
     const cuerpo = (await request.json()) as {

@@ -106,6 +106,24 @@ export function etiquetaSala(sala: string): string {
   return letra ? `Sala ${letra}` : sala;
 }
 
+const ORDEN_NIVEL: Record<string, number> = { SC: 0, NM: 1, TR: 2 };
+
+/**
+ * Salas en el orden de las edades (Sala Cuna, Nivel Medio, Transición) y por número; las demás
+ * (`SG-A`) van después, por código.
+ */
+export function ordenarSalas(salas: string[]): string[] {
+  const clave = (sala: string) => {
+    const [, nivel, numero] = /^(SC|NM|TR)-0*(\d+)$/.exec(sala) ?? [];
+    return nivel ? [ORDEN_NIVEL[nivel]!, Number(numero)] : [3, 0];
+  };
+  return [...salas].sort((a, b) => {
+    const [na, xa] = clave(a);
+    const [nb, xb] = clave(b);
+    return na! - nb! || xa! - xb! || a.localeCompare(b);
+  });
+}
+
 /** Niños y niñas del jardín de quien usa la app (todas las salas). */
 export function useNinos() {
   return useQuery({

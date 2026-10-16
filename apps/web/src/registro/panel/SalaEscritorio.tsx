@@ -5,7 +5,7 @@ import ChevronRightRounded from '@mui/icons-material/ChevronRightRounded';
 import { etiquetaSala, useObservacionesDe } from '../api';
 import { areasSinNotas, DIAS_PERIODO, registrosDe, resumenAreas } from '../areas';
 import { NinoAvatar } from '../componentes';
-import type { Nino } from '../datos';
+import { NUCLEOS, type Nino } from '../datos';
 import { colores } from '../tema';
 import { ChipsSala } from './FiltrosPanel';
 import { BotonNuevaNota, TituloVista } from './TituloVista';
@@ -149,7 +149,7 @@ function TarjetaNino({
           </Box>
         ) : (
           <Box sx={{ mt: 0.5, fontSize: 14, fontWeight: 600, color: 'text.secondary' }}>
-            Notas en las 5 áreas
+            Notas en las {NUCLEOS.length} áreas
           </Box>
         )}
       </Box>

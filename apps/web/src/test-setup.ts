@@ -8,3 +8,6 @@ afterEach(cleanup);
 // jsdom no implementa las URLs de objetos que usa la vista previa del audio y la foto.
 URL.createObjectURL ??= () => 'blob:prueba';
 URL.revokeObjectURL ??= () => undefined;
+
+// jsdom no implementa el scroll; la navegación lleva cada pantalla nueva al inicio.
+window.scrollTo = () => undefined;

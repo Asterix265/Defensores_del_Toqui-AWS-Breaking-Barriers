@@ -40,8 +40,10 @@ export function TituloVista({
   children?: ReactNode;
 }) {
   return (
-    <Box sx={{ display: 'flex', alignItems: 'flex-end', gap: 3 }}>
-      <Box>
+    <Box
+      sx={{ display: 'flex', alignItems: 'flex-end', flexWrap: 'wrap', columnGap: 3, rowGap: 2 }}
+    >
+      <Box sx={{ minWidth: 0 }}>
         <Typography variant="h1" sx={{ fontSize: 32, lineHeight: '40px' }}>
           {titulo}
         </Typography>
@@ -49,7 +51,7 @@ export function TituloVista({
           {subtitulo}
         </Typography>
       </Box>
-      <Box sx={{ ml: 'auto', display: 'flex', gap: 1.5 }}>{children}</Box>
+      <Box sx={{ ml: 'auto', display: 'flex', flexWrap: 'wrap', gap: 1.5 }}>{children}</Box>
     </Box>
   );
 }

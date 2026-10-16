@@ -145,7 +145,14 @@ Las ejecuciones van de a una (`concurrency` a nivel del workflow): una pendiente
   - `/health` responde 200 aunque la API esté degradada: una API sin base solo la detecta el smoke, que no revierte. La reversión es `git revert` y push, o el despliegue local.
   - El smoke hace una llamada a Claude Opus 5 por despliegue.
 - **Desfase entre front y back:** Amplify publica en unos 2,5 min aunque la CI falle, y el back queda listo en unos 10 min. Mientras tanto, la web nueva puede hablarle a la API vieja, así que los cambios de contrato deben ser aditivos. Un push directo a `main` que solo toca la web o la documentación no corre la CI.
-- **Tiempos:** el target group da por sana la tarea nueva en unos 20 s (cada 10 s, 2 aciertos) y desconecta la vieja en 30 s (antes, unos 150 s y 300 s). La imagen de la API solo se reconstruye si cambian `apps/api`, `packages/shared` o los manifiestos de la raíz (`.dockerignore` como lista de inclusión). Sin caché de capas en la CI, se estiman 9–12 min desde el push hasta producción cuando cambia la API (sin medir).
+- **Tiempos:** el target group da por sana la tarea nueva en unos 20 s (cada 10 s, 2 aciertos) y desconecta la vieja en 30 s (antes, unos 150 s y 300 s). La imagen de la API solo se reconstruye si cambian `apps/api`, `packages/shared` o los manifiestos de la raíz (`.dockerignore` como lista de inclusión). Medido el 16-10-2026 (la CI, unos 3 min, va incluida en el total):
+
+  | Despliegue | Qué cambió | `ToquiApp` | Del push al final |
+  | --- | --- | --- | --- |
+  | Manual, antes de este cambio | API y Lambda | 287 s | unos 12–15 min |
+  | Automático (#27) | Imagen nueva de la API y target group | 225 s | unos 7 min |
+  | Automático (#28) | Nada en producción | 0 s | 4 min |
+  | Automático (#26) | Solo la Lambda | 21 s | unos 5 min |
 - **Limpieza:** apagar el workflow y destruir `ToquiCiCd` **antes** que los stacks de producción (`aws:prod:destroy` ya lo hace en ese orden). Si no, el siguiente push a `main` vuelve a crear todo, Aurora incluida.
 
 ## Pendiente
@@ -156,5 +163,4 @@ Las ejecuciones van de a una (`concurrency` a nivel del workflow): una pendiente
 - Avisos a la web (AppSync Events) y memoria y Knowledge Base (`cola-ia-y-amplify`, secciones 6 y 8).
 - Alerta de presupuesto en Billing → Budgets.
 - Dominio propio con certificado (opcional).
-- Desplegar `ToquiCiCd` y comprobar el primer despliegue automático (`despliegue-continuo`, tareas 2.4 y 2.5).
 - Destruir todo al terminar la hackatón: `gh workflow disable desplegar.yml`, luego `pnpm aws:prod:destroy` (incluye `ToquiCiCd`) y `pnpm aws:destroy`.

@@ -7,11 +7,13 @@ import { CabeceraPanel, type Seccion } from './panel/CabeceraPanel';
 import { FichaEscritorio } from './panel/FichaEscritorio';
 import { NotasSalas } from './panel/NotasSalas';
 import { SalaEscritorio } from './panel/SalaEscritorio';
+import { VistaJardin } from './panel/VistaJardin';
 
 /**
  * Vista de escritorio con las pestañas del celular: «Mi sala» (niños y niñas y su ficha) y
- * «Mis notas» (diseño 1e: notas de las salas y reporte). La sala elegida se comparte entre
- * ambas pestañas. «Nueva nota» solo viene con niño o niña cuando se abre desde su ficha.
+ * «Mis notas» (diseño 1e: notas de las salas y reporte), más «Vista general» con el estado de
+ * todas las salas (con la que parte la directora). La sala elegida se comparte entre las
+ * pestañas. «Nueva nota» solo viene con niño o niña cuando se abre desde su ficha.
  */
 export function PanelSalas({
   ninos,
@@ -20,6 +22,7 @@ export function PanelSalas({
   catalogo,
   ahora,
   nombre,
+  directora = false,
   onGuardada,
   onSalir,
 }: {
@@ -29,11 +32,13 @@ export function PanelSalas({
   catalogo: { niveles: NivelRuta[]; manifestaciones: Manifestacion[] };
   ahora: Date;
   nombre: string;
+  /** La directora parte en «Vista general». */
+  directora?: boolean;
   onGuardada: (nino: Nino) => void;
   /** Pide cerrar sesión; la confirmación la muestra quien llama. */
   onSalir?: () => void;
 }) {
-  const [seccion, setSeccion] = useState<Seccion>('notas');
+  const [seccion, setSeccion] = useState<Seccion>(directora ? 'jardin' : 'notas');
   const [sala, setSala] = useState<string | null>(null);
   const [ninoAbierto, setNinoAbierto] = useState<string | null>(null);
   const [nueva, setNueva] = useState<{ ninoId?: string } | null>(null);
@@ -46,7 +51,19 @@ export function PanelSalas({
   const ficha = seccion === 'sala' ? ninos.find((n) => n.id === ninoAbierto) : undefined;
 
   let contenido;
-  if (seccion === 'notas') {
+  if (seccion === 'jardin') {
+    contenido = (
+      <VistaJardin
+        ninos={ninos}
+        salas={salas}
+        ahora={ahora}
+        onAbrirSala={(s) => {
+          setSala(s);
+          cambiarSeccion('sala');
+        }}
+      />
+    );
+  } else if (seccion === 'notas') {
     contenido = (
       <NotasSalas
         ninos={ninos}
@@ -61,6 +78,7 @@ export function PanelSalas({
     contenido = (
       <FichaEscritorio
         nino={ficha}
+        catalogo={catalogo}
         salaPropia={salaPropia}
         ahora={ahora}
         onVolver={() => setNinoAbierto(null)}

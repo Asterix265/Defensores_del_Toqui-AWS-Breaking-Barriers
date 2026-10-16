@@ -21,12 +21,14 @@ import type {
   NinoDtoOutput,
   NivelRutaDtoOutput,
   ObservacionTrayectoriaOutput,
+  TrayectoriaResponseDtoOutput,
 } from '../api/generated/model';
 import type { Nucleo, Nino } from './datos';
 
 export type Manifestacion = ManifestacionDtoOutput & { nucleo: Nucleo };
 export type NivelRuta = NivelRutaDtoOutput;
 export type ObservacionApi = ObservacionTrayectoriaOutput;
+export type TrayectoriaApi = TrayectoriaResponseDtoOutput;
 
 /** Error HTTP de la API, con el código para distinguir 403 de una caída. */
 export class ErrorApi extends Error {
@@ -155,17 +157,30 @@ function opcionesTrayectoria(idNino: string) {
     queryKey: getObtenerTrayectoriaQueryKey(idNino, params),
     queryFn: ({ signal }: { signal: AbortSignal }) =>
       datos(obtenerTrayectoria(idNino, params, { signal })),
-    select: (t: { observaciones: ObservacionApi[] }) => t.observaciones,
     staleTime: 60_000,
   };
 }
 
+const soloObservaciones = (t: TrayectoriaApi) => t.observaciones;
+
 /** Observaciones registradas del niño o niña en los últimos `ANIOS_HISTORIAL` años. */
 export function useObservaciones(idNino: string) {
-  return useQuery(opcionesTrayectoria(idNino));
+  return useQuery({ ...opcionesTrayectoria(idNino), select: soloObservaciones });
 }
 
 /** Observaciones de varios niños o niñas a la vez, en el mismo orden que `ids`. */
 export function useObservacionesDe(ids: string[]) {
+  return useQueries({
+    queries: ids.map((id) => ({ ...opcionesTrayectoria(id), select: soloObservaciones })),
+  });
+}
+
+/** Trayectoria completa (valoraciones por núcleo y observaciones), en el mismo orden que `ids`. */
+export function useTrayectoriasDe(ids: string[]) {
   return useQueries({ queries: ids.map(opcionesTrayectoria) });
+}
+
+/** Trayectoria completa de un niño o niña. */
+export function useTrayectoria(idNino: string) {
+  return useQuery(opcionesTrayectoria(idNino));
 }

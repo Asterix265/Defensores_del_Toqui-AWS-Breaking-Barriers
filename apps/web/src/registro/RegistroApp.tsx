@@ -269,6 +269,7 @@ function AppSesion({ salir }: { salir: (motivo: string | null) => void }) {
     pantalla = (
       <AppConDatos
         nombre={nombreVisible(identidad.data)}
+        directora={identidad.data.grupo === 'directora'}
         ninos={ninos.data}
         catalogo={{ niveles: catalogo.niveles, manifestaciones: catalogo.manifestaciones }}
         escritorio={escritorio}
@@ -327,12 +328,14 @@ function Estado({
 
 function AppConDatos({
   nombre,
+  directora,
   ninos,
   catalogo,
   escritorio,
   onSalir,
 }: {
   nombre: string;
+  directora: boolean;
   ninos: Nino[];
   catalogo: ComponentProps<typeof NuevaNota>['catalogo'];
   escritorio: boolean;
@@ -375,6 +378,7 @@ function AppConDatos({
           catalogo={catalogo}
           ahora={ahora}
           nombre={nombre}
+          directora={directora}
           onGuardada={alGuardar}
           onSalir={onSalir}
         />
@@ -409,6 +413,7 @@ function AppConDatos({
         <FichaNino
           nino={fichaDe}
           ahora={ahora}
+          manifestaciones={catalogo.manifestaciones}
           onVolver={() => setVista({ tipo: 'sala' })}
           onGrabar={() => setVista({ tipo: 'nueva', formato: 'audio', ninoId: fichaDe.id })}
         />

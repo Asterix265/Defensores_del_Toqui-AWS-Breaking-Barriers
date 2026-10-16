@@ -9,19 +9,21 @@ import Tab from '@mui/material/Tab';
 import Tabs from '@mui/material/Tabs';
 import Typography from '@mui/material/Typography';
 import EventNoteRounded from '@mui/icons-material/EventNoteRounded';
+import DashboardRounded from '@mui/icons-material/DashboardRounded';
 import ExpandMoreRounded from '@mui/icons-material/ExpandMoreRounded';
 import GroupsRounded from '@mui/icons-material/GroupsRounded';
 import LogoutRounded from '@mui/icons-material/LogoutRounded';
 
-export type Seccion = 'sala' | 'notas';
+export type Seccion = 'jardin' | 'sala' | 'notas';
 
 function iniciales(nombre: string): string {
   return nombre.slice(0, 2).toUpperCase();
 }
 
 /**
- * Barra superior del panel: institución y jardín, pestañas «Mi sala» · «Mis notas» (los mismos
- * destinos e íconos de la barra del celular) y educadora con sesión, cuyo menú permite salir.
+ * Barra superior del panel: institución y jardín, pestañas «Vista general» (todas las salas),
+ * «Mi sala» · «Mis notas» (los mismos destinos e íconos de la barra del celular) y educadora con
+ * sesión, cuyo menú permite salir.
  */
 export function CabeceraPanel({
   nombre,
@@ -60,6 +62,12 @@ export function CabeceraPanel({
         aria-label="Secciones"
         sx={{ ml: 5, alignSelf: 'stretch', '& .MuiTabs-flexContainer': { height: '100%' } }}
       >
+        <TabSeccion
+          value="jardin"
+          etiqueta="Vista general"
+          Icono={DashboardRounded}
+          onSeccion={onSeccion}
+        />
         <TabSeccion value="sala" etiqueta="Mi sala" Icono={GroupsRounded} onSeccion={onSeccion} />
         <TabSeccion
           value="notas"

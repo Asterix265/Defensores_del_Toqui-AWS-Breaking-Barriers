@@ -17,7 +17,8 @@ Estado: **existe** (probado en local), **simulado** (funciona con IA `fake` o co
 | Varios niños o niñas | Una captura que menciona a varios se divide en **una nota por niño o niña**; cada una es evidencia por separado | Equipo; el FAQ dice que el post-it es individual |
 | Nivel de la ficha | Lo **calcula el sistema** con las observaciones confirmadas, por núcleo | Equipo; el FAQ dice que el nivel es por núcleo |
 | Núcleos y niveles | 8 núcleos con 8 niveles cada uno (por ejemplo, Identidad y Autonomía). El modelo de datos se está cambiando | Equipo; FAQ; dataset por núcleos |
-| Alertas de rezago | Pendiente, según el tiempo | Equipo |
+| Alertas de rezago | En la web, «para revisar»: 2 niveles o más bajo la mediana de su sala y nivel educativo en un núcleo, con al menos 3 comparables. Estimación pedagógica, no diagnóstico | Equipo; FAQ (rezago relativo) |
+| Nivel general | **Promedio simple** de los núcleos con nivel: todos pesan igual y los núcleos sin registros no cuentan. El de la sala es el promedio simple de los niños y niñas con nivel. No hay pesos por núcleo ni es una ponderación clínica | Equipo (decisión del 16-10-2026); FAQ (H4.4) |
 
 Núcleos del dataset por núcleos: Identidad y Autonomía (IA), Convivencia y Ciudadanía (CC), Corporalidad y Movimiento (CM), Lenguaje Verbal (LV), Lenguajes Artísticos (LA), Exploración del Entorno Natural (EN), Comprensión del Entorno Sociocultural (ES) y Pensamiento Matemático (PM). Niveles educativos: Sala Cuna (0–24 meses), Nivel Medio (24–48) y Transición (48–72). Solo la rúbrica IA viene de Integra; las otras siete son propuestas sintéticas.
 
@@ -36,7 +37,7 @@ Prioridad: **Demo** (mejora lo que se muestra antes de las 10:15), **Pitch** (se
 - Estado: existe (selector de sala). Prioridad: Demo.
 
 **H1.3** Como directora, quiero ver todas las salas de mi jardín y sus notas, sin registrar.
-- Estado: existe para consultar; registrar es solo de `educadora`, lo que coincide con la decisión. Prioridad: Demo.
+- Estado: existe para consultar; registrar es solo de `educadora`, lo que coincide con la decisión. En escritorio, la directora parte en «Vista general»: una fila por sala con niños y niñas, edades, nivel promedio simple, cuántos quedan para revisar, sin nivel y notas de 7 días, y descarga CSV. Prioridad: Demo.
 
 ### 2. Captura
 
@@ -80,7 +81,8 @@ Prioridad: **Demo** (mejora lo que se muestra antes de las 10:15), **Pitch** (se
 - Estado: existe parcialmente (`GET /ninos/:id/trayectoria`). Prioridad: Demo.
 
 **H4.4** Como tía, quiero un nivel general del niño o niña (promedio de los núcleos, según el FAQ).
-- Prioridad: Futuro.
+- Criterio: promedio simple de los núcleos con nivel, con igual peso (ver «Decisiones»), rotulado «promedio simple» en la interfaz y en el CSV (`nivel_promedio_simple`).
+- Estado: existe en las tarjetas de «Mi sala» en escritorio (`apps/web/src/registro/niveles.ts`). El nivel de cada núcleo sale de la valoración más reciente con nivel o, sin ella, de la observación más reciente del núcleo: es una regla provisional mientras se decide H4.2. La ficha sigue sin mostrar niveles. Prioridad: Demo.
 
 ### 5. Sala y jardín
 
@@ -88,10 +90,10 @@ Prioridad: **Demo** (mejora lo que se muestra antes de las 10:15), **Pitch** (se
 - Estado: hay un resumen por área de 30 días en la ficha; falta la vista de la sala (`definir-mvp-e1 5.4`, Persona E). Prioridad: Demo si alcanza.
 
 **H5.2** Como tía, quiero una alerta cuando un niño o niña queda por debajo de la mayoría de su sala en un núcleo. Rezago relativo según el FAQ: si 8 de 10 están en el nivel 5 y 2 en el nivel 2, se alerta por esos 2.
-- Estado: falta; pendiente según el tiempo. Prioridad: Pitch.
+- Estado: existe en «Mi sala» en escritorio: la tarjeta se resalta «para revisar» con los núcleos afectados y cada sala muestra sus métricas. Si no carga la trayectoria de algún niño o niña, la sala se marca con datos incompletos, el rezago no se calcula y el CSV queda bloqueado hasta reintentar. Prioridad: Demo.
 
 **H5.3** Como directora, quiero comparar salas equivalentes de mi jardín (por ejemplo, las de nivel medio) y ver cuál va más rezagada.
-- Estado: falta. Prioridad: Pitch.
+- Estado: parcial. «Vista general» muestra todas las salas lado a lado con sus métricas; falta filtrar por nivel educativo. Prioridad: Pitch.
 
 ### 6. Configuración y privacidad
 
@@ -99,6 +101,7 @@ Prioridad: **Demo** (mejora lo que se muestra antes de las 10:15), **Pitch** (se
 - Estado: en cambio. El modelo actual tiene 5 dominios y 9 niveles fijos, y la ruta cubre solo de 0 a 36 meses. Prioridad: Pitch (es el argumento de escalabilidad).
 
 **H6.2** Como institución, quiero cargar a futuro los «pasos a seguir» de cada nivel. Prioridad: Futuro.
+- Mientras tanto, la ficha muestra una retroalimentación por área a partir de la nota más reciente de la tía: la cita de lo que anotó, lo que evidencia y un próximo paso de la rúbrica que depende de esa nota (afianzar, completar o avanzar; `apps/web/src/registro/sugerencias.ts`). Es una sugerencia, no una evaluación, y no muestra niveles.
 
 **H6.3** Como apoderado, quiero que un audio, una foto o un video se usen solo para extraer la nota y después se borren.
 - Estado: S3 los borra a los 7 días, y el texto original se vacía de la base al mismo plazo. El FAQ pide borrar la grabación apenas se extrae la información. Prioridad: Pitch.

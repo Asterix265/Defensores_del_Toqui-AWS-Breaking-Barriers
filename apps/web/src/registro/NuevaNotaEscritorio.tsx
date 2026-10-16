@@ -47,6 +47,9 @@ export function NuevaNotaEscritorio({
             display: 'flex',
             flexDirection: 'column',
             overflow: 'hidden',
+            // El alto es fijo: la pantalla de cada paso (la revisión es la más larga) se desplaza
+            // dentro del diálogo; sin esto lo que no cabe queda cortado y no se alcanza a guardar.
+            '& > main': { overflowY: 'auto' },
           },
         },
       }}

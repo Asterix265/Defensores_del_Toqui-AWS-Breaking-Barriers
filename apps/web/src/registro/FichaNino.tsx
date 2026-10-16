@@ -7,11 +7,12 @@ import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import ChevronLeftRounded from '@mui/icons-material/ChevronLeftRounded';
 import MicRounded from '@mui/icons-material/MicRounded';
-import { useObservaciones } from './api';
+import { useObservaciones, type Manifestacion } from './api';
 import { DIAS_PERIODO, registrosDe, resumenAreas, type ResumenArea } from './areas';
 import { ChipArea, ICONO_NUCLEO, NinoAvatar, Pantalla } from './componentes';
 import { COLOR_NUCLEO, ETIQUETA_NUCLEO, type Nino } from './datos';
 import { diaCorto } from './formato';
+import { Retroalimentacion } from './Retroalimentacion';
 import { colores } from './tema';
 
 const NOTAS_VISIBLES = 3;
@@ -25,17 +26,21 @@ const titulo = {
 /**
  * Ficha del niño o niña (diseño B, «áreas primero»): registros por área en los últimos 30 días,
  * con las áreas sin registros primero como sugerencia de observación, y sus últimos registros.
- * Las observaciones vienen de la API: las del dataset y las confirmadas en la app.
+ * Las observaciones vienen de la API: las del dataset y las confirmadas en la app. Al final, la
+ * retroalimentación con un próximo paso por área según lo anotado.
  * No muestra niveles ni comparaciones con la edad: cuenta registros, no logros.
  */
 export function FichaNino({
   nino,
   ahora,
+  manifestaciones,
   onVolver,
   onGrabar,
 }: {
   nino: Nino;
   ahora: Date;
+  /** Catálogo de la rúbrica, para sugerir el próximo paso de cada área. */
+  manifestaciones: Manifestacion[];
   onVolver: () => void;
   /** Graba una nota ya asociada a este niño o niña. */
   onGrabar: () => void;
@@ -90,6 +95,9 @@ export function FichaNino({
           ahora={ahora}
           sinNotas="Presiona el micrófono para registrar la primera."
         />
+      </Box>
+      <Box sx={{ px: 2, pb: 3 }}>
+        <Retroalimentacion nino={nino} manifestaciones={manifestaciones} ahora={ahora} />
       </Box>
     </Pantalla>
   );

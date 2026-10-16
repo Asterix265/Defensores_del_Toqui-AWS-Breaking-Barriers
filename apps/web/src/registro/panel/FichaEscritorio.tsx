@@ -1,25 +1,30 @@
 import Box from '@mui/material/Box';
+import Stack from '@mui/material/Stack';
 import ButtonBase from '@mui/material/ButtonBase';
 import Typography from '@mui/material/Typography';
 import ChevronLeftRounded from '@mui/icons-material/ChevronLeftRounded';
-import { etiquetaSala } from '../api';
+import { etiquetaSala, type Manifestacion, type NivelRuta } from '../api';
 import { NinoAvatar } from '../componentes';
 import type { Nino } from '../datos';
 import { AreasNino, UltimasNotas } from '../FichaNino';
+import { Retroalimentacion } from '../Retroalimentacion';
 import { BotonNuevaNota } from './TituloVista';
 
 /**
  * Ficha del niño o niña en escritorio: el mismo contenido del celular (áreas en 30 días y
- * últimas notas) en dos columnas. No muestra niveles ni comparaciones con la edad.
+ * últimas notas) en dos columnas, con la retroalimentación por área bajo las áreas. No muestra
+ * niveles ni comparaciones con la edad.
  */
 export function FichaEscritorio({
   nino,
+  catalogo,
   salaPropia,
   ahora,
   onVolver,
   onNuevaNota,
 }: {
   nino: Nino;
+  catalogo: { niveles: NivelRuta[]; manifestaciones: Manifestacion[] };
   salaPropia: string;
   ahora: Date;
   onVolver: () => void;
@@ -70,7 +75,10 @@ export function FichaEscritorio({
           gap: 4,
         }}
       >
-        <AreasNino nino={nino} ahora={ahora} />
+        <Stack sx={{ gap: 4 }}>
+          <AreasNino nino={nino} ahora={ahora} />
+          <Retroalimentacion nino={nino} manifestaciones={catalogo.manifestaciones} ahora={ahora} />
+        </Stack>
         <UltimasNotas
           key={nino.id}
           nino={nino}

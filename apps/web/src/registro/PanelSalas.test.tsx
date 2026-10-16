@@ -1,5 +1,6 @@
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
+import { HttpResponse, http } from 'msw';
 import { aNino, type Manifestacion } from './api';
 import { PanelSalas } from './PanelSalas';
 import {
@@ -26,7 +27,7 @@ const ninos = NINOS.map(aNino);
 const catalogo = { niveles: NIVELES, manifestaciones: MANIFESTACIONES as Manifestacion[] };
 
 /** Tres notas confirmadas en la API: dos de los últimos 7 días (Salas A y B) y una de hace 9. */
-function renderizar() {
+function renderizar({ directora = false } = {}) {
   sembrarConfirmada('NINO-T001', 'Señaló el gato del cuento, con calma.', 'MAN-L07-LV-01', 0);
   sembrarConfirmada('NINO-T004', 'Subió la rampa sin ayuda.', 'MAN-NM-L08-CM-01', 1);
   sembrarConfirmada('NINO-T002', 'Dijo «agua» y apuntó a la botella.', 'MAN-L07-LV-01', 9);
@@ -38,6 +39,7 @@ function renderizar() {
       catalogo={catalogo}
       ahora={new Date()}
       nombre="Claudia"
+      directora={directora}
       onGuardada={() => undefined}
     />,
   );
@@ -62,6 +64,84 @@ describe('PanelSalas', () => {
     expect(filas).toHaveLength(1);
     expect(within(filas[0]!).getByText('Vicente P.')).toBeInTheDocument();
     expect(screen.getByText('Últimos 7 días · 1 nota')).toBeInTheDocument();
+  });
+});
+
+describe('Vista general del jardín', () => {
+  it('la directora parte en la vista general con todas las salas y sus métricas', async () => {
+    renderizar({ directora: true });
+    expect(screen.getByRole('tab', { name: 'Vista general' })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    );
+    expect(screen.getByRole('heading', { name: 'Vista general del jardín' })).toBeInTheDocument();
+    const tabla = screen.getByRole('table', { name: 'Estado de las salas' });
+    const filas = within(tabla).getAllByRole('row').slice(1);
+    expect(filas).toHaveLength(2);
+    expect(filas[0]).toHaveTextContent('Sala A');
+    expect(filas[0]).toHaveTextContent('20–20 meses');
+    // Martina y Benjamín tienen notas de nivel 7; Tomás no tiene registros.
+    await waitFor(() => expect(filas[0]).toHaveTextContent('7'));
+    await waitFor(() => expect(boton('Descargar CSV')).toBeEnabled());
+  });
+
+  it('abre la sala elegida en Mi sala', () => {
+    renderizar({ directora: true });
+    fireEvent.click(boton('Ver Sala B'));
+    expect(screen.getByRole('tab', { name: 'Mi sala' })).toHaveAttribute('aria-selected', 'true');
+    expect(boton(/Sala B/)).toHaveAttribute('aria-pressed', 'true');
+    expect(boton(/Vicente/)).toBeInTheDocument();
+  });
+});
+
+describe('Datos incompletos', () => {
+  /** La trayectoria de Tomás (Sala A) falla hasta que se llame a `sanar`. */
+  function fallaTomas() {
+    let falla = true;
+    servidor.use(
+      http.get('*/ninos/NINO-T003/trayectoria', () =>
+        falla ? HttpResponse.json({ message: 'caída' }, { status: 500 }) : undefined,
+      ),
+    );
+    return () => {
+      falla = false;
+    };
+  }
+
+  it('la vista general marca la sala incompleta, no calcula su rezago y bloquea el CSV', async () => {
+    const sanar = fallaTomas();
+    renderizar({ directora: true });
+    expect(await screen.findByText(/Datos incompletos: no se pudieron cargar/)).toHaveTextContent(
+      'los registros de 1 niño o niña',
+    );
+    const filas = within(screen.getByRole('table', { name: 'Estado de las salas' }))
+      .getAllByRole('row')
+      .slice(1);
+    expect(filas[0]).toHaveTextContent('Datos incompletos: 1 sin cargar');
+    expect(filas[0]).toHaveTextContent('Sin calcular');
+    expect(filas[0]).toHaveTextContent('7 (parcial)');
+    // Sala B cargó completa.
+    expect(filas[1]).not.toHaveTextContent('parcial');
+    expect(boton('Descargar CSV')).toBeDisabled();
+
+    sanar();
+    fireEvent.click(boton('Reintentar'));
+    await waitFor(() => expect(boton('Descargar CSV')).toBeEnabled());
+    expect(screen.queryByText(/Datos incompletos/)).not.toBeInTheDocument();
+    expect(filas[0]).not.toHaveTextContent('Sin calcular');
+  });
+
+  it('Mi sala marca a quien no cargó y bloquea el CSV', async () => {
+    fallaTomas();
+    renderizar();
+    fireEvent.click(screen.getByRole('tab', { name: 'Mi sala' }));
+    await waitFor(() =>
+      expect(boton(/Tomás/)).toHaveTextContent('No se pudieron cargar sus registros'),
+    );
+    expect(boton(/Martina/)).toHaveTextContent('Nivel prom. simple 7');
+    const salaA = screen.getByRole('region', { name: 'Sala A' });
+    expect(within(salaA).getByText('Sin calcular')).toBeInTheDocument();
+    expect(boton('Descargar CSV')).toBeDisabled();
   });
 });
 
@@ -92,6 +172,9 @@ describe('Nueva nota en PC', () => {
 
     expect(await screen.findByText('Esto leímos en tu post-it')).toBeInTheDocument();
     expect(screen.getByRole('alert')).toHaveTextContent('Lectura de la foto: no implementado.');
+    // El diálogo tiene alto fijo: la revisión se desplaza dentro de él para llegar a «Está bien».
+    const revision = within(screen.getByRole('dialog')).getByRole('main');
+    expect(getComputedStyle(revision).overflowY).toBe('auto');
     fireEvent.click(boton('Está bien'));
 
     expect(await screen.findByText('Últimos 7 días · 3 notas')).toBeInTheDocument();
@@ -157,6 +240,13 @@ describe('Pestañas de escritorio', () => {
     expect(grupos).toEqual(['Sala A', 'Sala B']);
     expect(await screen.findByText('4 áreas sin notas')).toBeInTheDocument();
     expect(boton(/Martina/)).toHaveTextContent('4 áreas sin notas');
+    // Nivel promedio simple de lo registrado (las notas de prueba son de nivel 7).
+    expect(boton(/Martina/)).toHaveTextContent('Nivel prom. simple 7');
+    expect(boton(/Tomás/)).not.toHaveTextContent('Nivel prom.');
+    expect(
+      screen.getByText(/Nivel promedio simple: .*todos con el mismo peso/),
+    ).toBeInTheDocument();
+    expect(boton('Descargar CSV')).toBeInTheDocument();
   });
 
   it('filtra Mi sala y comparte la sala con Mis notas', async () => {
@@ -182,6 +272,10 @@ describe('Pestañas de escritorio', () => {
     const regiones = screen.getAllByRole('region').map((r) => r.getAttribute('aria-label'));
     expect(regiones[0]).toBe('Convivencia');
     expect(screen.queryByText(/nivel|rezago/i)).not.toBeInTheDocument();
+    // Retroalimentación: un próximo paso por área según lo anotado (aquí, el tramo siguiente).
+    const retro = screen.getByRole('region', { name: 'Retroalimentación' });
+    expect(within(retro).getByText(/Señaló el gato del cuento/)).toBeInTheDocument();
+    expect(within(retro).getAllByText(/«Prueba LV 8»/)).toHaveLength(1);
 
     // 4 observaciones del dataset + 1 confirmada en la app.
     expect(screen.getAllByRole('article')).toHaveLength(3);

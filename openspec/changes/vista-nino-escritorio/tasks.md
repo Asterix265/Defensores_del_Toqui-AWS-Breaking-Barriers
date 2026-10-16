@@ -20,6 +20,14 @@
 - [x] 4.1 Actualizar el README («La web abre…») para describir las pestañas de escritorio.
 - [ ] 4.2 Correr `pnpm lint`, `pnpm format:check`, `pnpm --filter @toqui/web typecheck`, `pnpm --filter @toqui/web test` y `pnpm --filter @toqui/web build` sin errores, y revisar en el navegador a 1280 px y a 900 px las dos pestañas y la ficha.
 
+## 5. Vista general, métricas por sala y retroalimentación
+
+- [x] 5.1 Agregar la pestaña «Vista general» (inicial para `directora`; `educadora` sigue partiendo en «Mis notas») con una fila por sala: niños y niñas, edades, nivel promedio simple, para revisar, sin nivel y notas de 7 días. Verificar con pruebas de «Vista inicial de la directora» y «Abrir una sala desde la vista general».
+- [x] 5.2 Mostrar en «Mi sala» el nivel promedio simple (núcleos con nivel, igual peso) y las métricas de cada sala, y resaltar «para revisar» por rezago relativo. Verificar con pruebas de «Nivel promedio simple» y de `niveles.test.ts`.
+- [x] 5.3 «Descargar CSV» en «Mi sala» y «Vista general», con `nivel_promedio_simple`, bloqueado con datos incompletos. Verificar con la prueba de «Trayectoria que no carga».
+- [x] 5.4 Retroalimentación por área en la ficha según la nota más reciente, sin niveles. Verificar con `sugerencias.test.ts` y «Abrir la ficha».
+- [x] 5.5 Validar con corepack. Resultado del 16-10-2026: `corepack pnpm lint`, `corepack pnpm typecheck`, `corepack pnpm build` y `corepack pnpm format:check` sin errores. En `corepack pnpm test`, `apps/web` pasa 13 archivos y 100 pruebas; el resto pasa salvo `apps/api/test/registro.e2e.spec.ts`, que necesita Postgres en `127.0.0.1:5432` (falla del entorno). Las del front también pasan solas con `corepack pnpm --filter @toqui/web test`. Con varias corridas de pruebas en paralelo en la misma máquina aparecen timeouts de 5 s, también en `main`.
+
 ## Workflow follow-up
 
 - Validar con `openspec validate vista-nino-escritorio --strict --no-interactive`.

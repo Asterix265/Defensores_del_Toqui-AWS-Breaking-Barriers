@@ -99,5 +99,5 @@ Proyecto nuevo, sin migración de datos. Despliegue: `cdk bootstrap` → `cdk de
 - Permisos IAM concretos de la cuenta del evento (Identity Center o usuarios) y quién tiene permisos de despliegue.
 - Modelos Claude y Nova habilitados y cuotas en la cuenta.
 - Existencia y límites de créditos o presupuesto de la cuenta del evento.
-- Ventana de edad del catálogo enviado al modelo (nivel esperado ±1 o ±2) según los resultados de la evaluación.
+- ~~Ventana de edad del catálogo enviado al modelo (nivel esperado ±1 o ±2)~~. Resuelta el 15-10-2026 en `cola-ia-y-amplify` (D3): se envía el catálogo completo, sin ventana.
 - Supuestos para proyectar el tiempo semanal (observaciones por niño y semana, tamaño del grupo).

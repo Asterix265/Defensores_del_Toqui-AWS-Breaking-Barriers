@@ -16,6 +16,7 @@ import type {
 } from '../model';
 
 import {
+  getAvisarSubidaResponseMock,
   getConfirmarCapturaResponseMock,
   getCrearCapturaResponseMock,
   getDescartarCapturaResponseMock,
@@ -27,6 +28,7 @@ import {
 export {
   getCrearCapturaResponseMock,
   getListarCapturasResponseMock,
+  getAvisarSubidaResponseMock,
   getObtenerCapturaResponseMock,
   getConfirmarCapturaResponseMock,
   getDescartarCapturaResponseMock,
@@ -74,6 +76,30 @@ export const getListarCapturasMockHandler = (
             ? await overrideResponse(info)
             : overrideResponse
           : getListarCapturasResponseMock(),
+        { status: 200 },
+      );
+    },
+    options,
+  );
+};
+
+export const getAvisarSubidaMockHandler = (
+  overrideResponse?:
+    | CapturaDetalleDtoOutput
+    | ((
+        info: Parameters<Parameters<typeof http.post>[1]>[0],
+      ) => Promise<CapturaDetalleDtoOutput> | CapturaDetalleDtoOutput),
+  options?: RequestHandlerOptions,
+) => {
+  return http.post(
+    '*/capturas/:id/subida',
+    async (info: Parameters<Parameters<typeof http.post>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === 'function'
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getAvisarSubidaResponseMock(),
         { status: 200 },
       );
     },
@@ -179,6 +205,7 @@ export const getObtenerArchivoCapturaMockHandler = (
 export const getCapturasMock = () => [
   getCrearCapturaMockHandler(),
   getListarCapturasMockHandler(),
+  getAvisarSubidaMockHandler(),
   getObtenerCapturaMockHandler(),
   getConfirmarCapturaMockHandler(),
   getDescartarCapturaMockHandler(),

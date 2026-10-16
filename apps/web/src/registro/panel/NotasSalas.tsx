@@ -1,22 +1,29 @@
 import { useState } from 'react';
+import Alert from '@mui/material/Alert';
 import Button from '@mui/material/Button';
 import DownloadRounded from '@mui/icons-material/DownloadRounded';
-import { NINOS, type Nota } from '../datos';
+import type { Nino } from '../datos';
+import { useNotas, type NotaGuardada } from '../registrar';
 import { descargarCsv, notasACsv } from '../reporte';
 import { FiltrosPanel } from './FiltrosPanel';
 import { ETIQUETA_PERIODO, desde, type Periodo } from './periodo';
 import { TablaNotas } from './TablaNotas';
 import { BotonNuevaNota, TituloVista } from './TituloVista';
 
-/** Pestaña «Mis notas» (diseño 1e): notas de las salas, periodo y reporte CSV. */
+/**
+ * Pestaña «Mis notas» (diseño 1e): notas confirmadas de las salas, guardadas en la API, con
+ * periodo y reporte CSV. Son las observaciones que quedan en el registro del jardín.
+ */
 export function NotasSalas({
-  notas,
+  ninos,
+  salas,
   ahora,
   sala,
   onSala,
   onNuevaNota,
 }: {
-  notas: Nota[];
+  ninos: Nino[];
+  salas: string[];
   ahora: Date;
   sala: string | null;
   onSala: (sala: string | null) => void;
@@ -24,11 +31,12 @@ export function NotasSalas({
 }) {
   const [periodo, setPeriodo] = useState<Periodo>('7dias');
 
+  const consulta = useNotas(ninos, { estado: 'confirmada' });
   const limite = desde(periodo, ahora);
-  const delPeriodo = notas
+  const delPeriodo = (consulta.data ?? [])
     .filter((n) => !limite || n.creada >= limite)
     .sort((a, b) => b.creada.getTime() - a.creada.getTime());
-  const salaDe = (nota: Nota) => NINOS.find((n) => n.id === nota.ninoId)?.sala;
+  const salaDe = (nota: NotaGuardada) => nota.nino.sala;
   const visibles = sala ? delPeriodo.filter((n) => salaDe(n) === sala) : delPeriodo;
 
   const descargar = () => {
@@ -57,6 +65,7 @@ export function NotasSalas({
       </TituloVista>
 
       <FiltrosPanel
+        salas={salas}
         sala={sala}
         onSala={onSala}
         cantidadPorSala={(s) => delPeriodo.filter((n) => salaDe(n) === s).length}
@@ -64,6 +73,11 @@ export function NotasSalas({
         onPeriodo={setPeriodo}
       />
 
+      {consulta.isError && (
+        <Alert severity="error" sx={{ mt: 2.5, borderRadius: '14px' }}>
+          No se pudieron cargar las notas. Revisa que la API esté levantada.
+        </Alert>
+      )}
       <TablaNotas notas={visibles} ahora={ahora} />
     </>
   );

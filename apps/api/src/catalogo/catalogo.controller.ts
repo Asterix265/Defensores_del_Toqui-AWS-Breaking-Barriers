@@ -6,6 +6,7 @@ import {
   ManifestacionSchema,
   NinoSchema,
   NinosQuerySchema,
+  NivelRutaSchema,
   TrayectoriaQuerySchema,
   TrayectoriaResponseSchema,
 } from '@toqui/shared';
@@ -16,6 +17,7 @@ import { CatalogoService } from './catalogo.service';
 class NinoDto extends createZodDto(NinoSchema) {}
 class NinosQueryDto extends createZodDto(NinosQuerySchema) {}
 class ManifestacionDto extends createZodDto(ManifestacionSchema) {}
+class NivelRutaDto extends createZodDto(NivelRutaSchema) {}
 class ManifestacionesQueryDto extends createZodDto(ManifestacionesQuerySchema) {}
 class TrayectoriaQueryDto extends createZodDto(TrayectoriaQuerySchema) {}
 class TrayectoriaResponseDto extends createZodDto(TrayectoriaResponseSchema) {}
@@ -62,5 +64,22 @@ export class ManifestacionesController {
   @ZodResponse({ status: 200, type: [ManifestacionDto] })
   listar(@Query() query: ManifestacionesQueryDto) {
     return this.catalogo.manifestaciones(query);
+  }
+}
+
+@ApiTags('catalogo')
+@ApiBearerAuth()
+@Controller('niveles')
+export class NivelesController {
+  constructor(private readonly catalogo: CatalogoService) {}
+
+  @Get()
+  @ApiOperation({
+    operationId: 'listarNiveles',
+    summary: 'Niveles de la ruta sintética con su rango de edad en meses',
+  })
+  @ZodResponse({ status: 200, type: [NivelRutaDto] })
+  listar() {
+    return this.catalogo.niveles();
   }
 }

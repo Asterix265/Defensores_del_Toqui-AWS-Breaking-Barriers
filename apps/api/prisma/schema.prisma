@@ -221,6 +221,8 @@ model Captura {
   archivoTipo   String?        @map("archivo_tipo")
   estado        EstadoCaptura  @default(procesando)
   errorDetalle  String?        @map("error_detalle")
+  /// Cuándo se mandó a procesar (cola o inline); garantiza un solo envío por captura.
+  encoladaEn    DateTime?      @map("encolada_en")
   /// Día de registro en la zona horaria de la operación (America/Santiago).
   fecha         DateTime       @db.Date
   creadoEn      DateTime       @default(now()) @map("creado_en")
@@ -251,6 +253,8 @@ model Borrador {
   evidenciaInsuficiente Boolean  @map("evidencia_insuficiente")
   proveedor             String
   modelo                String?
+  /// Entrada procesada y estado de cada paso (ver `ProcesamientoSchema`); null en borradores antiguos.
+  procesamiento         Json?
   creadoEn              DateTime @default(now()) @map("creado_en")
 
   captura Captura @relation(fields: [idCaptura], references: [id])

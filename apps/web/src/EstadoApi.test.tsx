@@ -10,7 +10,7 @@ const server = setupServer(
     status: 'ok',
     version: '0.0.0',
     timestamp: '2026-10-14T00:00:00.000Z',
-    dependencies: { database: 'up' },
+    dependencies: { database: 'up', storage: 'up', queue: 'up' },
   }),
 );
 
@@ -25,6 +25,10 @@ describe('EstadoApi', () => {
         <EstadoApi />
       </QueryClientProvider>,
     );
-    expect(await screen.findByText('API operativa · base de datos conectada')).toBeInTheDocument();
+    expect(
+      await screen.findByText(
+        'API operativa · base de datos conectada · almacenamiento conectado · cola conectada',
+      ),
+    ).toBeInTheDocument();
   });
 });

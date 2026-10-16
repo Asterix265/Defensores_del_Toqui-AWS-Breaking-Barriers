@@ -1,24 +1,38 @@
-import { ETIQUETA_DOMINIO, NINOS, type Nota } from './datos';
+import { etiquetaSala } from './api';
+import { ETIQUETA_DOMINIO } from './datos';
+import type { NotaGuardada } from './registrar';
 
-const COLUMNAS = ['id_nota', 'fecha', 'sala', 'educadora', 'nino', 'formato', 'area', 'nota'];
+const COLUMNAS = [
+  'id_nota',
+  'fecha',
+  'sala',
+  'educadora',
+  'id_nino',
+  'nino',
+  'formato',
+  'nivel_estimado',
+  'areas',
+  'nota',
+];
 
 function celda(valor: string): string {
   return /[",\n;]/.test(valor) ? `"${valor.replace(/"/g, '""')}"` : valor;
 }
 
 /** Reporte CSV de las notas visibles en el panel. Solo contiene datos sintéticos de la demo. */
-export function notasACsv(notas: Nota[]): string {
+export function notasACsv(notas: NotaGuardada[]): string {
   const filas = notas.map((nota) => {
-    const nino = NINOS.find((n) => n.id === nota.ninoId);
     return [
       nota.id,
       nota.creada.toISOString(),
-      nino?.sala ?? '',
-      nota.educadora,
-      nino?.nombre ?? '',
+      etiquetaSala(nota.nino.sala),
+      nota.autor,
+      nota.nino.id,
+      nota.nino.nombreCompleto,
       nota.formato,
-      ETIQUETA_DOMINIO[nota.area],
-      nota.texto,
+      nota.nivel === null ? '' : String(nota.nivel),
+      nota.dominios.map((d) => ETIQUETA_DOMINIO[d]).join(' | '),
+      nota.texto ?? '',
     ];
   });
   return [COLUMNAS, ...filas].map((fila) => fila.map(celda).join(',')).join('\n');

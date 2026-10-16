@@ -202,6 +202,36 @@
         ]
       }
     },
+    "/niveles": {
+      "get": {
+        "operationId": "listarNiveles",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/NivelRutaDto_Output"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Niveles de la ruta sintética con su rango de edad en meses",
+        "tags": [
+          "catalogo"
+        ]
+      }
+    },
     "/capturas": {
       "post": {
         "operationId": "crearCaptura",
@@ -347,6 +377,42 @@
           }
         ],
         "summary": "Notas del jardín, con filtros por fecha, sala, niño, estado y autoría",
+        "tags": [
+          "capturas"
+        ]
+      }
+    },
+    "/capturas/{id}/subida": {
+      "post": {
+        "operationId": "avisarSubida",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CapturaDetalleDto_Output"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Avisa que el audio o la foto ya está en S3: lo comprueba y lo manda a procesar",
         "tags": [
           "capturas"
         ]
@@ -687,10 +753,26 @@
                   "up",
                   "down"
                 ]
+              },
+              "storage": {
+                "type": "string",
+                "enum": [
+                  "up",
+                  "down"
+                ]
+              },
+              "queue": {
+                "type": "string",
+                "enum": [
+                  "up",
+                  "down"
+                ]
               }
             },
             "required": [
-              "database"
+              "database",
+              "storage",
+              "queue"
             ],
             "additionalProperties": false
           }
@@ -736,6 +818,92 @@
           "sala",
           "fechaNacimiento",
           "edadMeses"
+        ],
+        "additionalProperties": false
+      },
+      "ObservacionTrayectoria_Output": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "fecha": {
+            "type": "string",
+            "format": "date",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+          },
+          "formato": {
+            "type": "string",
+            "enum": [
+              "texto",
+              "audio",
+              "foto",
+              "video"
+            ]
+          },
+          "origen": {
+            "type": "string",
+            "enum": [
+              "dataset",
+              "app"
+            ]
+          },
+          "nivelEstimado": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9
+          },
+          "notaBreve": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "manifestaciones": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "nivel": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 9
+                },
+                "dominio": {
+                  "type": "string",
+                  "enum": [
+                    "motor_grueso",
+                    "motor_fino",
+                    "lenguaje_comunicacion",
+                    "socioemocional",
+                    "cognitivo"
+                  ]
+                },
+                "textoObservable": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id",
+                "nivel",
+                "dominio",
+                "textoObservable"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "id",
+          "fecha",
+          "formato",
+          "origen",
+          "nivelEstimado",
+          "notaBreve",
+          "manifestaciones"
         ],
         "additionalProperties": false
       },
@@ -857,6 +1025,12 @@
               ],
               "additionalProperties": false
             }
+          },
+          "observaciones": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ObservacionTrayectoria_Output"
+            }
           }
         },
         "required": [
@@ -865,7 +1039,8 @@
           "hasta",
           "totalObservaciones",
           "evidenciaLimitada",
-          "dominios"
+          "dominios",
+          "observaciones"
         ],
         "additionalProperties": false
       },
@@ -899,6 +1074,36 @@
           "nivel",
           "dominio",
           "textoObservable"
+        ],
+        "additionalProperties": false
+      },
+      "NivelRutaDto_Output": {
+        "type": "object",
+        "properties": {
+          "nivel": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9
+          },
+          "nombre": {
+            "type": "string"
+          },
+          "edadMinMeses": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "edadMaxMeses": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "nivel",
+          "nombre",
+          "edadMinMeses",
+          "edadMaxMeses"
         ],
         "additionalProperties": false
       },
@@ -1007,6 +1212,16 @@
           },
           "proveedor": {
             "type": "string"
+          },
+          "procesamiento": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Procesamiento_Output"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "required": [
@@ -1014,7 +1229,8 @@
           "nivelSugerido",
           "evidenciaInsuficiente",
           "manifestaciones",
-          "proveedor"
+          "proveedor",
+          "procesamiento"
         ],
         "additionalProperties": false
       },
@@ -1064,6 +1280,90 @@
         "required": [
           "manifestacion",
           "cita"
+        ],
+        "additionalProperties": false
+      },
+      "Procesamiento_Output": {
+        "type": "object",
+        "properties": {
+          "simulado": {
+            "type": "boolean"
+          },
+          "entrada": {
+            "type": "object",
+            "properties": {
+              "formato": {
+                "type": "string",
+                "enum": [
+                  "texto",
+                  "audio",
+                  "foto"
+                ]
+              },
+              "tipoArchivo": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "bytes": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "claveS3": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "formato",
+              "tipoArchivo",
+              "bytes",
+              "claveS3"
+            ],
+            "additionalProperties": false
+          },
+          "pasos": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "paso": {
+                  "type": "string",
+                  "enum": [
+                    "transcripcion",
+                    "lectura_imagen",
+                    "extraccion"
+                  ]
+                },
+                "estado": {
+                  "type": "string",
+                  "enum": [
+                    "no_implementado",
+                    "simulado",
+                    "completado"
+                  ]
+                },
+                "detalle": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "paso",
+                "estado",
+                "detalle"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "simulado",
+          "entrada",
+          "pasos"
         ],
         "additionalProperties": false
       },
@@ -1234,105 +1534,6 @@
         ],
         "additionalProperties": false
       },
-      "CapturaResumen_Output": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid",
-            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-          },
-          "nino": {
-            "$ref": "#/components/schemas/NinoRef_Output"
-          },
-          "autor": {
-            "type": "string"
-          },
-          "formato": {
-            "type": "string",
-            "enum": [
-              "texto",
-              "audio",
-              "foto"
-            ]
-          },
-          "estado": {
-            "type": "string",
-            "enum": [
-              "procesando",
-              "borrador_listo",
-              "confirmada",
-              "descartada",
-              "error"
-            ]
-          },
-          "creadoEn": {
-            "type": "string",
-            "format": "date-time",
-            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
-          },
-          "extracto": {
-            "$ref": "#/components/schemas/TextoNulo_Output"
-          },
-          "dominios": {
-            "type": "array",
-            "items": {
-              "type": "string",
-              "enum": [
-                "motor_grueso",
-                "motor_fino",
-                "lenguaje_comunicacion",
-                "socioemocional",
-                "cognitivo"
-              ]
-            }
-          }
-        },
-        "required": [
-          "id",
-          "nino",
-          "autor",
-          "formato",
-          "estado",
-          "creadoEn",
-          "extracto",
-          "dominios"
-        ],
-        "additionalProperties": false
-      },
-      "ListarCapturasResponseDto_Output": {
-        "type": "object",
-        "properties": {
-          "items": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/CapturaResumen_Output"
-            }
-          },
-          "total": {
-            "type": "integer",
-            "minimum": -9007199254740991,
-            "maximum": 9007199254740991
-          },
-          "pagina": {
-            "type": "integer",
-            "minimum": -9007199254740991,
-            "maximum": 9007199254740991
-          },
-          "tamano": {
-            "type": "integer",
-            "minimum": -9007199254740991,
-            "maximum": 9007199254740991
-          }
-        },
-        "required": [
-          "items",
-          "total",
-          "pagina",
-          "tamano"
-        ],
-        "additionalProperties": false
-      },
       "CapturaDetalleDto_Output": {
         "type": "object",
         "properties": {
@@ -1415,6 +1616,118 @@
         ],
         "additionalProperties": false
       },
+      "CapturaResumen_Output": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "nino": {
+            "$ref": "#/components/schemas/NinoRef_Output"
+          },
+          "autor": {
+            "type": "string"
+          },
+          "formato": {
+            "type": "string",
+            "enum": [
+              "texto",
+              "audio",
+              "foto"
+            ]
+          },
+          "estado": {
+            "type": "string",
+            "enum": [
+              "procesando",
+              "borrador_listo",
+              "confirmada",
+              "descartada",
+              "error"
+            ]
+          },
+          "creadoEn": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+          },
+          "extracto": {
+            "$ref": "#/components/schemas/TextoNulo_Output"
+          },
+          "dominios": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "motor_grueso",
+                "motor_fino",
+                "lenguaje_comunicacion",
+                "socioemocional",
+                "cognitivo"
+              ]
+            }
+          },
+          "nivel": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "nino",
+          "autor",
+          "formato",
+          "estado",
+          "creadoEn",
+          "extracto",
+          "dominios",
+          "nivel"
+        ],
+        "additionalProperties": false
+      },
+      "ListarCapturasResponseDto_Output": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CapturaResumen_Output"
+            }
+          },
+          "total": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "pagina": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "tamano": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "pagina",
+          "tamano"
+        ],
+        "additionalProperties": false
+      },
       "ConfirmacionRequestDto": {
         "type": "object",
         "properties": {
@@ -1473,6 +1786,87 @@
         ],
         "additionalProperties": false
       },
+      "Procesamiento": {
+        "type": "object",
+        "properties": {
+          "simulado": {
+            "type": "boolean"
+          },
+          "entrada": {
+            "type": "object",
+            "properties": {
+              "formato": {
+                "type": "string",
+                "enum": [
+                  "texto",
+                  "audio",
+                  "foto"
+                ]
+              },
+              "tipoArchivo": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "bytes": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "claveS3": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "formato",
+              "tipoArchivo",
+              "bytes",
+              "claveS3"
+            ]
+          },
+          "pasos": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "paso": {
+                  "type": "string",
+                  "enum": [
+                    "transcripcion",
+                    "lectura_imagen",
+                    "extraccion"
+                  ]
+                },
+                "estado": {
+                  "type": "string",
+                  "enum": [
+                    "no_implementado",
+                    "simulado",
+                    "completado"
+                  ]
+                },
+                "detalle": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "paso",
+                "estado",
+                "detalle"
+              ]
+            }
+          }
+        },
+        "required": [
+          "simulado",
+          "entrada",
+          "pasos"
+        ]
+      },
       "BorradorEntranteDto": {
         "type": "object",
         "properties": {
@@ -1523,6 +1917,9 @@
           "modelo": {
             "type": "string",
             "minLength": 1
+          },
+          "procesamiento": {
+            "$ref": "#/components/schemas/Procesamiento"
           }
         },
         "required": [

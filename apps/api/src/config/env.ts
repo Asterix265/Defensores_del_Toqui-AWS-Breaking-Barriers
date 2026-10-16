@@ -16,10 +16,12 @@ const EnvSchema = z
     COGNITO_USER_POOL_ID: z.string().min(1).optional(),
     COGNITO_CLIENT_ID: z.string().min(1).optional(),
     /**
-     * `aws`: el pipeline (Step Functions) se dispara al llegar el objeto a `capturas/` y
-     * entrega el borrador por el endpoint interno. `inline`: los pasos corren en la API.
+     * `cola`: la API encola cada captura en SQS y la Lambda de proceso entrega el borrador por el
+     * endpoint interno (producción). `inline`: los pasos corren en la API con `IA_PROVIDER` (local).
      */
-    PIPELINE_MODE: z.enum(['aws', 'inline']).default('aws'),
+    PIPELINE_MODE: z.enum(['cola', 'inline']).default('inline'),
+    /** Cola de capturas (salida `ColaCapturasUrl` de ToquiApp). Obligatoria con `PIPELINE_MODE=cola`. */
+    SQS_URL_CAPTURAS: z.url().optional(),
     /** Proveedor de IA del modo inline. Por ahora solo `fake` (borradores deterministas). */
     IA_PROVIDER: z.enum(['fake']).default('fake'),
     /** Secreto compartido con el pipeline para el endpoint interno. Sin él, responde 503. */
@@ -40,6 +42,13 @@ const EnvSchema = z
         message: 'AUTH_MODE=cognito requiere COGNITO_USER_POOL_ID y COGNITO_CLIENT_ID',
       });
     }
+    if (env.PIPELINE_MODE === 'cola' && !env.SQS_URL_CAPTURAS) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['SQS_URL_CAPTURAS'],
+        message: 'PIPELINE_MODE=cola requiere SQS_URL_CAPTURAS',
+      });
+    }
     if (env.NODE_ENV === 'production' && env.AUTH_MODE === 'local') {
       ctx.addIssue({
         code: 'custom',
@@ -53,7 +62,9 @@ export type Env = z.infer<typeof EnvSchema>;
 
 /** Valida las variables de entorno y termina con un mensaje claro si alguna falta o es inválida. */
 export function loadEnv(source: NodeJS.ProcessEnv = process.env): Env {
-  const result = EnvSchema.safeParse(source);
+  // Una variable vacía (`S3_BUCKET_CAPTURAS=` en `.env.example`) cuenta como no definida.
+  const definidas = Object.fromEntries(Object.entries(source).filter(([, valor]) => valor !== ''));
+  const result = EnvSchema.safeParse(definidas);
   if (!result.success) {
     const detail = result.error.issues
       .map((issue) => `  - ${issue.path.join('.') || '(raíz)'}: ${issue.message}`)

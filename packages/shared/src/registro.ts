@@ -82,6 +82,15 @@ export const ManifestacionesQuerySchema = z.object({
 });
 export const ManifestacionesResponseSchema = z.array(ManifestacionSchema);
 
+/** Nivel de la ruta sintética con su rango de edad en meses (`edadMinMeses` ≤ edad < `edadMaxMeses`). */
+export const NivelRutaSchema = z.object({
+  nivel: NivelSchema,
+  nombre: z.string(),
+  edadMinMeses: z.number().int(),
+  edadMaxMeses: z.number().int(),
+});
+export type NivelRuta = z.infer<typeof NivelRutaSchema>;
+
 /** Manifestación con la cita textual que la respalda. */
 export const ManifestacionCitadaSchema = z
   .object({ manifestacion: ManifestacionSchema, cita: z.string().nullable() })
@@ -156,6 +165,35 @@ export const SubidaSchema = z
   })
   .meta({ id: 'Subida' });
 
+/**
+ * Qué se procesó y cómo: la entrada y el estado de cada paso del pipeline. Mientras falten
+ * Transcribe, la lectura de imágenes o Bedrock, esos pasos se declaran `no_implementado` o
+ * `simulado` para que la interfaz lo diga.
+ */
+export const ProcesamientoSchema = z
+  .object({
+    /** true si algún paso no es real (no implementado o simulado). */
+    simulado: z.boolean(),
+    entrada: z.object({
+      formato: FormatoCapturaSchema,
+      /** Tipo MIME del archivo; null para texto. */
+      tipoArchivo: z.string().nullable(),
+      /** Tamaño del archivo en S3 o del texto, en bytes. */
+      bytes: z.number().int().nonnegative(),
+      /** Clave del objeto en S3; null si no hay archivo. */
+      claveS3: z.string().nullable(),
+    }),
+    pasos: z.array(
+      z.object({
+        paso: z.enum(['transcripcion', 'lectura_imagen', 'extraccion']),
+        estado: z.enum(['no_implementado', 'simulado', 'completado']),
+        detalle: z.string(),
+      }),
+    ),
+  })
+  .meta({ id: 'Procesamiento' });
+export type Procesamiento = z.infer<typeof ProcesamientoSchema>;
+
 export const BorradorSchema = z
   .object({
     /** Texto normalizado del que salen las citas. */
@@ -165,6 +203,8 @@ export const BorradorSchema = z
     evidenciaInsuficiente: z.boolean(),
     manifestaciones: z.array(ManifestacionCitadaSchema),
     proveedor: z.string(),
+    /** null en borradores anteriores a este campo. */
+    procesamiento: ProcesamientoSchema.nullable(),
   })
   .meta({ id: 'Borrador' });
 export type Borrador = z.infer<typeof BorradorSchema>;
@@ -198,6 +238,8 @@ export const CapturaResumenSchema = z
     extracto: TextoNuloSchema,
     /** Dominios de lo confirmado o, si aún no se confirma, de lo sugerido. */
     dominios: z.array(DominioSchema),
+    /** Nivel confirmado por la educadora; null si aún no se confirma. */
+    nivel: NivelSchema.nullable(),
   })
   .meta({ id: 'CapturaResumen' });
 export type CapturaResumen = z.infer<typeof CapturaResumenSchema>;
@@ -282,6 +324,7 @@ export const BorradorEntranteSchema = z.object({
     .max(5),
   proveedor: z.string().min(1),
   modelo: z.string().min(1).optional(),
+  procesamiento: ProcesamientoSchema.optional(),
 });
 export type BorradorEntrante = z.infer<typeof BorradorEntranteSchema>;
 
@@ -295,6 +338,21 @@ export const TrayectoriaQuerySchema = z.object({
   desde: FechaSchema.optional(),
   hasta: FechaSchema.optional(),
 });
+
+/** Observación del periodo con sus manifestaciones (dataset o confirmada en la app). */
+export const ObservacionTrayectoriaSchema = z
+  .object({
+    id: z.string(),
+    fecha: FechaSchema,
+    /** El dataset además trae `video`, solo como metadato. */
+    formato: z.enum(['texto', 'audio', 'foto', 'video']),
+    origen: z.enum(['dataset', 'app']),
+    nivelEstimado: NivelSchema,
+    notaBreve: z.string().nullable(),
+    manifestaciones: z.array(ManifestacionSchema),
+  })
+  .meta({ id: 'ObservacionTrayectoria' });
+export type ObservacionTrayectoria = z.infer<typeof ObservacionTrayectoriaSchema>;
 
 export const TrayectoriaResponseSchema = z.object({
   nino: NinoSchema,
@@ -318,5 +376,7 @@ export const TrayectoriaResponseSchema = z.object({
       ),
     }),
   ),
+  /** Observaciones del periodo, de la más reciente a la más antigua. */
+  observaciones: z.array(ObservacionTrayectoriaSchema),
 });
 export type TrayectoriaResponse = z.infer<typeof TrayectoriaResponseSchema>;

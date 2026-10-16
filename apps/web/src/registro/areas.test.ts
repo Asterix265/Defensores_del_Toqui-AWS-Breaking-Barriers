@@ -1,51 +1,58 @@
 import { describe, expect, it } from 'vitest';
-import { areasSinNotas, resumenAreas } from './areas';
-import type { Dominio, Nota } from './datos';
+import { areasSinNotas, resumenAreas, type Registro } from './areas';
+import type { Dominio } from './datos';
 
 const ahora = new Date(2026, 9, 15, 12, 0);
 
-function nota(ninoId: string, area: Dominio, diasAtras: number): Nota {
+function registro(dominios: Dominio[], diasAtras: number): Registro {
   const creada = new Date(ahora);
   creada.setDate(creada.getDate() - diasAtras);
   return {
-    id: `${ninoId}-${area}-${diasAtras}`,
-    ninoId,
-    educadora: 'Mercedes',
-    formato: 'texto',
+    id: `${dominios.join('-')}-${diasAtras}`,
     creada,
-    texto: 'Nota sintética',
-    area,
-    sugerencia: { texto: 'Nota sintética', area },
+    texto: 'Registro sintético',
+    detalle: null,
+    dominios,
+    formato: 'texto',
+    origen: 'dataset',
   };
 }
 
 describe('resumenAreas', () => {
-  const notas = [
-    nota('demo-1', 'lenguaje_comunicacion', 0),
-    nota('demo-1', 'lenguaje_comunicacion', 5),
-    nota('demo-1', 'socioemocional', 3),
-    nota('demo-1', 'cognitivo', 40),
-    nota('demo-2', 'motor_grueso', 1),
+  const registros = [
+    registro(['lenguaje_comunicacion'], 0),
+    registro(['lenguaje_comunicacion', 'socioemocional'], 5),
+    registro(['socioemocional'], 3),
+    registro(['cognitivo'], 40),
   ];
-  const resumen = resumenAreas(notas, 'demo-1', ahora);
+  const resumen = resumenAreas(registros, ahora);
   const de = (area: Dominio) => resumen.find((r) => r.area === area);
 
-  it('cuenta las notas del niño o niña por área y guarda la fecha de la última', () => {
+  it('cuenta los registros por área (uno con varias áreas cuenta en cada una) y la fecha de la última', () => {
     expect(de('lenguaje_comunicacion')).toEqual({
       area: 'lenguaje_comunicacion',
       cantidad: 2,
-      ultima: notas[0]!.creada,
+      ultima: registros[0]!.creada,
     });
-    expect(de('socioemocional')?.cantidad).toBe(1);
+    expect(de('socioemocional')).toEqual({
+      area: 'socioemocional',
+      cantidad: 2,
+      ultima: registros[2]!.creada,
+    });
   });
 
-  it('no cuenta notas de otros niños ni de hace más de 30 días', () => {
-    expect(de('motor_grueso')).toEqual({ area: 'motor_grueso', cantidad: 0, ultima: null });
+  it('no cuenta registros de hace más de 30 días', () => {
     expect(de('cognitivo')).toEqual({ area: 'cognitivo', cantidad: 0, ultima: null });
   });
 
-  it('pone primero las áreas sin notas y luego de más a menos notas', () => {
-    expect(resumen.map((r) => r.cantidad)).toEqual([0, 0, 0, 2, 1]);
+  it('pone primero las áreas sin registros y luego de más a menos, la más reciente primero', () => {
+    expect(resumen.map((r) => r.area)).toEqual([
+      'motor_fino',
+      'motor_grueso',
+      'cognitivo',
+      'lenguaje_comunicacion',
+      'socioemocional',
+    ]);
     expect(areasSinNotas(resumen)).toBe(3);
   });
 });

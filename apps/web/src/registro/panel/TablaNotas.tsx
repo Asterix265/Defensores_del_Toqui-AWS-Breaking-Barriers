@@ -5,19 +5,20 @@ import TableCell from '@mui/material/TableCell';
 import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
 import { ChipArea, ICONO_FORMATO, NinoAvatar } from '../componentes';
-import { NINOS, type Nota } from '../datos';
+import { etiquetaSala } from '../api';
+import type { NotaGuardada } from '../registrar';
 import { formatoCuando } from '../formato';
 import { colores } from '../tema';
 
 const COLUMNAS = [
   { titulo: 'Niño/a', ancho: '200px' },
-  { titulo: 'Sala · Tía', ancho: '190px' },
+  { titulo: 'Sala · Registró', ancho: '190px' },
   { titulo: 'Nota', ancho: 'auto' },
   { titulo: 'Área', ancho: '170px' },
   { titulo: 'Cuándo', ancho: '150px' },
 ];
 
-export function TablaNotas({ notas, ahora }: { notas: Nota[]; ahora: Date }) {
+export function TablaNotas({ notas, ahora }: { notas: NotaGuardada[]; ahora: Date }) {
   return (
     <Box
       sx={{
@@ -75,25 +76,29 @@ export function TablaNotas({ notas, ahora }: { notas: Nota[]; ahora: Date }) {
   );
 }
 
-function FilaNota({ nota, ahora }: { nota: Nota; ahora: Date }) {
-  const nino = NINOS.find((n) => n.id === nota.ninoId);
+function FilaNota({ nota, ahora }: { nota: NotaGuardada; ahora: Date }) {
+  const { nino } = nota;
   const Icono = ICONO_FORMATO[nota.formato];
   return (
     <TableRow>
       <TableCell>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, fontWeight: 700 }}>
-          {nino && <NinoAvatar nino={nino} tamano={36} />}
-          {nino?.nombre}
+          <NinoAvatar nino={nino} tamano={36} />
+          {nino.nombre}
         </Box>
       </TableCell>
       <TableCell sx={{ color: 'text.secondary', fontWeight: 600 }}>
-        {nino?.sala}
+        {etiquetaSala(nino.sala)}
         <br />
-        Tía {nota.educadora}
+        {nota.autor}
       </TableCell>
-      <TableCell>{nota.texto}</TableCell>
+      <TableCell>{nota.texto ?? 'Sin texto'}</TableCell>
       <TableCell>
-        <ChipArea area={nota.area} compacto />
+        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+          {nota.dominios.map((d) => (
+            <ChipArea key={d} area={d} compacto />
+          ))}
+        </Box>
       </TableCell>
       <TableCell sx={{ color: 'text.secondary', fontWeight: 600 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, whiteSpace: 'nowrap' }}>

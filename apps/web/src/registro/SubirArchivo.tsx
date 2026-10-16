@@ -9,6 +9,14 @@ import CheckCircleRounded from '@mui/icons-material/CheckCircleRounded';
 import MicRounded from '@mui/icons-material/MicRounded';
 import PhotoCameraRounded from '@mui/icons-material/PhotoCameraRounded';
 import UploadFileRounded from '@mui/icons-material/UploadFileRounded';
+import {
+  TAMANO_MAXIMO,
+  TIPOS_AUDIO,
+  TIPOS_FOTO,
+  formatoBytes,
+  prepararFoto,
+  tipoBase,
+} from './captura';
 import { AvisoVerde, CabeceraConCerrar, Pantalla } from './componentes';
 import { colores } from './tema';
 
@@ -16,24 +24,24 @@ const CONFIG = {
   foto: {
     titulo: 'Sube la foto del post-it',
     acepta: 'image/*',
-    prefijo: 'image/',
+    tipos: TIPOS_FOTO,
     Icono: PhotoCameraRounded,
     indicacion: 'Arrastra aquí la foto',
     error: 'Ese archivo no es una imagen.',
   },
   audio: {
     titulo: 'Sube el audio',
-    acepta: 'audio/*',
-    prefijo: 'audio/',
+    acepta: TIPOS_AUDIO.join(','),
+    tipos: TIPOS_AUDIO,
     Icono: MicRounded,
     indicacion: 'Arrastra aquí el audio',
-    error: 'Ese archivo no es un audio.',
+    error: 'Ese audio no se puede usar: sube WebM, OGG, M4A, MP3 o WAV.',
   },
 } as const;
 
 /**
  * Captura en PC: en vez de la cámara o el micrófono, se sube un archivo (o se arrastra).
- * En el mock el archivo no sale del navegador: solo se muestra su nombre y la lectura es simulada.
+ * La foto se convierte a JPEG si hace falta; el archivo se sube a S3 al elegir al niño o niña.
  */
 export function SubirArchivo({
   tipo,
@@ -42,7 +50,7 @@ export function SubirArchivo({
   onCancelar,
 }: {
   tipo: 'foto' | 'audio';
-  onListo: (nombreArchivo: string) => void;
+  onListo: (archivo: File) => void;
   /** Solo audio: alternativa de grabar con el micrófono del PC. */
   onGrabar?: () => void;
   onCancelar: () => void;
@@ -53,20 +61,30 @@ export function SubirArchivo({
   const [encima, setEncima] = useState(false);
   const selector = useRef<HTMLInputElement>(null);
 
-  const elegir = (elegido: File | undefined) => {
+  const elegir = async (elegido: File | undefined) => {
     if (!elegido) return;
-    if (!elegido.type.startsWith(config.prefijo)) {
-      setError(config.error);
-      return;
+    setArchivo(null);
+    try {
+      if (tipo === 'foto') {
+        if (!elegido.type.startsWith('image/')) throw new Error(config.error);
+        setArchivo(await prepararFoto(elegido));
+      } else {
+        if (!config.tipos.includes(tipoBase(elegido.type))) throw new Error(config.error);
+        if (elegido.size > TAMANO_MAXIMO) {
+          throw new Error(`El audio pesa ${formatoBytes(elegido.size)}; el máximo es 10 MB.`);
+        }
+        setArchivo(elegido);
+      }
+      setError(null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : config.error);
     }
-    setError(null);
-    setArchivo(elegido);
   };
 
   const soltar = (e: DragEvent) => {
     e.preventDefault();
     setEncima(false);
-    elegir(e.dataTransfer.files[0]);
+    void elegir(e.dataTransfer.files[0]);
   };
 
   return (
@@ -124,7 +142,7 @@ export function SubirArchivo({
             accept={config.acepta}
             aria-label="Archivo"
             hidden
-            onChange={(e) => elegir(e.target.files?.[0])}
+            onChange={(e) => void elegir(e.target.files?.[0])}
           />
         </Box>
         {archivo && <AvisoVerde icono={<CheckCircleRounded />}>{archivo.name}</AvisoVerde>}
@@ -133,9 +151,6 @@ export function SubirArchivo({
             {error}
           </Alert>
         )}
-        <Typography variant="caption" color="text.secondary">
-          Demo: el archivo no sale de tu computador y la lectura es simulada.
-        </Typography>
         {onGrabar && (
           <Box>
             <Button
@@ -155,7 +170,7 @@ export function SubirArchivo({
           fullWidth
           disabled={!archivo}
           endIcon={<ArrowForwardRounded />}
-          onClick={() => archivo && onListo(archivo.name)}
+          onClick={() => archivo && onListo(archivo)}
         >
           Seguir
         </Button>

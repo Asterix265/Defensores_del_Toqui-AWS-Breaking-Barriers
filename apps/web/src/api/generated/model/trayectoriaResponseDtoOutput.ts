@@ -5,6 +5,7 @@
  * API del copiloto de registro de observaciones (datos sintéticos).
  * OpenAPI spec version: 0.0.0
  */
+import type { ObservacionTrayectoriaOutput } from './observacionTrayectoriaOutput';
 import type { TrayectoriaResponseDtoOutputDominiosItem } from './trayectoriaResponseDtoOutputDominiosItem';
 import type { TrayectoriaResponseDtoOutputNino } from './trayectoriaResponseDtoOutputNino';
 
@@ -21,4 +22,5 @@ export interface TrayectoriaResponseDtoOutput {
   totalObservaciones: number;
   evidenciaLimitada: boolean;
   dominios: TrayectoriaResponseDtoOutputDominiosItem[];
+  observaciones: ObservacionTrayectoriaOutput[];
 }

@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.0.0
  */
 import type { ManifestacionCitadaOutput } from './manifestacionCitadaOutput';
+import type { ProcesamientoOutput } from './procesamientoOutput';
 
 export interface BorradorOutput {
   textoFuente: string;
@@ -13,4 +14,5 @@ export interface BorradorOutput {
   evidenciaInsuficiente: boolean;
   manifestaciones: ManifestacionCitadaOutput[];
   proveedor: string;
+  procesamiento: ProcesamientoOutput | null;
 }

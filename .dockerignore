@@ -1,12 +1,21 @@
+# Contexto de la imagen de la API (apps/api/Dockerfile): solo lo que copia el Dockerfile. Lo demás
+# no entra al contexto ni al hash del asset de CDK, así que cambiar la Lambda, la web o la
+# documentación no reconstruye la API (despliegue-continuo, D2).
+*
+!package.json
+!pnpm-lock.yaml
+!pnpm-workspace.yaml
+!.npmrc
+!tsconfig.base.json
+!apps/api
+!packages/shared
+
+# Dentro de lo incluido: dependencias, builds y archivos locales.
 **/node_modules
 **/dist
-**/dev-dist
-**/cdk.out
 **/coverage
 **/.env
 **/.env.*
-.git
-openspec
-docs
-.claude
-.codex
+**/*.tsbuildinfo
+# Cliente de Prisma: lo regenera el Dockerfile; así el hash es igual en local y en la CI.
+apps/api/src/generated

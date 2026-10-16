@@ -180,7 +180,16 @@ export class AppStack extends Stack {
         },
       },
     });
-    api.targetGroup.configureHealthCheck({ path: '/health', healthyHttpCodes: '200' });
+    // Despliegues rápidos (despliegue-continuo, D1): la tarea nueva queda sana en unos 20 s y la
+    // anterior se desconecta en 30 s; las peticiones de la API duran milisegundos.
+    api.targetGroup.configureHealthCheck({
+      path: '/health',
+      healthyHttpCodes: '200',
+      interval: Duration.seconds(10),
+      timeout: Duration.seconds(5),
+      healthyThresholdCount: 2,
+    });
+    api.targetGroup.setAttribute('deregistration_delay.timeout_seconds', '30');
     // Al reemplazar el ALB (público → interno), CloudFormation crea el listener nuevo antes de
     // borrar el anterior, y un target group no puede estar en dos ALB: con un id lógico nuevo el
     // target group también se reemplaza. Es el mismo nombre que usaron los intentos del 16-10.

@@ -25,6 +25,7 @@
 
 - [x] 5.1 `lint`, `typecheck` y `test` de `infra` y `apps/api`; `cdk synth` sin errores
 - [x] 5.2 Ajustar `pnpm aws:prod:smoke`: web en Amplify, API por CloudFront y ALB sin acceso directo
-- [ ] 5.3 Desplegar con aviso al equipo (`pnpm aws:prod:deploy`) y verificar con `pnpm aws:prod:smoke`
+- [x] 5.3 Desplegar con aviso al equipo (`pnpm aws:prod:deploy`) y verificar con `pnpm aws:prod:smoke`
+  - Desplegado el 16-10-2026 y verificado con `pnpm aws:prod:smoke` (5/5). Para lograrlo se corrigieron dos cosas: `ALTER ROLE` sin `NOSUPERUSER` (en Aurora el administrador no es superusuario) y un *target group* con id lógico nuevo (`ApiTgInterno`), porque el del ALB público no podía sumarse al interno. Detalle en `docs/arquitectura-aws.md#estado`.
 - [x] 5.4 Actualizar `docs/arquitectura-aws.md` (diagrama, servicios, permisos) y el README
 - [x] 5.5 Validar con `openspec validate endurecer-seguridad-aws --strict --no-interactive`

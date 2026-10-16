@@ -80,6 +80,10 @@ describe('stacks de producción', () => {
       Scheme: 'internal',
     });
     app.resourceCountIs('AWS::CloudFront::VpcOrigin', 1);
+    // Target group nuevo: el del ALB público no puede sumarse al interno (ver app-stack).
+    app.templateMatches({
+      Resources: { ApiTgInterno: { Type: 'AWS::ElasticLoadBalancingV2::TargetGroup' } },
+    });
     app.hasResourceProperties('AWS::CloudFront::Distribution', {
       DistributionConfig: Match.objectLike({
         Origins: [Match.objectLike({ VpcOriginConfig: Match.anyValue() })],

@@ -1,7 +1,7 @@
 import { App } from 'aws-cdk-lib';
 import { Match, Template } from 'aws-cdk-lib/assertions';
 import { beforeAll, describe, expect, it } from 'vitest';
-import { CiCdStack, REPO_GITHUB, ROL_DESPLIEGUE } from './cicd-stack.js';
+import { CiCdStack, ROL_DESPLIEGUE } from './cicd-stack.js';
 
 describe('stack de despliegue continuo', () => {
   let plantilla: Template;
@@ -33,7 +33,9 @@ describe('stack de despliegue continuo', () => {
             Condition: {
               StringEquals: {
                 'token.actions.githubusercontent.com:aud': 'sts.amazonaws.com',
-                'token.actions.githubusercontent.com:sub': `repo:${REPO_GITHUB}:ref:refs/heads/main`,
+                // `sub` inmutable: con los ids del dueño y del repositorio.
+                'token.actions.githubusercontent.com:sub':
+                  'repo:Asterix265@94083287/Defensores_del_Toqui-AWS-Breaking-Barriers@1419528574:ref:refs/heads/main',
               },
             },
           }),

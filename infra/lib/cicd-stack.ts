@@ -5,6 +5,12 @@ import type { Construct } from 'constructs';
 /** Único origen de despliegues automáticos: la rama `main` de este repositorio. */
 export const REPO_GITHUB = 'Asterix265/Defensores_del_Toqui-AWS-Breaking-Barriers';
 export const RAMA_DESPLIEGUE = 'main';
+/**
+ * El repositorio usa el `sub` inmutable de OIDC (`use_immutable_subject`): lleva los ids del dueño y
+ * del repositorio, así que renombrarlos o recrearlos con el mismo nombre no da acceso. Ver
+ * `gh api repos/<repo>/actions/oidc/customization/sub`.
+ */
+export const SUB_GITHUB = `repo:Asterix265@94083287/Defensores_del_Toqui-AWS-Breaking-Barriers@1419528574:ref:refs/heads/${RAMA_DESPLIEGUE}`;
 export const ROL_DESPLIEGUE = 'toqui-github-deploy';
 
 const PROVEEDOR_GITHUB = 'token.actions.githubusercontent.com';
@@ -34,7 +40,7 @@ export class CiCdStack extends Stack {
       assumedBy: new iam.WebIdentityPrincipal(proveedor.oidcProviderArn, {
         StringEquals: {
           [`${PROVEEDOR_GITHUB}:aud`]: 'sts.amazonaws.com',
-          [`${PROVEEDOR_GITHUB}:sub`]: `repo:${REPO_GITHUB}:ref:refs/heads/${RAMA_DESPLIEGUE}`,
+          [`${PROVEEDOR_GITHUB}:sub`]: SUB_GITHUB,
         },
       }),
     });

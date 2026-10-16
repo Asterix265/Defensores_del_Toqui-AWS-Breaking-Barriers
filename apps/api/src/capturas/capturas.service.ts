@@ -17,15 +17,19 @@ import type {
   ConfirmacionRequest,
   CrearCapturaRequest,
   CrearCapturaResponse,
-  Dominio,
   EstadoCaptura,
   ListarCapturasQuery,
   ListarCapturasResponse,
   Manifestacion,
+  NivelEducativo,
 } from '@toqui/shared';
 import { autorDe, type Identidad } from '../auth/identidad';
 import { AlmacenamientoService } from '../aws/almacenamiento.service';
-import { CatalogoService } from '../catalogo/catalogo.service';
+import {
+  CatalogoService,
+  SELECT_MANIFESTACION,
+  aManifestacion,
+} from '../catalogo/catalogo.service';
 import { aColumnaFecha, desdeColumnaFecha, hoyEn } from '../comun/fechas';
 import { ENV } from '../config/config.module';
 import type { Env } from '../config/env';
@@ -37,16 +41,31 @@ const CitasSchema = z.array(z.object({ idManifestacion: z.string(), cita: z.stri
 type Citas = z.infer<typeof CitasSchema>;
 
 const INCLUIR = {
-  nino: { select: { id: true, nombres: true, apellidos: true, salaGrupo: true } },
+  nino: {
+    select: {
+      id: true,
+      nombreCompleto: true,
+      salaGrupo: true,
+      idSala: true,
+      idNivelEducativo: true,
+    },
+  },
   borrador: true,
   observacion: {
     include: {
-      vinculos: { include: { manifestacion: true }, orderBy: { idManifestacion: 'asc' } },
+      vinculos: {
+        select: { cita: true, manifestacion: { select: SELECT_MANIFESTACION } },
+        orderBy: { idManifestacion: 'asc' },
+      },
     },
   },
+  valoraciones: { select: { idNucleo: true, nivelValidado: true }, orderBy: { idNucleo: 'asc' } },
 } satisfies Prisma.CapturaInclude;
 
 type CapturaCompleta = Prisma.CapturaGetPayload<{ include: typeof INCLUIR }>;
+
+/** Manifestación del catálogo con la versión de su descriptor (para las valoraciones). */
+type ManifestacionCatalogo = Manifestacion & { idVersion: string };
 
 /** Archivo de una captura ya comprobado en S3. */
 export interface ArchivoSubido {
@@ -161,6 +180,11 @@ export class CapturasService {
           `La manifestación ${m.idManifestacion} no corresponde al nivel ${decision.nivel}`,
         );
       }
+      if (encontrada.nivelEducativo !== captura.nino.idNivelEducativo) {
+        throw new UnprocessableEntityException(
+          `La manifestación ${m.idManifestacion} es de ${encontrada.nivelEducativo}; el niño o niña está en ${captura.nino.idNivelEducativo}`,
+        );
+      }
     }
 
     const sugerencia = this.sugerenciaDe(captura);
@@ -174,23 +198,65 @@ export class CapturasService {
     const sinCambios =
       sugerencia.nivel === final.nivel &&
       mismoConjunto(sugerencia.manifestaciones, final.manifestaciones);
+    // Núcleos que proponía el borrador, para el nivel sugerido de cada valoración (D6).
+    const sugeridos = await this.manifestacionesDe(
+      sugerencia.manifestaciones.map((m) => m.idManifestacion),
+    );
+    const nucleosSugeridos = new Set([...sugeridos.values()].map((m) => m.nucleo));
 
     await this.prisma.$transaction(async (tx) => {
       await this.tomarDecision(tx, id, 'confirmada');
-      await tx.observacion.create({
+      const textoFuente = captura.borrador?.textoFuente ?? captura.texto;
+      const observacion = await tx.observacion.create({
         data: {
           id: `APP-${id}`,
           idNino: captura.idNino,
           idUsuario: identidad.id,
           fechaObservacion: captura.fecha,
           formatoCaptura: captura.formato,
-          nivelEstimado: decision.nivel,
-          notaBreve: captura.texto?.slice(0, 280) ?? null,
+          notaBreve: textoFuente?.slice(0, 280) ?? null,
+          textoObservacion: textoFuente ?? null,
           origen: 'app',
           idCaptura: id,
           vinculos: { create: final.manifestaciones },
         },
+        select: { vinculos: { select: { id: true, idManifestacion: true } } },
       });
+      // Una valoración por núcleo, con la misma forma que las decisiones del dataset.
+      const porNucleo = new Map<string, { idVersion: string; evidencias: string[] }>();
+      for (const v of observacion.vinculos) {
+        const m = catalogo.get(v.idManifestacion)!;
+        const grupo = porNucleo.get(m.nucleo) ?? { idVersion: m.idVersion, evidencias: [] };
+        grupo.evidencias.push(v.id);
+        porNucleo.set(m.nucleo, grupo);
+      }
+      for (const [nucleo, grupo] of porNucleo) {
+        const nivelSugerido = nucleosSugeridos.has(nucleo) ? sugerencia.nivel : null;
+        await tx.valoracion.create({
+          data: {
+            id: `VAL-APP-${id}-${nucleo}`,
+            idNino: captura.idNino,
+            idSala: captura.nino.idSala,
+            idNivelEducativo: captura.nino.idNivelEducativo,
+            idNucleo: nucleo,
+            idVersion: grupo.idVersion,
+            fechaCorte: captura.fecha,
+            nivelSugerido,
+            nivelValidado: decision.nivel,
+            estado: nivelSugerido === decision.nivel ? 'confirmada' : 'ajustada',
+            fechaDecision: aColumnaFecha(hoyEn(this.env.ZONA_HORARIA)),
+            origen: 'app',
+            idCaptura: id,
+            idUsuarioDecide: identidad.id,
+            evidencias: {
+              create: grupo.evidencias.map((idEvidencia) => ({
+                idEvidencia,
+                uso: 'sustento_propuesta' as const,
+              })),
+            },
+          },
+        });
+      }
       await tx.correccion.create({
         data: {
           idCaptura: id,
@@ -268,14 +334,18 @@ export class CapturasService {
   ): Promise<{ id: string; estado: EstadoCaptura }> {
     const captura = await this.prisma.captura.findUnique({
       where: { id: this.uuid(id) },
-      select: { estado: true, borrador: { select: { id: true } } },
+      select: {
+        estado: true,
+        borrador: { select: { id: true } },
+        nino: { select: { idNivelEducativo: true } },
+      },
     });
     if (!captura) throw new NotFoundException('Captura no encontrada');
     if (captura.borrador) return { id, estado: captura.estado };
     if (captura.estado !== 'procesando' && captura.estado !== 'error') {
       throw new ConflictException(`La captura ya está ${captura.estado}`);
     }
-    await this.validarBorrador(b);
+    await this.validarBorrador(b, captura.nino.idNivelEducativo);
 
     try {
       await this.prisma.$transaction(async (tx) => {
@@ -336,10 +406,10 @@ export class CapturasService {
   }
 
   /**
-   * Valida lo que dice D7 sobre el borrador: manifestaciones existentes y del nivel sugerido,
-   * y cada cita presente literalmente en el texto.
+   * Valida lo que dice D7 sobre el borrador: manifestaciones existentes, del nivel sugerido y
+   * del nivel educativo del niño o niña, y cada cita presente literalmente en el texto.
    */
-  private async validarBorrador(b: BorradorEntrante): Promise<void> {
+  private async validarBorrador(b: BorradorEntrante, nivelEducativo: string): Promise<void> {
     const problemas: string[] = [];
     if (b.evidenciaInsuficiente) {
       if (b.manifestaciones.length > 0)
@@ -354,6 +424,8 @@ export class CapturasService {
       if (!encontrada) problemas.push(`${m.idManifestacion} no existe`);
       else if (encontrada.nivel !== b.nivelSugerido)
         problemas.push(`${m.idManifestacion} no es del nivel sugerido`);
+      else if (encontrada.nivelEducativo !== nivelEducativo)
+        problemas.push(`${m.idManifestacion} no es del nivel educativo ${nivelEducativo}`);
       if (!b.textoFuente.includes(m.cita))
         problemas.push(`la cita de ${m.idManifestacion} no está en el texto`);
     }
@@ -423,13 +495,15 @@ export class CapturasService {
     };
   }
 
-  private async manifestacionesDe(ids: string[]): Promise<Map<string, Manifestacion>> {
+  private async manifestacionesDe(ids: string[]): Promise<Map<string, ManifestacionCatalogo>> {
     if (ids.length === 0) return new Map();
     const filas = await this.prisma.manifestacion.findMany({
       where: { id: { in: [...new Set(ids)] } },
-      select: { id: true, nivel: true, dominio: true, textoObservable: true },
+      select: SELECT_MANIFESTACION,
     });
-    return new Map(filas.map((m) => [m.id, m]));
+    return new Map(
+      filas.map((m) => [m.id, { ...aManifestacion(m), idVersion: m.descriptor.idVersion }]),
+    );
   }
 
   private async aDetalle(c: CapturaCompleta): Promise<CapturaDetalle> {
@@ -441,24 +515,11 @@ export class CapturasService {
       proveedor: c.borrador.proveedor,
       procesamiento: ProcesamientoSchema.nullable().catch(null).parse(c.borrador.procesamiento),
       manifestaciones: CitasSchema.parse(c.borrador.manifestaciones).flatMap((m) => {
-        const manifestacion = catalogo.get(m.idManifestacion);
-        return manifestacion ? [{ manifestacion, cita: m.cita }] : [];
+        const encontrada = catalogo.get(m.idManifestacion);
+        return encontrada ? [{ manifestacion: sinVersion(encontrada), cita: m.cita }] : [];
       }),
     };
-    const observacion = c.observacion && {
-      id: c.observacion.id,
-      fecha: desdeColumnaFecha(c.observacion.fechaObservacion),
-      nivelEstimado: c.observacion.nivelEstimado,
-      manifestaciones: c.observacion.vinculos.map((v) => ({
-        manifestacion: {
-          id: v.manifestacion.id,
-          nivel: v.manifestacion.nivel,
-          dominio: v.manifestacion.dominio,
-          textoObservable: v.manifestacion.textoObservable,
-        },
-        cita: v.cita,
-      })),
-    };
+    const observacion = c.observacion && this.observacionConfirmada(c, c.observacion);
     return {
       ...this.base(c),
       texto: c.texto,
@@ -469,19 +530,46 @@ export class CapturasService {
     };
   }
 
-  private aResumen(c: CapturaCompleta, catalogo: Map<string, Manifestacion>): CapturaResumen {
-    const dominios: Dominio[] = c.observacion
-      ? c.observacion.vinculos.map((v) => v.manifestacion.dominio)
+  /**
+   * Observación confirmada: el nivel validado sale de las valoraciones de la app; si la
+   * captura ya no las tiene enlazadas, de sus manifestaciones (todas del mismo nivel).
+   */
+  private observacionConfirmada(
+    c: CapturaCompleta,
+    o: NonNullable<CapturaCompleta['observacion']>,
+  ): NonNullable<CapturaDetalle['observacion']> {
+    const manifestaciones = o.vinculos.map((v) => ({
+      manifestacion: aManifestacion(v.manifestacion),
+      cita: v.cita,
+    }));
+    return {
+      id: o.id,
+      fecha: desdeColumnaFecha(o.fechaObservacion),
+      nivel:
+        c.valoraciones.find((v) => v.nivelValidado !== null)?.nivelValidado ??
+        manifestaciones[0]?.manifestacion.nivel ??
+        1,
+      nucleos: [...new Set(manifestaciones.map((m) => m.manifestacion.nucleo))],
+      manifestaciones,
+    };
+  }
+
+  private aResumen(
+    c: CapturaCompleta,
+    catalogo: Map<string, ManifestacionCatalogo>,
+  ): CapturaResumen {
+    const nucleos: string[] = c.observacion
+      ? c.observacion.vinculos.map((v) => v.manifestacion.descriptor.idNucleo)
       : this.citasBorrador(c).flatMap((id) => {
           const m = catalogo.get(id);
-          return m ? [m.dominio] : [];
+          return m ? [m.nucleo] : [];
         });
     const texto = c.texto ?? c.borrador?.textoFuente ?? null;
     return {
       ...this.base(c),
       extracto: texto ? texto.slice(0, LARGO_EXTRACTO) : null,
-      dominios: [...new Set(dominios)],
-      nivel: c.observacion?.nivelEstimado ?? null,
+      nucleos: [...new Set(nucleos)],
+      nivel: c.observacion ? this.observacionConfirmada(c, c.observacion).nivel : null,
     };
   }
 
@@ -490,9 +578,10 @@ export class CapturasService {
       id: c.id,
       nino: {
         id: c.nino.id,
-        nombres: c.nino.nombres,
-        apellidos: c.nino.apellidos,
+        nombres: c.nino.nombreCompleto.split(' ')[0] ?? c.nino.nombreCompleto,
+        apellidos: c.nino.nombreCompleto.split(' ').slice(1).join(' '),
         sala: c.nino.salaGrupo,
+        nivelEducativo: c.nino.idNivelEducativo as NivelEducativo,
       },
       autor: c.autor,
       formato: c.formato as CapturaDetalle['formato'],
@@ -500,6 +589,13 @@ export class CapturasService {
       creadoEn: c.creadoEn.toISOString(),
     };
   }
+}
+
+/** La manifestación pública, sin la versión del descriptor que solo usan las valoraciones. */
+function sinVersion(m: ManifestacionCatalogo): Manifestacion {
+  const { idVersion, ...publica } = m;
+  void idVersion;
+  return publica;
 }
 
 /** Mismo conjunto de manifestaciones, sin importar el orden ni las citas. */

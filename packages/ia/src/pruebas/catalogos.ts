@@ -3,16 +3,10 @@ import type { ContextoExtraccion, ManifestacionCatalogo } from '../proveedor.js'
 
 /*
  * Catálogos sintéticos para las pruebas, inventados para este paquete (no copiados del
- * dataset). Solo los ids imitan el formato del dataset (`MAN-L07-MF-01`).
+ * dataset). Los códigos de núcleo (`MF`, `LC`…) también son inventados.
  */
 
-const DOMINIOS_DATASET = [
-  ['CO', 'cognitivo'],
-  ['LC', 'lenguaje_comunicacion'],
-  ['MF', 'motor_fino'],
-  ['MG', 'motor_grueso'],
-  ['SE', 'socioemocional'],
-] as const;
+const NUCLEOS_PRUEBA = ['CO', 'LC', 'MF', 'MG', 'SE'] as const;
 
 /** Textos fijos de algunas manifestaciones; el resto es genérico. */
 const TEXTOS_DATASET: Record<string, string> = {
@@ -22,18 +16,21 @@ const TEXTOS_DATASET: Record<string, string> = {
   'MAN-L08-MF-01': 'Encaja piezas grandes en un tablero',
 };
 
-/** Ruta tipo dataset: 9 niveles × 5 dominios × 2 manifestaciones (tipada como en shared). */
+/** Rúbrica tipo dataset: 8 niveles × 5 núcleos × 2 manifestaciones (tipada como en shared). */
 export function catalogoDataset(): Manifestacion[] {
   const catalogo: Manifestacion[] = [];
-  for (let nivel = 1; nivel <= 9; nivel++) {
-    for (const [codigo, dominio] of DOMINIOS_DATASET) {
+  for (let nivel = 1; nivel <= 8; nivel++) {
+    for (const nucleo of NUCLEOS_PRUEBA) {
       for (const n of [1, 2]) {
-        const id = `MAN-L0${nivel}-${codigo}-0${n}`;
+        const id = `MAN-L0${nivel}-${nucleo}-0${n}`;
         catalogo.push({
           id,
+          idDescriptor: `RUB-SC-${nucleo}-0${nivel}`,
+          nucleo,
+          nivelEducativo: 'SC',
           nivel,
-          dominio,
-          textoObservable: TEXTOS_DATASET[id] ?? `Conducta ficticia ${n} de ${codigo}${nivel}`,
+          tipo: n === 1 ? 'conducta_descriptor' : 'ejemplo_ilustrativo',
+          textoObservable: TEXTOS_DATASET[id] ?? `Conducta ficticia ${n} de ${nucleo}${nivel}`,
         });
       }
     }
@@ -64,12 +61,12 @@ const TEXTOS_OCHO: Record<string, string> = {
 export function catalogoOchoPorDiez(): ManifestacionCatalogo[] {
   const catalogo: ManifestacionCatalogo[] = [];
   for (let nivel = 1; nivel <= 8; nivel++) {
-    NUCLEOS_INVENTADOS.forEach((dominio, i) => {
+    NUCLEOS_INVENTADOS.forEach((nucleo, i) => {
       const id = `RUB-N${nivel}-${String(i + 1).padStart(2, '0')}`;
       catalogo.push({
         id,
         nivel,
-        dominio,
+        nucleo,
         textoObservable: TEXTOS_OCHO[id] ?? `Conducta ficticia ${i + 1} del tramo ${nivel}`,
       });
     });
@@ -84,7 +81,7 @@ export function filtrarNiveles<T extends ManifestacionCatalogo>(
   return catalogo.filter((m) => niveles.includes(m.nivel));
 }
 
-/** Contexto típico: nivel esperado 7 y catálogo ±1 de la ruta tipo dataset. */
+/** Contexto típico: nivel de referencia 7 y catálogo de los niveles 6 a 8. */
 export function contextoNivel7(): ContextoExtraccion {
   return {
     edadMeses: 30,

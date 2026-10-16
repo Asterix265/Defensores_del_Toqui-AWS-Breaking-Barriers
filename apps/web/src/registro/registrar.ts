@@ -19,7 +19,7 @@ import type {
 } from '../api/generated/model';
 import { aNino, type NivelRuta } from './api';
 import { tipoBase } from './captura';
-import type { Dominio, Formato, ManifestacionCitada, Nino } from './datos';
+import type { Nucleo, Formato, ManifestacionCitada, Nino } from './datos';
 
 export type CapturaDetalle = CapturaDetalleDtoOutput;
 export type Procesamiento = NonNullable<NonNullable<CapturaDetalle['borrador']>['procesamiento']>;
@@ -46,10 +46,12 @@ export const ESPERA_MAXIMA_MS: Record<Entrada['formato'], number> = {
   foto: 150_000,
 };
 
-/** Nivel de la ruta cuyo rango de edad contiene la edad; el último si la supera. */
-export function nivelEsperado(edadMeses: number, niveles: NivelRuta[]): number {
-  const enRango = niveles.find((n) => edadMeses >= n.edadMinMeses && edadMeses < n.edadMaxMeses);
-  return enRango?.nivel ?? niveles.at(-1)?.nivel ?? 1;
+/**
+ * Nivel con el que parte la elección cuando la IA no propone uno: el primero. Los niveles del
+ * dataset por núcleos no tienen edades, así que no se deduce un nivel esperado.
+ */
+export function nivelInicial(niveles: NivelRuta[]): number {
+  return niveles[0]?.nivel ?? 1;
 }
 
 function mensajeApi(cuerpo: unknown, porDefecto: string): string {
@@ -181,14 +183,20 @@ export interface NotaGuardada {
   estado: CapturaResumenOutput['estado'];
   creada: Date;
   texto: string | null;
-  dominios: Dominio[];
+  nucleos: Nucleo[];
   nivel: number | null;
 }
 
 function aNota(c: CapturaResumenOutput, ninos: Nino[]): NotaGuardada {
   const nino =
     ninos.find((n) => n.id === c.nino.id) ??
-    aNino({ ...c.nino, fechaNacimiento: '2000-01-01', edadMeses: 0 });
+    aNino({
+      ...c.nino,
+      nombreCompleto: `${c.nino.nombres} ${c.nino.apellidos}`,
+      idSala: '',
+      fechaNacimiento: '2000-01-01',
+      edadMeses: 0,
+    });
   return {
     id: c.id,
     nino,
@@ -197,7 +205,7 @@ function aNota(c: CapturaResumenOutput, ninos: Nino[]): NotaGuardada {
     estado: c.estado,
     creada: new Date(c.creadoEn),
     texto: c.extracto,
-    dominios: c.dominios as Dominio[],
+    nucleos: c.nucleos as Nucleo[],
     nivel: c.nivel,
   };
 }

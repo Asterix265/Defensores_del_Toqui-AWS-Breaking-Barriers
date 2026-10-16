@@ -127,6 +127,23 @@ describe('stacks de producción', () => {
     }
   });
 
+  it('el rol de la API solo lee el prefijo dataset/ (carga con `aws:prod:seed`)', () => {
+    const politicas = app.findResources('AWS::IAM::Policy', {
+      Properties: { Roles: [{ Ref: Match.stringLikeRegexp('^ApiTaskDefTaskRole') }] },
+    });
+    const [politica] = Object.values(politicas) as {
+      Properties: {
+        PolicyDocument: { Statement: { Action: string | string[]; Resource: unknown }[] };
+      };
+    }[];
+    const dataset = politica!.Properties.PolicyDocument.Statement.filter((s) =>
+      JSON.stringify(s.Resource).includes('/dataset/*'),
+    );
+    if (dataset.length !== 1 || dataset[0]!.Action !== 's3:GetObject') {
+      throw new Error(`Permisos sobre dataset/: ${JSON.stringify(dataset)}`);
+    }
+  });
+
   it('migra con el administrador en un contenedor previo y la API usa toqui_app', () => {
     const [tarea] = Object.values(app.findResources('AWS::ECS::TaskDefinition'));
     const contenedores = (

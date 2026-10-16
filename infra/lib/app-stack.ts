@@ -40,6 +40,8 @@ export const MODELOS = {
 
 /** Prefijo de los archivos de captura (audio y foto) en el bucket. */
 export const PREFIJO_CAPTURAS = 'capturas/';
+/** CSV que sube `pnpm aws:prod:seed` para la tarea de carga (migrar-dataset-nucleos, D4). */
+export const PREFIJO_DATASET = 'dataset/';
 
 /** Intentos por trabajo antes de pasar a la DLQ; la Lambda informa el error en el último (D4). */
 export const MAX_INTENTOS_PROCESO = 3;
@@ -347,6 +349,14 @@ export class AppStack extends Stack {
     );
     api.taskDefinition.addToTaskRolePolicy(
       new iam.PolicyStatement({ actions: ['s3:ListBucket'], resources: [capturas.bucketArn] }),
+    );
+    // La tarea única de carga (misma definición, `--cargar-dataset`) lee el dataset subido a
+    // `dataset/`, que el ciclo de vida del bucket borra a los 7 días.
+    api.taskDefinition.addToTaskRolePolicy(
+      new iam.PolicyStatement({
+        actions: ['s3:GetObject'],
+        resources: [capturas.arnForObjects(`${PREFIJO_DATASET}*`)],
+      }),
     );
     cola.grantSendMessages(api.taskDefinition.taskRole);
     api.taskDefinition.addToTaskRolePolicy(

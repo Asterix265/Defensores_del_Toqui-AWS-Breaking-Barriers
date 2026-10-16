@@ -16,14 +16,16 @@ export const FechaSchema = z.iso.date();
 export const GrupoSchema = z.enum(['educadora', 'directora']);
 export type Grupo = z.infer<typeof GrupoSchema>;
 
-export const DominioSchema = z.enum([
-  'motor_grueso',
-  'motor_fino',
-  'lenguaje_comunicacion',
-  'socioemocional',
-  'cognitivo',
-]);
-export type Dominio = z.infer<typeof DominioSchema>;
+/**
+ * Núcleo de aprendizaje del dataset E1 por núcleos (`IA`, `CC`, `LV`…). El catálogo es
+ * ampliable: se valida el formato del código y la lista vigente viene de `GET /nucleos`.
+ */
+export const NucleoSchema = z.string().regex(/^[A-Z]{2}$/);
+export type Nucleo = z.infer<typeof NucleoSchema>;
+
+/** Sala Cuna, Nivel Medio o Transición. */
+export const NivelEducativoSchema = z.enum(['SC', 'NM', 'TR']);
+export type NivelEducativo = z.infer<typeof NivelEducativoSchema>;
 
 /** Formatos que la app registra (el dataset además trae `video`, solo como metadato). */
 export const FormatoCapturaSchema = z.enum(['texto', 'audio', 'foto']);
@@ -39,7 +41,8 @@ export const EstadoCapturaSchema = z.enum([
 ]);
 export type EstadoCaptura = z.infer<typeof EstadoCapturaSchema>;
 
-export const NivelSchema = z.number().int().min(1).max(9);
+/** Nivel 1–8 dentro de un núcleo y nivel educativo; no se compara entre núcleos. */
+export const NivelSchema = z.number().int().min(1).max(8);
 
 // ---- Identidad ----
 
@@ -56,9 +59,15 @@ export type MeResponse = z.infer<typeof MeResponseSchema>;
 
 export const NinoSchema = z.object({
   id: z.string(),
+  /** Primera palabra del nombre completo ficticio. */
   nombres: z.string(),
+  /** Resto del nombre completo ficticio. */
   apellidos: z.string(),
+  nombreCompleto: z.string(),
+  /** Código local de la sala (`SC-01`). */
   sala: z.string(),
+  idSala: z.string(),
+  nivelEducativo: NivelEducativoSchema,
   fechaNacimiento: FechaSchema,
   /** Edad en meses completos a hoy. */
   edadMeses: z.number().int(),
@@ -68,28 +77,40 @@ export type Nino = z.infer<typeof NinoSchema>;
 export const NinosQuerySchema = z.object({ sala: z.string().min(1).optional() });
 export const NinosResponseSchema = z.array(NinoSchema);
 
+/** Componente de un descriptor de la rúbrica: su conducta o uno de sus dos ejemplos. */
 export const ManifestacionSchema = z.object({
   id: z.string(),
+  idDescriptor: z.string(),
+  nucleo: NucleoSchema,
+  nivelEducativo: NivelEducativoSchema,
   nivel: NivelSchema,
-  dominio: DominioSchema,
+  tipo: z.enum(['conducta_descriptor', 'ejemplo_ilustrativo']),
   textoObservable: z.string(),
 });
 export type Manifestacion = z.infer<typeof ManifestacionSchema>;
 
 export const ManifestacionesQuerySchema = z.object({
-  nivel: z.coerce.number().int().min(1).max(9).optional(),
-  dominio: DominioSchema.optional(),
+  nivel: z.coerce.number().int().min(1).max(8).optional(),
+  nucleo: NucleoSchema.optional(),
+  nivelEducativo: NivelEducativoSchema.optional(),
 });
 export const ManifestacionesResponseSchema = z.array(ManifestacionSchema);
 
-/** Nivel de la ruta sintética con su rango de edad en meses (`edadMinMeses` ≤ edad < `edadMaxMeses`). */
+/** Nombre ordinal de un nivel; no tiene edades ni es un umbral de logro. */
 export const NivelRutaSchema = z.object({
   nivel: NivelSchema,
   nombre: z.string(),
-  edadMinMeses: z.number().int(),
-  edadMaxMeses: z.number().int(),
 });
 export type NivelRuta = z.infer<typeof NivelRutaSchema>;
+
+/** Núcleo del catálogo; `origen` separa la referencia aportada de las propuestas sintéticas. */
+export const NucleoCatalogoSchema = z.object({
+  id: NucleoSchema,
+  nombre: z.string(),
+  ambito: z.string(),
+  origen: z.string(),
+});
+export type NucleoCatalogo = z.infer<typeof NucleoCatalogoSchema>;
 
 /** Manifestación con la cita textual que la respalda. */
 export const ManifestacionCitadaSchema = z
@@ -213,7 +234,10 @@ export const ObservacionConfirmadaSchema = z
   .object({
     id: z.string(),
     fecha: FechaSchema,
-    nivelEstimado: NivelSchema,
+    /** Nivel validado por la educadora. */
+    nivel: NivelSchema,
+    /** Núcleos de las manifestaciones; cada uno tiene su valoración de la app. */
+    nucleos: z.array(NucleoSchema),
     manifestaciones: z.array(ManifestacionCitadaSchema),
   })
   .meta({ id: 'ObservacionConfirmada' });
@@ -224,6 +248,7 @@ export const NinoRefSchema = NinoSchema.pick({
   nombres: true,
   apellidos: true,
   sala: true,
+  nivelEducativo: true,
 }).meta({ id: 'NinoRef' });
 
 export const CapturaResumenSchema = z
@@ -236,8 +261,8 @@ export const CapturaResumenSchema = z
     creadoEn: z.iso.datetime(),
     /** Primeros caracteres del texto escrito o normalizado. */
     extracto: TextoNuloSchema,
-    /** Dominios de lo confirmado o, si aún no se confirma, de lo sugerido. */
-    dominios: z.array(DominioSchema),
+    /** Núcleos de lo confirmado o, si aún no se confirma, de lo sugerido. */
+    nucleos: z.array(NucleoSchema),
     /** Nivel confirmado por la educadora; null si aún no se confirma. */
     nivel: NivelSchema.nullable(),
   })
@@ -292,7 +317,10 @@ export const ListarCapturasResponseSchema = z.object({
 });
 export type ListarCapturasResponse = z.infer<typeof ListarCapturasResponseSchema>;
 
-/** Decisión de la educadora: 1 a 5 manifestaciones del catálogo, todas del nivel elegido. */
+/**
+ * Decisión de la educadora: 1 a 5 manifestaciones del catálogo, todas del nivel elegido y del
+ * nivel educativo del niño o niña. Se crea una valoración por cada núcleo presente.
+ */
 export const ConfirmacionRequestSchema = z.object({
   nivel: NivelSchema,
   manifestaciones: z
@@ -339,20 +367,61 @@ export const TrayectoriaQuerySchema = z.object({
   hasta: FechaSchema.optional(),
 });
 
-/** Observación del periodo con sus manifestaciones (dataset o confirmada en la app). */
+export const OrigenSchema = z.enum(['dataset', 'app']);
+
+/** Estados de una valoración (metodología del dataset E1 por núcleos). */
+export const EstadoValoracionSchema = z.enum([
+  'confirmada',
+  'ajustada',
+  'pendiente_revision',
+  'propuesta_pendiente',
+  'evidencia_insuficiente',
+  'sin_registro',
+]);
+export type EstadoValoracion = z.infer<typeof EstadoValoracionSchema>;
+
+/** Manifestación con el fragmento literal de la observación que la respalda. */
+export const EvidenciaSchema = z
+  .object({
+    id: z.string(),
+    manifestacion: ManifestacionSchema,
+    fragmento: z.string().nullable(),
+    alcance: z.enum(['componente_observado', 'parcial_otro_descriptor']),
+  })
+  .meta({ id: 'Evidencia' });
+
+/** Observación del periodo con su evidencia (dataset o confirmada en la app). */
 export const ObservacionTrayectoriaSchema = z
   .object({
     id: z.string(),
     fecha: FechaSchema,
-    /** El dataset además trae `video`, solo como metadato. */
+    /** El dataset además admite `video`, solo como metadato. */
     formato: z.enum(['texto', 'audio', 'foto', 'video']),
-    origen: z.enum(['dataset', 'app']),
-    nivelEstimado: NivelSchema,
+    origen: OrigenSchema,
     notaBreve: z.string().nullable(),
+    /** Registro completo; null en observaciones de la app sin texto. */
+    textoObservacion: z.string().nullable(),
     manifestaciones: z.array(ManifestacionSchema),
+    evidencias: z.array(EvidenciaSchema),
   })
   .meta({ id: 'ObservacionTrayectoria' });
 export type ObservacionTrayectoria = z.infer<typeof ObservacionTrayectoriaSchema>;
+
+/**
+ * Decisión sobre un núcleo a una fecha de corte. Sin nivel validado no se muestra la sugerencia
+ * como si lo fuera; sin nivel sugerido, la evidencia no alcanzó para proponer.
+ */
+export const ValoracionSchema = z
+  .object({
+    id: z.string(),
+    fechaCorte: FechaSchema,
+    nivelSugerido: NivelSchema.nullable(),
+    nivelValidado: NivelSchema.nullable(),
+    estado: EstadoValoracionSchema,
+    origen: OrigenSchema,
+  })
+  .meta({ id: 'Valoracion' });
+export type Valoracion = z.infer<typeof ValoracionSchema>;
 
 export const TrayectoriaResponseSchema = z.object({
   nino: NinoSchema,
@@ -361,19 +430,13 @@ export const TrayectoriaResponseSchema = z.object({
   totalObservaciones: z.number().int(),
   /** Menos de 3 observaciones en el periodo: mostrar aviso de evidencia limitada. */
   evidenciaLimitada: z.boolean(),
-  dominios: z.array(
+  nucleos: z.array(
     z.object({
-      dominio: DominioSchema,
+      nucleo: NucleoSchema,
       /** true: «sin registros en el periodo», que no equivale a ausencia de aprendizaje. */
       sinRegistros: z.boolean(),
-      puntos: z.array(
-        z.object({
-          idObservacion: z.string(),
-          fecha: FechaSchema,
-          nivelEstimado: NivelSchema,
-          origen: z.enum(['dataset', 'app']),
-        }),
-      ),
+      /** Valoraciones del periodo, de la más antigua a la más reciente. */
+      valoraciones: z.array(ValoracionSchema),
     }),
   ),
   /** Observaciones del periodo, de la más reciente a la más antigua. */

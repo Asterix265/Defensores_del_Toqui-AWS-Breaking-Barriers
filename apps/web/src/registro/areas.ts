@@ -1,11 +1,11 @@
 import type { ObservacionApi } from './api';
-import { DOMINIOS, type Dominio, type Formato } from './datos';
+import { NUCLEOS, type Nucleo, type Formato } from './datos';
 
 /** Ventana de los huecos de evidencia (la que propone `definir-mvp-e1`). */
 export const DIAS_PERIODO = 30;
 
 export interface ResumenArea {
-  area: Dominio;
+  area: Nucleo;
   cantidad: number;
   ultima: Date | null;
 }
@@ -18,7 +18,7 @@ export interface Registro {
   texto: string;
   /** Nota breve del dataset, si la trae. */
   detalle: string | null;
-  dominios: Dominio[];
+  nucleos: Nucleo[];
   formato: Formato | 'video';
   origen: 'dataset' | 'app';
 }
@@ -35,7 +35,7 @@ export function registroDeObservacion(o: ObservacionApi): Registro {
     creada: desdeFecha(o.fecha),
     texto: o.manifestaciones.map((m) => m.textoObservable).join(' · '),
     detalle: o.notaBreve,
-    dominios: [...new Set(o.manifestaciones.map((m) => m.dominio as Dominio))],
+    nucleos: [...new Set(o.manifestaciones.map((m) => m.nucleo as Nucleo))],
     formato: o.formato,
     origen: o.origen,
   };
@@ -57,8 +57,8 @@ export function registrosDe(observaciones: ObservacionApi[]): Registro[] {
 export function resumenAreas(registros: Registro[], ahora: Date): ResumenArea[] {
   const limite = ahora.getTime() - DIAS_PERIODO * 24 * 60 * 60 * 1000;
   const recientes = registros.filter((r) => r.creada.getTime() >= limite);
-  return DOMINIOS.map((area) => {
-    const delArea = recientes.filter((r) => r.dominios.includes(area));
+  return NUCLEOS.map((area) => {
+    const delArea = recientes.filter((r) => r.nucleos.includes(area));
     const ultima = delArea.reduce<Date | null>(
       (max, r) => (!max || r.creada > max ? r.creada : max),
       null,

@@ -1,5 +1,5 @@
 import { etiquetaSala } from './api';
-import { ETIQUETA_DOMINIO } from './datos';
+import { ETIQUETA_NUCLEO } from './datos';
 import type { NotaGuardada } from './registrar';
 
 const COLUMNAS = [
@@ -31,7 +31,7 @@ export function notasACsv(notas: NotaGuardada[]): string {
       nota.nino.nombreCompleto,
       nota.formato,
       nota.nivel === null ? '' : String(nota.nivel),
-      nota.dominios.map((d) => ETIQUETA_DOMINIO[d]).join(' | '),
+      nota.nucleos.map((d) => ETIQUETA_NUCLEO[d]).join(' | '),
       nota.texto ?? '',
     ];
   });

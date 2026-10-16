@@ -8,6 +8,8 @@ Preparado el 14 de octubre de 2026 a partir de:
 - `bb-assets-e1-presentation.pptx`: texto extraído de las diapositivas. No se interpretó contenido exclusivamente visual.
 - `dataset_e1_publico/`: README, diccionario, distribución y validación, ejemplos de trayectorias y CSV.
 
+> El 16-10-2026 el equipo recibió el dataset E1 por núcleos (`dataset_e1_nucleos_2026.zip`), que reemplaza a `dataset_e1_publico/` en la app (cambio `migrar-dataset-nucleos`). Las secciones de este documento sobre el dataset describen el anterior.
+
 > En la máquina de preparación, los materiales estaban en `~/Downloads/` (`bb-assets-e1-presentation.pptx` y `dataset_e1_publico/`), no en `../Desafio/` como indica el README. Hay que copiarlos allí o actualizar esa ruta.
 
 ---

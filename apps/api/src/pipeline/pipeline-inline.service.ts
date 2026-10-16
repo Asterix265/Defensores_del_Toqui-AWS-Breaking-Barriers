@@ -1,9 +1,9 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { CapturasService, type ArchivoSubido } from '../capturas/capturas.service';
-import { desdeColumnaFecha, edadEnMeses } from '../comun/fechas';
+import { SELECT_MANIFESTACION, aManifestacion } from '../catalogo/catalogo.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { extraerFake, normalizarFake, procesamientoFake } from './ia-fake';
-import { nivelEsperado } from './nivel';
+import { nivelReferencia } from './nivel';
 
 /**
  * `PIPELINE_MODE=inline`: los pasos del pipeline (normalizar → extraer → entregar) corren
@@ -37,21 +37,18 @@ export class PipelineInlineService {
       select: {
         formato: true,
         texto: true,
-        fecha: true,
-        nino: { select: { fechaNacimiento: true } },
+        nino: { select: { id: true, idNivelEducativo: true } },
       },
     });
     const formato = captura.formato === 'video' ? 'audio' : captura.formato;
     const textoFuente = normalizarFake(formato, idCaptura, captura.texto);
-    const edad = edadEnMeses(
-      desdeColumnaFecha(captura.nino.fechaNacimiento),
-      desdeColumnaFecha(captura.fecha),
-    );
-    const nivel = await nivelEsperado(this.prisma, edad);
-    const catalogo = await this.prisma.manifestacion.findMany({
-      where: { nivel },
-      select: { id: true, nivel: true, dominio: true, textoObservable: true },
-    });
+    const nivel = await nivelReferencia(this.prisma, captura.nino.id);
+    const catalogo = (
+      await this.prisma.manifestacion.findMany({
+        where: { descriptor: { nivel, idNivelEducativo: captura.nino.idNivelEducativo } },
+        select: SELECT_MANIFESTACION,
+      })
+    ).map(aManifestacion);
     await this.capturas.registrarBorrador(idCaptura, {
       ...extraerFake(textoFuente, nivel, catalogo),
       procesamiento: procesamientoFake(formato, captura.texto, archivo),

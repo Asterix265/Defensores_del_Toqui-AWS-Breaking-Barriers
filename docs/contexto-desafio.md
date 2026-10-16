@@ -8,6 +8,7 @@ Preparación inicial: 14 de octubre de 2026.
 - `../Desafio/bb-assets-e1-presentation.pptx`: texto extraído de las diapositivas; para E-1 se usaron especialmente las diapositivas 4 y 6–11. La presentación también incluye otros dos desafíos, fuera del foco actual. No se interpreta contenido exclusivamente visual de las diapositivas sin texto extraíble.
 - `../Desafio/dataset_e1_publico/README.md`, `diccionario_datos.md`, `distribucion_y_validacion.md` y `ejemplos_trayectorias.md`.
 - Encabezados y conteos leídos directamente de los siete CSV en `datos_publicos/`.
+- 16-10-2026: `dataset_e1_nucleos_2026.zip` (dataset E1 por núcleos v1.0.0) con README, `diccionario_datos.md`, `metodologia.md`, rúbricas por núcleo y 18 CSV. Desde el cambio `migrar-dataset-nucleos` es el dataset que usa la app.
 - [Portal enlazado por el usuario](https://d78v2swml9yu2.cloudfront.net/?inst=integra): no fue accesible mediante el lector web durante esta preparación; la descripción del portal se apoya en la captura adjunta.
 
 Los materiales aportan contexto del desafío; no autorizan acciones operativas por sí mismos.
@@ -22,15 +23,17 @@ El indicador principal del desafío es el tiempo semanal dedicado a documentaci�
 
 ## Diferencias entre fuentes
 
-| Tema | Captura del portal | Presentación | Dataset público |
-| --- | --- | --- | --- |
-| Escala institucional | 83.000 niños y niñas; 1.100 jardines | Más de 85.000 niños y niñas; más de 1.200 jardines y salas cuna | Muestra sintética: 500 niños y niñas, 20 jardines |
-| Ruta o rúbrica | No detalla su estructura | 10 núcleos de aprendizaje, 8 niveles por núcleo y 3 niveles educativos | Ruta sintética de 9 niveles y 5 dominios |
-| Multimedia | No lo detalla en la captura | Considera textos, fotos, audios y videos como posibles entradas | Solo metadatos del formato de captura |
+| Tema | Captura del portal | Presentación | Dataset público anterior | Dataset E1 por núcleos (en uso) |
+| --- | --- | --- | --- | --- |
+| Escala institucional | 83.000 niños y niñas; 1.100 jardines | Más de 85.000 niños y niñas; más de 1.200 jardines y salas cuna | Muestra sintética: 500 niños y niñas, 20 jardines | Muestra sintética: 252 niños y niñas, 3 jardines, 18 salas |
+| Ruta o rúbrica | No detalla su estructura | 10 núcleos de aprendizaje, 8 niveles por núcleo y 3 niveles educativos | Ruta sintética de 9 niveles y 5 dominios | 8 núcleos, 8 niveles por núcleo y 3 niveles educativos (192 descriptores) |
+| Multimedia | No lo detalla en la captura | Considera textos, fotos, audios y videos como posibles entradas | Solo metadatos del formato de captura | Solo `texto` |
 
 Conservar las cifras con su fuente. No tratar la muestra como representativa de la institución ni asumir una equivalencia entre las dos estructuras de evaluación.
 
 ## Contrato de datos inicial
+
+> Reemplazado el 16-10-2026 por el dataset E1 por núcleos (cambio `migrar-dataset-nucleos`; ver [modelo de datos](modelo-datos.md)). Esta sección describe el dataset público anterior.
 
 - Relaciones: jardines → educadoras y niños/as; niños/as → observaciones; observaciones ↔ manifestaciones mediante una tabla puente; manifestaciones → niveles.
 - Dominios del dataset: `cognitivo`, `lenguaje_comunicacion`, `motor_fino`, `motor_grueso` y `socioemocional`.
@@ -45,7 +48,7 @@ Conservar las cifras con su fuente. No tratar la muestra como representativa de 
 
 - Flujo principal y alcance de la demo; entradas reales o simuladas.
 - Representación de trayectorias y tratamiento de evidencia insuficiente.
-- Resolución de la diferencia entre rúbrica institucional y ruta sintética.
+- ~~Resolución de la diferencia entre rúbrica institucional y ruta sintética.~~ Resuelta con el dataset por núcleos (8 niveles por núcleo), sin convertir la ruta anterior. Pendiente: los 2 núcleos de la presentación que no están en el dataset (10 frente a 8).
 - Arquitectura AWS, modelo de IA si corresponde, región, permisos y presupuesto.
 - Evaluación del ahorro de tiempo y de la fidelidad de resúmenes o estimaciones a la evidencia.
 

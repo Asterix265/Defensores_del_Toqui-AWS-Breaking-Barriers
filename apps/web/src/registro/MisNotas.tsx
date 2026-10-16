@@ -114,7 +114,7 @@ function TarjetaNota({ nota }: { nota: NotaGuardada }) {
         {nota.texto ?? 'Sin texto'}
       </Typography>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-        {nota.dominios.map((d) => (
+        {nota.nucleos.map((d) => (
           <ChipArea key={d} area={d} compacto />
         ))}
         {estado && (

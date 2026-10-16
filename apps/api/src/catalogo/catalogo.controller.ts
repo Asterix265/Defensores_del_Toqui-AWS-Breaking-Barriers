@@ -7,6 +7,7 @@ import {
   NinoSchema,
   NinosQuerySchema,
   NivelRutaSchema,
+  NucleoCatalogoSchema,
   TrayectoriaQuerySchema,
   TrayectoriaResponseSchema,
 } from '@toqui/shared';
@@ -18,6 +19,7 @@ class NinoDto extends createZodDto(NinoSchema) {}
 class NinosQueryDto extends createZodDto(NinosQuerySchema) {}
 class ManifestacionDto extends createZodDto(ManifestacionSchema) {}
 class NivelRutaDto extends createZodDto(NivelRutaSchema) {}
+class NucleoDto extends createZodDto(NucleoCatalogoSchema) {}
 class ManifestacionesQueryDto extends createZodDto(ManifestacionesQuerySchema) {}
 class TrayectoriaQueryDto extends createZodDto(TrayectoriaQuerySchema) {}
 class TrayectoriaResponseDto extends createZodDto(TrayectoriaResponseSchema) {}
@@ -38,7 +40,7 @@ export class NinosController {
   @Get(':id/trayectoria')
   @ApiOperation({
     operationId: 'obtenerTrayectoria',
-    summary: 'Observaciones por dominio en el periodo (por defecto, 180 días)',
+    summary: 'Valoraciones y observaciones por núcleo en el periodo (por defecto, 180 días)',
   })
   @ZodResponse({ status: 200, type: TrayectoriaResponseDto })
   trayectoria(
@@ -59,7 +61,7 @@ export class ManifestacionesController {
   @Get()
   @ApiOperation({
     operationId: 'listarManifestaciones',
-    summary: 'Catálogo de manifestaciones, filtrable por nivel y dominio',
+    summary: 'Catálogo de manifestaciones, filtrable por núcleo, nivel educativo y nivel',
   })
   @ZodResponse({ status: 200, type: [ManifestacionDto] })
   listar(@Query() query: ManifestacionesQueryDto) {
@@ -76,10 +78,27 @@ export class NivelesController {
   @Get()
   @ApiOperation({
     operationId: 'listarNiveles',
-    summary: 'Niveles de la ruta sintética con su rango de edad en meses',
+    summary: 'Nombres de los 8 niveles de la trayectoria (sin edades)',
   })
   @ZodResponse({ status: 200, type: [NivelRutaDto] })
   listar() {
     return this.catalogo.niveles();
+  }
+}
+
+@ApiTags('catalogo')
+@ApiBearerAuth()
+@Controller('nucleos')
+export class NucleosController {
+  constructor(private readonly catalogo: CatalogoService) {}
+
+  @Get()
+  @ApiOperation({
+    operationId: 'listarNucleos',
+    summary: 'Núcleos de aprendizaje; `origen` distingue la referencia aportada de las propuestas',
+  })
+  @ZodResponse({ status: 200, type: [NucleoDto] })
+  listar() {
+    return this.catalogo.nucleos();
   }
 }

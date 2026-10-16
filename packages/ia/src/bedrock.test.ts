@@ -319,8 +319,8 @@ describe('ProveedorBedrock: protección de datos personales', () => {
     const mensaje = comando?.input.messages?.[0]?.content?.[0]?.text ?? '';
     expect(mensaje).toContain(`<nota>\n${anonima}\n</nota>`);
     expect(mensaje).toContain('Edad: 30 meses');
-    expect(mensaje).toContain('Nivel esperado para la edad: 7');
-    expect(mensaje).toContain('- MAN-L07-MF-01 [motor_fino] Apila 4 bloques');
+    expect(mensaje).toContain('Nivel de referencia (último validado): 7');
+    expect(mensaje).toContain('- MAN-L07-MF-01 [MF] Apila 4 bloques');
   });
 
   it('falla cerrada si el Guardrail interviene sin texto de salida', async () => {

@@ -5,6 +5,7 @@
  * API del copiloto de registro de observaciones (datos sintéticos).
  * OpenAPI spec version: 0.0.0
  */
+import type { EvidenciaOutput } from './evidenciaOutput';
 import type { ObservacionTrayectoriaOutputFormato } from './observacionTrayectoriaOutputFormato';
 import type { ObservacionTrayectoriaOutputManifestacionesItem } from './observacionTrayectoriaOutputManifestacionesItem';
 import type { ObservacionTrayectoriaOutputOrigen } from './observacionTrayectoriaOutputOrigen';
@@ -15,12 +16,10 @@ export interface ObservacionTrayectoriaOutput {
   fecha: string;
   formato: ObservacionTrayectoriaOutputFormato;
   origen: ObservacionTrayectoriaOutputOrigen;
-  /**
-   * @minimum 1
-   * @maximum 9
-   */
-  nivelEstimado: number;
   /** @nullable */
   notaBreve: string | null;
+  /** @nullable */
+  textoObservacion: string | null;
   manifestaciones: ObservacionTrayectoriaOutputManifestacionesItem[];
+  evidencias: EvidenciaOutput[];
 }

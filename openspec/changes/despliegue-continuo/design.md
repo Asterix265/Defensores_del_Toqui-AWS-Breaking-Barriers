@@ -30,7 +30,7 @@ Chequeo de salud cada 10 s, con 2 aciertos y un timeout de 5 s, y `deregistratio
 ### D3. Identidad de GitHub: `ToquiCiCd`
 
 - `iam.OidcProviderNative` (recurso nativo de CloudFormation, sin Lambda de custom resource) para `token.actions.githubusercontent.com`.
-- Rol `toqui-github-deploy` con trust `StringEquals` en `aud = sts.amazonaws.com` y `sub = repo:Asterix265/Defensores_del_Toqui-AWS-Breaking-Barriers:ref:refs/heads/main`. El job no usa `environment:`, porque cambiaría el `sub`.
+- Rol `toqui-github-deploy` con trust `StringEquals` en `aud = sts.amazonaws.com` y `sub = repo:Asterix265@94083287/Defensores_del_Toqui-AWS-Breaking-Barriers@1419528574:ref:refs/heads/main`. El repositorio usa el `sub` **inmutable** de OIDC (`use_immutable_subject`), con los ids del dueño y del repositorio; el formato clásico sin ids (`repo:Asterix265/…`) fue rechazado en el primer intento del 16-10-2026 (CloudTrail). El job no usa `environment:`, porque cambiaría el `sub`.
 - Permisos: `sts:AssumeRole` y `sts:TagSession` sobre los roles `deploy`, `file-publishing`, `image-publishing` y `lookup` del bootstrap; `cloudformation:DescribeStacks` sobre `CDKToolkit` y `Toqui*`; y, para el smoke, `sqs:SendMessage` sobre `toqui-prod-capturas` y `logs:FilterLogEvents` sobre `/toqui/prod/proceso`. Los ARN se arman con nombres fijos, sin referencias entre stacks, para no crear Exports que bloqueen las salidas de `ToquiApp`.
 - *Riesgo:* CloudFormation ejecuta con `cfn-exec-role` (`AdministratorAccess`). Quien puede hacer push a `main` es, en la práctica, admin de la cuenta. Se documenta y se acepta para la hackatón: es una cuenta del evento con recursos sintéticos.
 - Se despliega una sola vez a mano (`pnpm --filter @toqui/infra aws:cicd:deploy`).

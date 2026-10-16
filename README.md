@@ -12,7 +12,7 @@ La línea base declarada en la presentación es de **4 horas semanales** de docu
 
 ## Estado actual
 
-La base técnica del monorepo está lista (cambio OpenSpec `levantar-stack-base`): web, API, pipeline, paquete compartido e infraestructura compilan, tienen pruebas de humo y se comunican en local. De `definir-mvp-e1`, la **API** ya implementa el modelo de dominio, la carga del dataset, la autenticación con Cognito (y modo local), la captura con borrador y confirmación, el endpoint interno del pipeline y la trayectoria (ver [API de registro](#api-de-registro)). La Lambda de proceso (`apps/pipeline`, cambio `cola-ia-y-amplify`) ya normaliza con Transcribe y Textract, anonimiza con el Guardrail y entrega al endpoint interno; faltan la clasificación con Claude, el encolado desde la API, la conexión de la web a la API y el panel de impacto. Los servicios AWS de desarrollo (stack `ToquiDev`) y la arquitectura de producción (`ToquiRed`, `ToquiDatos`, `ToquiApp`) están desplegados; la API y el pipeline de producción todavía solo tienen los endpoints y pasos técnicos de ejemplo. El cambio `migrar-dataset-nucleos` adopta el dataset E1 por núcleos (modelo, carga, API y adaptación mínima de la IA y la web). Su migración vacía las tablas, y la carga en Aurora (`pnpm aws:prod:seed`) está preparada, pero aún no se ha ejecutado.
+La base técnica del monorepo está lista (cambio OpenSpec `levantar-stack-base`): web, API, pipeline, paquete compartido e infraestructura compilan, tienen pruebas de humo y se comunican en local. De `definir-mvp-e1`, la **API** ya implementa el modelo de dominio, la carga del dataset, la autenticación con Cognito (y modo local), la captura con borrador y confirmación, el endpoint interno del pipeline y la trayectoria (ver [API de registro](#api-de-registro)). La Lambda de proceso (`apps/pipeline`, cambio `cola-ia-y-amplify`) ya normaliza con Transcribe y Textract, anonimiza con el Guardrail y entrega al endpoint interno; la clasificación con Claude (`IA_PROVIDER=bedrock`, cambio `clasificador-bedrock`) está en el código, probada con un cliente simulado y en vivo con Claude Sonnet 5, y sin activar en producción. Faltan el encolado desde la API, la conexión de la web a la API y el panel de impacto. Los servicios AWS de desarrollo (stack `ToquiDev`) y la arquitectura de producción (`ToquiRed`, `ToquiDatos`, `ToquiApp`) están desplegados; la API y el pipeline de producción todavía solo tienen los endpoints y pasos técnicos de ejemplo. El cambio `migrar-dataset-nucleos` adopta el dataset E1 por núcleos (modelo, carga, API y adaptación mínima de la IA y la web). Su migración vacía las tablas, y la carga en Aurora (`pnpm aws:prod:seed`) está preparada, pero aún no se ha ejecutado.
 
 ## Stack
 
@@ -90,11 +90,12 @@ API NestJS en Fargate (`apps/api`), según `definir-mvp-e1`. Contrato completo e
 
 ## Módulo de IA (`packages/ia`)
 
-`@toqui/ia` convierte una nota (escrita, transcrita o leída de una foto) en un `BorradorEntrante` de `@toqui/shared`, con manifestaciones del catálogo recibido y citas literales del texto (cambio OpenSpec `implementar-modulo-ia`). Es lógica pura: no depende de Nest, Prisma, S3 ni de la API, y no lee variables de entorno. Todavía nadie lo usa: la Lambda `proceso` de `apps/pipeline` tiene los puertos `Clasificador` y `LectorImagen`, pero solo el proveedor `fake`; falta un adaptador `bedrock` que use este módulo (tarea 4.2 de `cola-ia-y-amplify`). La API mantiene su propio proveedor `fake`.
+`@toqui/ia` convierte una nota (escrita, transcrita o leída de una foto) en un `BorradorEntrante` de `@toqui/shared`, con manifestaciones del catálogo recibido y citas literales del texto (cambio OpenSpec `implementar-modulo-ia`). Es lógica pura: no depende de Nest, Prisma, S3 ni de la API, y no lee variables de entorno. La Lambda `proceso` de `apps/pipeline` usa `clasificarConClaude` con `IA_PROVIDER=bedrock` (ver [Clasificación con Claude en la Lambda](#clasificación-con-claude-en-la-lambda-appspipeline)); `crearProveedor` todavía no tiene consumidores. La API mantiene su propio proveedor `fake`.
 
 - `crearProveedor({ proveedor: 'fake' })`: determinista y sin AWS. `crearProveedor({ proveedor: 'bedrock', modelo, region?, guardrail: { id, version } })`: Guardrail → Claude (Converse con la herramienta `registrar_borrador`) → validación → un reintento → evidencia insuficiente. El Guardrail es obligatorio salvo `sinGuardrail: true` (solo desarrollo) y falla cerrado: sin texto anonimizado no se llama al modelo.
 - El proveedor expone `extraer(texto, { edadMeses, nivelEsperado, catalogo })` y `normalizarFoto(bytes, 'jpeg' | 'png')` (máximo 3,75 MB). También se exportan `validar`, `normalizarTexto`, `textoDeTranscripcion` (JSON de Transcribe) y `ErrorIa`.
 - Niveles y núcleos salen del catálogo recibido (sirve la rúbrica del dataset, 8 niveles × 8 núcleos por nivel educativo, y otras). `nivelEsperado` es el nivel de referencia que arma la API: la mediana de los últimos niveles validados del niño o niña. `textoFuente` es la nota original normalizada; las citas que el modelo toma del texto anonimizado (`{NAME}`) se ubican en el original.
+- `clasificarConClaude(cliente, modelo, { textoFuente, edadMeses, nivelEsperado, catalogo, conocimiento?, ejemplos?, correccion? }, { tiempoMaximoMs? })`: una sola llamada a Converse con `registrar_borrador`, sin Guardrail, validación ni reintento (los hace el orquestador del pipeline). Devuelve la salida cruda con la forma `{ nivelSugerido, evidenciaInsuficiente, manifestaciones }` y cada cita como el fragmento literal del texto. Cada llamada se cancela a los 60 s por defecto.
 - `ErrorIa` (`codigo`: `FOTO_NO_VALIDA`, `GUARDRAIL_NO_DISPONIBLE` o `CONFIGURACION_INVALIDA`) marca fallas que reintentar no corrige. Los errores del SDK de Bedrock (`ThrottlingException` y otros) se propagan con su nombre para que quien lo use los reintente (en el pipeline, la cola SQS). Una nota sin respaldo no es un error: es un borrador con `evidenciaInsuficiente: true`.
 
 Comandos (verificados el 15-10-2026 en Windows con Node 24.22.0 y pnpm 11.13.0, después de `pnpm --filter @toqui/shared build`):
@@ -105,7 +106,30 @@ pnpm --filter @toqui/ia typecheck
 pnpm --filter @toqui/ia test
 ```
 
-Las pruebas usan un cliente de Bedrock simulado: no necesitan credenciales ni red. `packages/ia/src/bedrock.live.test.ts` es una prueba manual contra Bedrock real que solo se activa con `RUN_BEDROCK_LIVE=1`, el perfil `toqui` y `BEDROCK_GUARDRAIL_ID`/`BEDROCK_GUARDRAIL_VERSION` (de `pnpm aws:env`); todavía no se ha ejecutado.
+Las pruebas usan un cliente de Bedrock simulado: no necesitan credenciales ni red. `packages/ia/src/bedrock.live.test.ts` es una prueba manual contra Bedrock real que solo se activa con `RUN_BEDROCK_LIVE=1`, el perfil `toqui` y `BEDROCK_GUARDRAIL_ID`/`BEDROCK_GUARDRAIL_VERSION` (de `pnpm aws:env`); todavía no se ha ejecutado. `packages/ia/src/clasificador.live.test.ts` hace lo mismo con `clasificarConClaude` (tres notas sintéticas; modelo de `BEDROCK_MODEL_EXTRACCION`, por defecto `us.anthropic.claude-sonnet-5`; por consola solo muestra niveles e ids). Se ejecutó el 16-10-2026 con el perfil `toqui`: 3 de 3 con `us.anthropic.claude-sonnet-5`, entre 2,6 y 4,9 s por llamada. Si una llamada falla, las dos pruebas en vivo relanzan solo el nombre y el mensaje del error, para no imprimir la solicitud firmada.
+
+La cuenta del evento solo permite ciertos modelos (política `ws-bedrock-model-allowlist-policy-1`): Claude Sonnet 5, Opus 5 y Fable 5 están permitidos; **Sonnet 5.5 y Haiku 5.5 no** (`AccessDeniedException`). Por eso el modelo de extracción es `us.anthropic.claude-sonnet-5`.
+
+### Clasificación con Claude en la Lambda (`apps/pipeline`)
+
+La Lambda `proceso` elige el clasificador con variables de entorno (`apps/pipeline/src/config.ts`):
+
+- `IA_PROVIDER`: `fake` por defecto (palabras clave, sin AWS) o `bedrock` (`ClasificadorBedrock`, que llama a `clasificarConClaude` con el cliente de Bedrock que ya usa el Guardrail). La validación, el reintento con corrección y la evidencia insuficiente siguen en el orquestador; los errores del SDK se reintentan con la cola.
+- `MODELO_EXTRACCION`: modelo o perfil de inferencia, por defecto `us.anthropic.claude-sonnet-5` (igual que `MODELOS.extraccion` de `infra/lib/app-stack.ts`).
+- `bedrock` exige `LECTOR_FOTO=textract`: con `LECTOR_FOTO=ia` la configuración se rechaza al arrancar, porque no hay lectura de fotos con Claude en la Lambda.
+
+En producción el valor sale de la constante `IA_PROVIDER_PROCESO` de `infra/lib/app-stack.ts`, que **sigue en `fake`** hasta que salga bien la prueba en vivo. Para activar Claude se cambia esa constante a `'bedrock'` (y su prueba en `infra/lib/prod-stacks.test.ts`) y se redespliega `ToquiApp`. Reversión rápida, sin redesplegar: en la consola de Lambda, `toqui-prod-proceso` → Configuración → Variables de entorno, `IA_PROVIDER=fake`. La Lambda tiene un `timeout` de 180 s (audio: hasta 90 s de Transcribe y hasta dos llamadas a Claude con un tope de 60 s cada una; en la prueba en vivo cada llamada tardó menos de 5 s) y la cola, 1080 s de visibilidad.
+
+Comandos (verificados el 16-10-2026 en Windows con Node 24.22.0 y pnpm 11.13.1; el filtro `...` compila también `@toqui/shared`):
+
+```sh
+pnpm --filter "@toqui/ia..." build
+pnpm --filter @toqui/pipeline typecheck
+pnpm --filter @toqui/pipeline test
+pnpm --filter @toqui/pipeline build
+```
+
+Las pruebas del pipeline usan un cliente de Bedrock simulado: no necesitan credenciales ni red.
 
 ## AWS de desarrollo
 

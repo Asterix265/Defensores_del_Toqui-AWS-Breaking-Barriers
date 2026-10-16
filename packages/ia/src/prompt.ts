@@ -1,4 +1,5 @@
 import type { ToolSpecification } from '@aws-sdk/client-bedrock-runtime';
+import type { EntradaClaude } from './clasificador.js';
 import {
   MAXIMO_MANIFESTACIONES,
   SIN_ACTIVIDAD,
@@ -85,29 +86,109 @@ export function etiquetaNota(texto: string): string {
   return etiqueta;
 }
 
-/**
- * Mensaje de usuario para Claude. Solo lleva la nota (ya anonimizada), la edad, el nivel
- * de referencia y el catálogo: se toman campos explícitos para no filtrar otros datos del contexto.
- */
-export function mensajeExtraccion(texto: string, contexto: ContextoExtraccion): string {
-  const catalogo = contexto.catalogo.map(({ id, nivel, nucleo, textoObservable }) => ({
+/** Edad, nivel de referencia y catálogo, con campos explícitos para no filtrar otros datos. */
+function lineasEncabezado({ edadMeses, nivelEsperado, catalogo }: ContextoExtraccion): string[] {
+  const permitido = catalogo.map(({ id, nivel, nucleo, textoObservable }) => ({
     id,
     nivel,
     nucleo,
     textoObservable,
   }));
-  const etiqueta = etiquetaNota(texto);
   return [
-    `Edad: ${contexto.edadMeses} meses`,
-    `Nivel de referencia (último validado): ${contexto.nivelEsperado}`,
+    `Edad: ${edadMeses} meses`,
+    `Nivel de referencia (último validado): ${nivelEsperado}`,
     '',
     'Catálogo de manifestaciones (id [núcleo] texto observable):',
-    ...lineasCatalogo(catalogo),
+    ...lineasCatalogo(permitido),
+  ];
+}
+
+/** La nota entre etiquetas que no aparecen dentro del texto (ver `etiquetaNota`). */
+function lineasNota(texto: string): string[] {
+  const etiqueta = etiquetaNota(texto);
+  return ['Nota de la educadora:', `<${etiqueta}>`, texto, `</${etiqueta}>`];
+}
+
+/** Corta el texto a `maximo` caracteres en total; si lo corta, el último es `…`. */
+function recortar(texto: string, maximo: number): string {
+  const caracteres = Array.from(texto);
+  if (caracteres.length <= maximo) return texto;
+  return `${caracteres.slice(0, maximo - 1).join('')}…`;
+}
+
+/** Tope de fragmentos de conocimiento y de casos parecidos en el mensaje. */
+const MAXIMO_CONTEXTO = 5;
+const LARGO_FRAGMENTO = 800;
+const LARGO_CASO = 400;
+
+/**
+ * Mensaje de usuario para Claude. Solo lleva la nota (ya anonimizada), la edad, el nivel
+ * esperado y el catálogo: se toman campos explícitos para no filtrar otros datos del contexto.
+ */
+export function mensajeExtraccion(texto: string, contexto: ContextoExtraccion): string {
+  return [...lineasEncabezado(contexto), '', ...lineasNota(texto)].join('\n');
+}
+
+/**
+ * Mensaje de sistema de la clasificación del pipeline: `SISTEMA_EXTRACCION` más una
+ * instrucción por cada tipo de contexto que traiga la entrada.
+ */
+export function sistemaClasificacion(entrada: EntradaClaude): string {
+  const lineas = [SISTEMA_EXTRACCION];
+  if (entrada.conocimiento?.length) {
+    lineas.push(
+      'Recibes fragmentos de la base de conocimiento del catálogo (descripciones de niveles y núcleos): úsalos solo como contexto, nunca como fuente de citas.',
+    );
+  }
+  if (entrada.ejemplos?.length) {
+    lineas.push(
+      'Recibes casos parecidos de decisiones previas de educadoras del mismo jardín: úsalos como referencia, sin copiar su nivel si la nota actual describe otra cosa.',
+    );
+  }
+  if (entrada.correccion?.length) {
+    lineas.push('Tu intento anterior no fue válido; corrige los problemas indicados.');
+  }
+  return lineas.join('\n');
+}
+
+/**
+ * Mensaje de usuario de la clasificación del pipeline: igual que `mensajeExtraccion`, con
+ * conocimiento, casos parecidos y problemas del intento anterior (si los hay) antes de la nota.
+ * Solo se toman campos explícitos: nunca ids de captura, jardín, usuario ni niño o niña.
+ */
+export function mensajeClasificacion(entrada: EntradaClaude): string {
+  const { textoFuente, conocimiento = [], ejemplos = [], correccion = [] } = entrada;
+  const secciones: string[][] = [];
+  if (conocimiento.length) {
+    secciones.push([
+      'Fragmentos de la base de conocimiento (contexto, no fuente de citas):',
+      ...conocimiento
+        .slice(0, MAXIMO_CONTEXTO)
+        .map((fragmento) => `- ${recortar(fragmento, LARGO_FRAGMENTO)}`),
+    ]);
+  }
+  if (ejemplos.length) {
+    secciones.push([
+      'Casos parecidos de decisiones previas del jardín (referencia):',
+      ...ejemplos
+        .slice(0, MAXIMO_CONTEXTO)
+        .map(
+          ({ textoFuente: nota, nivel, idsManifestaciones }) =>
+            `- Nota: «${recortar(nota, LARGO_CASO)}» → nivel ${nivel}, manifestaciones ${idsManifestaciones.join(', ')}`,
+        ),
+    ]);
+  }
+  if (correccion.length) {
+    secciones.push([
+      `Tu intento anterior no fue válido. Corrige estos problemas y vuelve a llamar a la herramienta ${NOMBRE_HERRAMIENTA}:`,
+      ...correccion.map((problema) => `- ${problema}`),
+    ]);
+  }
+  return [
+    ...lineasEncabezado(entrada),
     '',
-    'Nota de la educadora:',
-    `<${etiqueta}>`,
-    texto,
-    `</${etiqueta}>`,
+    ...secciones.flatMap((seccion) => [...seccion, '']),
+    ...lineasNota(textoFuente),
   ].join('\n');
 }
 

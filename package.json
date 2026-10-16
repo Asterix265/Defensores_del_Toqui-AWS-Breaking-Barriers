@@ -7,7 +7,7 @@
     "node": ">=24 <25"
   },
   "scripts": {
-    "setup": "pnpm install && pnpm --filter @toqui/shared build && pnpm --filter @toqui/api prisma:generate",
+    "setup": "pnpm install && pnpm --filter \"@toqui/ia...\" build && pnpm --filter @toqui/api prisma:generate",
     "dev": "pnpm --filter @toqui/shared build && pnpm --parallel --filter @toqui/api --filter @toqui/web dev",
     "db:up": "docker compose up -d --wait",
     "db:down": "docker compose down",
@@ -29,7 +29,7 @@
     "aws:users": "pnpm --filter @toqui/infra aws:users",
     "aws:env": "pnpm --filter @toqui/infra aws:env",
     "aws:smoke": "pnpm --filter @toqui/infra aws:smoke",
-    "aws:prod:deploy": "pnpm --filter @toqui/shared build && pnpm --filter @toqui/pipeline build && pnpm --filter @toqui/infra aws:prod:deploy",
+    "aws:prod:deploy": "pnpm --filter \"@toqui/pipeline...\" build && pnpm --filter @toqui/infra aws:prod:deploy",
     "aws:prod:diff": "pnpm --filter @toqui/infra aws:prod:diff",
     "aws:prod:destroy": "pnpm --filter @toqui/infra aws:prod:destroy",
     "aws:prod:users": "pnpm --filter @toqui/infra aws:prod:users",

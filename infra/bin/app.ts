@@ -1,5 +1,6 @@
 import { App } from 'aws-cdk-lib';
 import { AppStack } from '../lib/app-stack.js';
+import { CiCdStack } from '../lib/cicd-stack.js';
 import { DatosStack } from '../lib/datos-stack.js';
 import { DevStack } from '../lib/dev-stack.js';
 import { RedStack } from '../lib/red-stack.js';
@@ -28,4 +29,11 @@ new AppStack(app, 'ToquiApp', {
   cluster: datos.cluster,
   secretoApp: datos.secretoApp,
   description: 'Defensores del Toqui: web, API, pipeline e identidad',
+});
+
+// Despliegue continuo: identidad de GitHub Actions para desplegar producción desde `main`.
+// Se despliega a mano una vez (`pnpm --filter @toqui/infra aws:cicd:deploy`).
+new CiCdStack(app, 'ToquiCiCd', {
+  env,
+  description: 'Defensores del Toqui: despliegue de producción desde GitHub Actions',
 });

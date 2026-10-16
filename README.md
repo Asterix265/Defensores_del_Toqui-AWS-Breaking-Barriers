@@ -59,9 +59,9 @@ La web abre «Registro Simple». Los niños y niñas, el catálogo, los niveles 
 
 Imagen de la API (desde la raíz): `docker build -f apps/api/Dockerfile -t toqui-api .`
 
-Al cambiar un esquema de `packages/shared` o un endpoint, ejecutar `pnpm contract` y versionar el resultado: la CI falla si el contrato generado queda desactualizado. La CI (`.github/workflows/ci.yml`) ejecuta lint, formato, tipos, pruebas, build, contrato y síntesis en cada pull request.
+Al cambiar un esquema de `packages/shared` o un endpoint, ejecutar `pnpm contract` y versionar el resultado: la CI falla si el contrato generado queda desactualizado. La CI (`.github/workflows/ci.yml`) ejecuta lint, formato, tipos, pruebas, build, contrato y síntesis en cada pull request y, antes de desplegar, en cada push a `main` que despliega `.github/workflows/desplegar.yml` ([despliegue continuo](docs/arquitectura-aws.md#despliegue-continuo-cambio-despliegue-continuo)).
 
-Verificado el 14-10-2026 en macOS con Node 24.22.0 y pnpm 11.13.0, en una copia limpia del repositorio. Falta confirmar en Windows y Linux, y la primera ejecución de la CI en GitHub.
+Verificado el 14-10-2026 en macOS con Node 24.22.0 y pnpm 11.13.0, en una copia limpia del repositorio. Falta confirmar en Windows y Linux. La CI corre en GitHub desde el 14-10-2026.
 
 ## API de registro
 
@@ -135,7 +135,7 @@ Las pruebas del pipeline usan un cliente de Bedrock simulado: no necesitan crede
 
 Bedrock (Claude y Guardrail), Transcribe, S3 y Cognito están desplegados para desarrollo en la cuenta del evento (`us-east-1`, stack CDK `ToquiDev`). Configuración, comandos (`pnpm aws:smoke`, `pnpm aws:env`, `pnpm aws:deploy`), usuarios de prueba, costos y limpieza: [guía AWS](docs/guia-aws.md).
 
-El ambiente de producción (web en Amplify; API por CloudFront → ALB interno → Fargate; Aurora Serverless v2; procesamiento con SQS y Lambda) se despliega con `pnpm aws:prod:deploy`; diagrama, stacks y decisiones en [arquitectura AWS](docs/arquitectura-aws.md).
+El ambiente de producción (web en Amplify; API por CloudFront → ALB interno → Fargate; Aurora Serverless v2; procesamiento con SQS y Lambda) se despliega solo en cada push a `main` (`desplegar.yml`, cambio `despliegue-continuo`) o a mano con `pnpm aws:prod:deploy`; diagrama, stacks y decisiones en [arquitectura AWS](docs/arquitectura-aws.md).
 
 ## Materiales del desafío
 
@@ -204,9 +204,9 @@ Se excluyeron las skills de otras bases de datos, de los servicios en la nube de
 
 ## Próximos pasos
 
-1. Completar `definir-mvp-e1`: clasificación con Claude en la Lambda de proceso (`IA_PROVIDER=bedrock` con `@toqui/ia`), probar audio y foto en producción y medir el impacto.
+1. Completar `definir-mvp-e1`: comprobar la clasificación con Claude con una nota real (desplegada el 16-10-2026), probar audio y foto en producción y medir el impacto.
 2. Resolver cómo representar la rúbrica institucional frente a la ruta sintética del dataset.
-3. Alerta de presupuesto, CI/CD de despliegue y limpieza al terminar la hackatón (ver [arquitectura AWS](docs/arquitectura-aws.md#pendiente)).
+3. Alerta de presupuesto, activar el despliegue continuo (`ToquiCiCd`) y limpieza al terminar la hackatón (ver [arquitectura AWS](docs/arquitectura-aws.md#pendiente)).
 4. Medir tiempo de documentación y trazabilidad con datos sintéticos; reportar resultados reales de la demo.
 
 Las reglas de colaboración están en [AGENTS.md](AGENTS.md); [CLAUDE.md](CLAUDE.md) incorpora esas mismas reglas para Claude Code.

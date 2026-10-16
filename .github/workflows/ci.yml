@@ -1,9 +1,9 @@
 name: CI
 
+# En main la corre desplegar.yml (workflow_call) antes de desplegar (despliegue-continuo, D4).
 on:
   pull_request:
-  push:
-    branches: [main]
+  workflow_call:
 
 permissions:
   contents: read

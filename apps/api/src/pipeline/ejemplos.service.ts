@@ -55,7 +55,8 @@ export class EjemplosService {
           borrador: { isNot: null },
         },
       },
-      // `corregida` va antes que `confirmada` en el orden del enum de Postgres.
+      // Postgres ordena el enum por su declaración (confirmada, corregida, descartada): con `desc`
+      // `corregida` queda antes que `confirmada`.
       orderBy: [{ decision: 'desc' }, { creadoEn: 'desc' }],
       take: CANDIDATAS,
       select: {

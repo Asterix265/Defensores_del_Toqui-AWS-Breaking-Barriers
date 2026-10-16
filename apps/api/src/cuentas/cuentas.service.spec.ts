@@ -3,12 +3,14 @@ import {
   ConflictException,
   ForbiddenException,
   NotImplementedException,
+  ServiceUnavailableException,
 } from '@nestjs/common';
 import { InvitarCuentaRequestSchema } from '@toqui/shared';
 import type { Identidad } from '../auth/identidad';
 import { CuentasService } from './cuentas.service';
 import {
   CorreoYaRegistrado,
+  InvitacionIncompleta,
   type DirectorioService,
   type UsuarioDirectorio,
 } from './directorio.service';
@@ -50,6 +52,8 @@ function directorioFalso(cambios: Partial<Record<keyof DirectorioService, unknow
     ),
     reenviar: jest.fn(async () => undefined),
     habilitar: jest.fn(async () => undefined),
+    gruposDe: jest.fn(async () => ['educadora']),
+    asignarGrupo: jest.fn(async () => undefined),
     ...cambios,
   } as unknown as DirectorioService & Record<string, jest.Mock>;
 }
@@ -101,6 +105,67 @@ describe('CuentasService', () => {
         grupo: 'educadora',
       }),
     ).rejects.toBeInstanceOf(ConflictException);
+  });
+
+  describe('invitación a medias (cuenta creada sin grupo)', () => {
+    const DATOS = {
+      email: 'Nueva.Tia@Example.com',
+      nombre: 'Nueva Tía',
+      grupo: 'educadora' as const,
+    };
+    const yaRegistrado = jest.fn(async () => {
+      throw new CorreoYaRegistrado();
+    });
+
+    it('si falla la asignación del grupo, responde 503 y pide volver a invitar', async () => {
+      const directorio = directorioFalso({
+        invitar: jest.fn(async () => {
+          throw new InvitacionIncompleta('TooManyRequestsException');
+        }),
+      });
+      await expect(new CuentasService(directorio).invitar(DIRECTORA, DATOS)).rejects.toThrow(
+        /Vuelve a invitar el mismo correo/,
+      );
+      await expect(new CuentasService(directorio).invitar(DIRECTORA, DATOS)).rejects.toBeInstanceOf(
+        ServiceUnavailableException,
+      );
+    });
+
+    it('al reinvitar asigna el grupo pedido y reenvía la contraseña temporal', async () => {
+      const directorio = directorioFalso({
+        invitar: yaRegistrado,
+        obtener: jest.fn(async () =>
+          usuario({ usuario: 'sub-huerfana', estadoCognito: 'FORCE_CHANGE_PASSWORD' }),
+        ),
+        gruposDe: jest.fn(async () => []),
+      });
+      const cuenta = await new CuentasService(directorio).invitar(DIRECTORA, DATOS);
+      expect(directorio.obtener).toHaveBeenCalledWith('nueva.tia@example.com');
+      expect(directorio.asignarGrupo).toHaveBeenCalledWith('sub-huerfana', 'educadora');
+      expect(directorio.reenviar).toHaveBeenCalledWith('sub-huerfana');
+      expect(cuenta).toMatchObject({
+        usuario: 'sub-huerfana',
+        grupo: 'educadora',
+        estado: 'pendiente',
+      });
+    });
+
+    it.each([
+      ['de otro jardín', { idJardin: 'JAR-0002', estadoCognito: 'FORCE_CHANGE_PASSWORD' }, []],
+      ['que ya cambió la contraseña', { estadoCognito: 'CONFIRMED' }, []],
+      ['que ya tiene grupo', { estadoCognito: 'FORCE_CHANGE_PASSWORD' }, ['directora']],
+    ])('una cuenta %s sigue siendo 409 y no se toca', async (_caso, cambios, grupos) => {
+      const directorio = directorioFalso({
+        invitar: yaRegistrado,
+        obtener: jest.fn(async () => usuario(cambios as Partial<UsuarioDirectorio>)),
+        gruposDe: jest.fn(async () => grupos),
+      });
+      await expect(new CuentasService(directorio).invitar(DIRECTORA, DATOS)).rejects.toBeInstanceOf(
+        ConflictException,
+      );
+      expect(directorio.asignarGrupo).not.toHaveBeenCalled();
+      expect(directorio.reenviar).not.toHaveBeenCalled();
+    });
   });
 
   it('no actúa sobre cuentas de otro jardín ni se desactiva a sí misma', async () => {

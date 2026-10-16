@@ -19,10 +19,18 @@ const COLUMNAS = [
 const SEPARADOR = ';';
 
 function celda(valor: string): string {
-  return /[",\n\r;]/.test(valor) ? `"${valor.replace(/"/g, '""')}"` : valor;
+  // Excel ejecuta como fórmula una celda que empieza con = + - @ (o tabulación o retorno):
+  // se antepone un apóstrofo para que la nota se lea como texto (inyección de fórmulas en CSV).
+  // Un número negativo (-1,5) no es fórmula y se deja tal cual.
+  const formula = /^[=+\-@\t\r]/.test(valor) && !/^-\d+([.,]\d+)?$/.test(valor);
+  const seguro = formula ? `'${valor}` : valor;
+  return /[",\n\r;]/.test(seguro) ? `"${seguro.replace(/"/g, '""')}"` : seguro;
 }
 
-/** CSV con encabezado; cada celda se escapa si trae comillas, separadores o saltos de línea. */
+/**
+ * CSV con encabezado; cada celda se escapa si trae comillas, separadores o saltos de línea, y se
+ * neutraliza si Excel la leería como fórmula.
+ */
 export function aCsv(columnas: string[], filas: string[][]): string {
   return [columnas, ...filas].map((fila) => fila.map(celda).join(SEPARADOR)).join('\r\n');
 }

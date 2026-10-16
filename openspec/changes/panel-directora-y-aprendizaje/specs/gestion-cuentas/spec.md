@@ -17,6 +17,14 @@ Una persona del grupo `directora` SHALL poder crear una cuenta con correo, nombr
 - **WHEN** la directora invita un correo que ya existe
 - **THEN** la API responde 409 y la web muestra «Ese correo ya tiene cuenta»
 
+#### Scenario: Invitación que quedó sin rol
+- **WHEN** Cognito creó la cuenta pero falló la asignación del grupo
+- **THEN** la API responde 503 y pide volver a invitar el mismo correo
+
+#### Scenario: Volver a invitar una cuenta sin rol
+- **WHEN** la directora invita de nuevo un correo de su jardín cuya cuenta no tiene grupo y no ha cambiado la contraseña temporal
+- **THEN** la API le asigna el grupo pedido, reenvía la contraseña temporal y la cuenta aparece como invitación pendiente; si la cuenta es de otro jardín, ya tiene grupo o ya cambió la contraseña, responde 409
+
 ### Requirement: Listar y desactivar cuentas del jardín
 La directora SHALL ver las cuentas de su jardín con correo, nombre, grupo, estado (activa, desactivada o invitación pendiente) y fecha de creación, y SHALL poder desactivar, reactivar o reenviar la invitación. SHALL NOT poder actuar sobre cuentas de otro jardín ni desactivarse a sí misma.
 

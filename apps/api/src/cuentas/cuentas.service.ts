@@ -5,12 +5,14 @@ import {
   Injectable,
   NotFoundException,
   NotImplementedException,
+  ServiceUnavailableException,
 } from '@nestjs/common';
 import type { Cuenta, Grupo, InvitarCuentaRequest } from '@toqui/shared';
 import type { Identidad } from '../auth/identidad';
 import {
   CorreoYaRegistrado,
   DirectorioService,
+  InvitacionIncompleta,
   UsuarioNoEncontrado,
   type UsuarioDirectorio,
 } from './directorio.service';
@@ -34,9 +36,10 @@ export class CuentasService {
 
   async invitar(identidad: Identidad, datos: InvitarCuentaRequest): Promise<Cuenta> {
     this.exigirCognito();
+    const email = datos.email.toLowerCase();
     try {
       const usuario = await this.directorio.invitar({
-        email: datos.email.toLowerCase(),
+        email,
         nombre: datos.nombre,
         grupo: datos.grupo,
         idJardin: identidad.idJardin,
@@ -44,10 +47,42 @@ export class CuentasService {
       return aCuenta(usuario, datos.grupo);
     } catch (error) {
       if (error instanceof CorreoYaRegistrado) {
+        const completada = await this.completarInvitacion(identidad, email, datos.grupo);
+        if (completada) return completada;
         throw new ConflictException('Ese correo ya tiene cuenta');
+      }
+      if (error instanceof InvitacionIncompleta) {
+        throw new ServiceUnavailableException(
+          'La cuenta se creó, pero no se le pudo asignar el rol. Vuelve a invitar el mismo correo para completarla.',
+        );
       }
       throw error;
     }
+  }
+
+  /**
+   * Invitación a medias: la cuenta existe en el jardín de la directora, nunca cambió la contraseña
+   * temporal y no tiene grupo (falló `AdminAddUserToGroup`). Se le asigna el grupo pedido y se
+   * reenvía la contraseña temporal. Cualquier otro caso es un correo ya registrado (409).
+   */
+  private async completarInvitacion(
+    identidad: Identidad,
+    email: string,
+    grupo: Grupo,
+  ): Promise<Cuenta | null> {
+    let cuenta: UsuarioDirectorio;
+    try {
+      cuenta = await this.directorio.obtener(email);
+    } catch (error) {
+      if (error instanceof UsuarioNoEncontrado) return null;
+      throw error;
+    }
+    if (cuenta.idJardin !== identidad.idJardin) return null;
+    if (cuenta.estadoCognito !== 'FORCE_CHANGE_PASSWORD') return null;
+    if ((await this.directorio.gruposDe(cuenta.usuario)).length > 0) return null;
+    await this.directorio.asignarGrupo(cuenta.usuario, grupo);
+    await this.directorio.reenviar(cuenta.usuario);
+    return aCuenta(cuenta, grupo);
   }
 
   async reenviar(identidad: Identidad, usuario: string): Promise<Cuenta> {

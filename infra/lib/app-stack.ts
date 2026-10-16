@@ -34,6 +34,8 @@ export const ACCIONES_CUENTAS = [
   'cognito-idp:AdminGetUser',
   'cognito-idp:AdminCreateUser',
   'cognito-idp:AdminAddUserToGroup',
+  // Para completar una invitación que quedó sin grupo al volver a invitar el mismo correo.
+  'cognito-idp:AdminListGroupsForUser',
   'cognito-idp:AdminDisableUser',
   'cognito-idp:AdminEnableUser',
 ];

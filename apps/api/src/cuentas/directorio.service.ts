@@ -5,6 +5,7 @@ import {
   AdminDisableUserCommand,
   AdminEnableUserCommand,
   AdminGetUserCommand,
+  AdminListGroupsForUserCommand,
   CognitoIdentityProviderClient,
   ListUsersInGroupCommand,
   type AttributeType,
@@ -30,6 +31,8 @@ export interface UsuarioDirectorio {
 /** Errores de Cognito que el módulo traduce a respuestas HTTP. */
 export class CorreoYaRegistrado extends Error {}
 export class UsuarioNoEncontrado extends Error {}
+/** La cuenta se creó, pero `AdminAddUserToGroup` falló: quedó sin grupo y no puede ingresar. */
+export class InvitacionIncompleta extends Error {}
 
 const GRUPOS: Grupo[] = ['educadora', 'directora'];
 
@@ -125,14 +128,44 @@ export class DirectorioService {
       throw error;
     }
     const u = creado.User!;
+    try {
+      await this.asignarGrupo(u.Username!, datos.grupo);
+    } catch (error) {
+      // Cognito ya envió el correo: invitar de nuevo el mismo correo completa la cuenta.
+      throw new InvitacionIncompleta((error as Error).name);
+    }
+    return aUsuario(u.Username!, u.Attributes, u.Enabled, u.UserStatus, u.UserCreateDate);
+  }
+
+  async asignarGrupo(usuario: string, grupo: Grupo): Promise<void> {
     await this.cognito.send(
       new AdminAddUserToGroupCommand({
         UserPoolId: this.pool(),
-        Username: u.Username!,
-        GroupName: datos.grupo,
+        Username: usuario,
+        GroupName: grupo,
       }),
     );
-    return aUsuario(u.Username!, u.Attributes, u.Enabled, u.UserStatus, u.UserCreateDate);
+  }
+
+  /** Grupos de la app (`educadora`, `directora`) a los que pertenece el usuario. */
+  async gruposDe(usuario: string): Promise<Grupo[]> {
+    const grupos: Grupo[] = [];
+    let token: string | undefined;
+    do {
+      const res = await this.cognito.send(
+        new AdminListGroupsForUserCommand({
+          UserPoolId: this.pool(),
+          Username: usuario,
+          Limit: 60,
+          NextToken: token,
+        }),
+      );
+      for (const g of res.Groups ?? []) {
+        if (GRUPOS.includes(g.GroupName as Grupo)) grupos.push(g.GroupName as Grupo);
+      }
+      token = res.NextToken;
+    } while (token);
+    return grupos;
   }
 
   /** Vuelve a enviar la contraseña temporal (solo cuentas que no la han cambiado). */

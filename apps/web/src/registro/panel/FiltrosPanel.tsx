@@ -24,8 +24,11 @@ export function FiltrosPanel({
   onPeriodo: (periodo: Periodo) => void;
 }) {
   return (
-    <Box sx={{ pt: 3, display: 'flex', alignItems: 'center', gap: 1.25, flexWrap: 'wrap' }}>
-      <ChipsSala salas={salas} sala={sala} onSala={onSala} cantidadPorSala={cantidadPorSala} />
+    // Las salas pasan a otra línea dentro de su caja; el periodo queda arriba a la derecha.
+    <Box sx={{ pt: 3, display: 'flex', alignItems: 'flex-start', gap: 1.25 }}>
+      <Box sx={{ flex: 1, minWidth: 0, display: 'flex', gap: 1.25, flexWrap: 'wrap' }}>
+        <ChipsSala salas={salas} sala={sala} onSala={onSala} cantidadPorSala={cantidadPorSala} />
+      </Box>
       <Select
         value={periodo}
         onChange={(e) => onPeriodo(e.target.value as Periodo)}
@@ -37,7 +40,7 @@ export function FiltrosPanel({
           </Box>
         )}
         sx={{
-          ml: 'auto',
+          flexShrink: 0,
           height: 44,
           bgcolor: '#fff',
           borderRadius: '12px',

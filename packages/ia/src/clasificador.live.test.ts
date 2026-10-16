@@ -13,7 +13,7 @@ import { sinCredenciales } from './pruebas/sin-credenciales.js';
  */
 
 const REGION = 'us-east-1';
-const MODELO = process.env.BEDROCK_MODEL_EXTRACCION ?? 'us.anthropic.claude-sonnet-5';
+const MODELO = process.env.BEDROCK_MODEL_EXTRACCION ?? 'us.anthropic.claude-opus-5';
 
 interface Salida {
   nivelSugerido?: number | null;

@@ -14,7 +14,7 @@ describe('loadEnv: proveedor de IA', () => {
   it('por defecto usa fake y el modelo de extracción', () => {
     const env = loadEnv({ ...BASE });
     expect(env.IA_PROVIDER).toBe('fake');
-    expect(env.MODELO_EXTRACCION).toBe('us.anthropic.claude-sonnet-5');
+    expect(env.MODELO_EXTRACCION).toBe('us.anthropic.claude-opus-5');
     expect(env.LECTOR_FOTO).toBe('textract');
   });
 

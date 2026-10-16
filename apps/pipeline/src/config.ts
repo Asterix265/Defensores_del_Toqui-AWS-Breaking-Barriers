@@ -18,7 +18,7 @@ const EnvSchema = z
      */
     IA_PROVIDER: z.enum(['fake', 'bedrock']).default('fake'),
     /** Modelo o perfil de inferencia de Claude para `IA_PROVIDER=bedrock`. */
-    MODELO_EXTRACCION: z.string().min(1).default('us.anthropic.claude-sonnet-5'),
+    MODELO_EXTRACCION: z.string().min(1).default('us.anthropic.claude-opus-5'),
     /** Quién lee las fotos: Amazon Textract, o el lector de imagen de `IA_PROVIDER` (solo `fake`). */
     LECTOR_FOTO: z.enum(['textract', 'ia']).default('textract'),
     TRANSCRIBE_IDIOMA: z.enum(['es-US', 'es-ES']).default('es-US'),

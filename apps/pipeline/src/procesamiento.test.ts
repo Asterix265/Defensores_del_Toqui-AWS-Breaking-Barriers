@@ -4,7 +4,7 @@ import { declararProcesamiento } from './procesamiento.js';
 import { mensajeArchivo, mensajeTexto } from './pruebas/datos.js';
 
 const FAKE = { proveedor: 'fake' };
-const CLAUDE = { proveedor: 'bedrock', modelo: 'us.anthropic.claude-sonnet-5' };
+const CLAUDE = { proveedor: 'bedrock', modelo: 'us.anthropic.claude-opus-5' };
 
 const conBytes = (m: MensajeCaptura, archivoBytes: number) =>
   ({ ...m, archivoBytes }) as MensajeCaptura;
@@ -79,7 +79,7 @@ describe('declararProcesamiento', () => {
       {
         paso: 'extraccion',
         estado: 'completado',
-        detalle: 'Clasificada con us.anthropic.claude-sonnet-5.',
+        detalle: 'Clasificada con us.anthropic.claude-opus-5.',
       },
     ]);
   });
@@ -97,7 +97,7 @@ describe('declararProcesamiento', () => {
         {
           paso: 'extraccion',
           estado: 'completado',
-          detalle: 'Clasificada con us.anthropic.claude-sonnet-5.',
+          detalle: 'Clasificada con us.anthropic.claude-opus-5.',
         },
       ],
     });

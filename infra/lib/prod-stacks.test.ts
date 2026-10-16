@@ -230,21 +230,21 @@ describe('stacks de producción', () => {
     });
   });
 
-  it('la Lambda de proceso sigue con el proveedor fake hasta la prueba en vivo', () => {
-    // Activar Claude en producción es cambiar esta constante a 'bedrock' (y esta prueba).
-    expect(IA_PROVIDER_PROCESO).toBe('fake');
+  it('la Lambda de proceso clasifica con Claude (bedrock) desde la prueba en vivo', () => {
+    // Volver a la clasificación simulada es cambiar esta constante a 'fake' (y esta prueba).
+    expect(IA_PROVIDER_PROCESO).toBe('bedrock');
     app.hasResourceProperties('AWS::Lambda::Function', {
       FunctionName: 'toqui-prod-proceso',
-      Environment: { Variables: Match.objectLike({ IA_PROVIDER: 'fake' }) },
+      Environment: { Variables: Match.objectLike({ IA_PROVIDER: 'bedrock' }) },
     });
   });
 
-  it('activar Claude es un cambio de una línea: la constante solo fija IA_PROVIDER', () => {
+  it('cambiar de proveedor es un cambio de una línea: la constante solo fija IA_PROVIDER', () => {
     // Una `const` no se puede cambiar desde la prueba: se comprueba que su único uso es la
-    // variable de la Lambda, así cambiarla a 'bedrock' no altera nada más del stack.
+    // variable de la Lambda, así cambiarla no altera nada más del stack.
     const codigo = readFileSync(new URL('./app-stack.ts', import.meta.url), 'utf8');
     expect(codigo.match(/\bIA_PROVIDER_PROCESO\b/g)).toHaveLength(2);
-    expect(codigo).toContain("export const IA_PROVIDER_PROCESO: 'fake' | 'bedrock' = 'fake';");
+    expect(codigo).toContain("export const IA_PROVIDER_PROCESO: 'fake' | 'bedrock' = 'bedrock';");
     expect(codigo).toContain('IA_PROVIDER: IA_PROVIDER_PROCESO,');
   });
 

@@ -18,7 +18,7 @@ import { sinCredenciales } from './pruebas/sin-credenciales.js';
  */
 
 const REGION = 'us-east-1';
-const MODELO = 'us.anthropic.claude-sonnet-5';
+const MODELO = 'us.anthropic.claude-opus-5';
 const NOTA =
   'Persona Ficticia Uno, RUT 11.111.111-1, apiló cuatro bloques sola y aplaudió cuando no se cayeron.';
 

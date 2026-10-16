@@ -72,6 +72,8 @@ await paso('5. Procesamiento (SQS → Lambda → API interna)', async () => {
   // Trabajo sintético de una captura que no existe: la Lambda obtiene el token, anonimiza,
   // clasifica y entrega; la API lo autoriza y responde 404, y la Lambda descarta el trabajo.
   // Un 401 (token) o un fallo de Bedrock aparecen como reintento en el log.
+  // Debe cumplir `MensajeCapturaSchema` (packages/shared/src/cola.ts): si no, la Lambda lo
+  // rechaza como «Mensaje de la cola inválido» y el paso falla.
   const idCaptura = randomUUID();
   const desde = Date.now() - 5000;
   await new SQSClient({ region: REGION }).send(
@@ -83,9 +85,18 @@ await paso('5. Procesamiento (SQS → Lambda → API interna)', async () => {
         idUsuario: 'smoke',
         idJardin: 'SMOKE',
         edadMeses: 20,
+        nivelEducativo: 'SC',
         nivelEsperado: 4,
         catalogo: [
-          { id: 'SMOKE-1', nivel: 4, dominio: 'motor_fino', textoObservable: 'Apila bloques' },
+          {
+            id: 'SMOKE-1',
+            idDescriptor: 'SMOKE-D1',
+            nucleo: 'CM',
+            nivelEducativo: 'SC',
+            nivel: 4,
+            tipo: 'conducta_descriptor',
+            textoObservable: 'Apila bloques',
+          },
         ],
         formato: 'texto',
         texto: 'Nota sintética de prueba: apiló cuatro bloques sin ayuda.',
@@ -106,7 +117,9 @@ await paso('5. Procesamiento (SQS → Lambda → API interna)', async () => {
     if (lineas.some((l) => l.includes('ya no admite borrador') && l.includes('404'))) {
       return 'la Lambda procesó el trabajo y la API interna aceptó su token (404 esperado)';
     }
-    const fallo = lineas.find((l) => l.includes('Falló el intento') || l.includes('agotaron'));
+    const fallo = lineas.find(
+      (l) => l.includes('Falló el intento') || l.includes('agotaron') || l.includes('inválido'),
+    );
     if (fallo) throw new Error(fallo.slice(fallo.indexOf('{')));
   }
   throw new Error('la Lambda no registró el trabajo en 60 s');

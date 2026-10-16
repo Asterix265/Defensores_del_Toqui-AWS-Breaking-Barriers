@@ -31,7 +31,7 @@ Toda la infraestructura del proyecto está en `infra/` como código (AWS CDK, Ty
                                           → POST /api/interno/capturas/:id/borrador (CloudFront)
 ```
 
-El diagrama muestra el código con los cambios `cola-ia-y-amplify` y `endurecer-seguridad-aws`. Lo desplegado todavía usa EventBridge, Step Functions, el ALB público y la web en S3 + CloudFront (ver [Estado](#estado)).
+El diagrama es lo desplegado desde el 16-10-2026 (cambios `cola-ia-y-amplify`, `endurecer-seguridad-aws` y `migrar-dataset-nucleos`; ver [Estado](#estado)).
 
 ## Stacks
 
@@ -57,7 +57,7 @@ El diagrama muestra el código con los cambios `cola-ia-y-amplify` y `endurecer-
 | S3 (capturas) | Audios, fotos y transcripciones | Privado, borrado a 7 días, CORS solo para Amplify. Audio y foto en `capturas/`, resultado de Transcribe en `transcripciones/`. A los 7 días la API también vacía en la base el texto original y la referencia al archivo; se conserva el texto anonimizado del borrador |
 | SQS + Lambda `toqui-prod-proceso` | Procesamiento asíncrono de capturas | Cola con DLQ (`maxReceiveCount: 3`, retención de 14 días), un mensaje por invocación y hasta 5 en paralelo. La Lambda normaliza, anonimiza, clasifica y entrega el borrador al endpoint interno de la API; en el último intento informa el error. Reemplaza a EventBridge, Step Functions y la Lambda `eco` |
 | Cognito | Login y roles | Grupos `educadora`/`directora`, atributo `custom:id_jardin` |
-| Bedrock + Guardrails | IA y protección de datos personales | Claude Sonnet 5.5 (extracción), Haiku 5.5 (resúmenes); anonimiza nombres, contacto y RUT |
+| Bedrock + Guardrails | IA y protección de datos personales | Claude Sonnet 5.5 (extracción) y Haiku 5.5 (resúmenes) previstos; la Lambda ya tiene permiso, pero clasifica con `IA_PROVIDER=fake`. El Guardrail anonimiza nombres, contacto y RUT y sí se aplica a cada nota |
 | Transcribe | Audio a texto | `es-US`; trabajo por captura, que se retoma si la cola reintenta |
 | Textract | Texto de la foto de una nota | `DetectDocumentText` directo desde S3. Reconoce manuscrito solo en inglés: en español, texto impreso. `LECTOR_FOTO=ia` usa el modelo como respaldo |
 | CloudWatch Logs | Registros | `/toqui/prod/api` y `/toqui/prod/proceso`, retención de 2 semanas. La Lambda registra ids, pasos y tiempos, nunca el texto de la nota |
@@ -68,7 +68,7 @@ El diagrama muestra el código con los cambios `cola-ia-y-amplify` y `endurecer-
 | --- | --- |
 | Tránsito | Internet → Amplify y CloudFront por HTTPS; CloudFront → ALB por VPC Origin dentro de la red de AWS. Ningún token viaja en claro por internet |
 | Red | ALB y Aurora en subredes aisladas. SG del ALB: entrada 80 desde la *prefix list* de CloudFront, salida 3000 a la API. SG de la API: entrada 3000 desde el ALB, salida 443 a internet y 5432 a Aurora. SG de Aurora: entrada 5432 desde la API |
-| IAM de la API | `s3:PutObject` y `s3:GetObject` en `capturas/*`, `s3:ListBucket` en el bucket, envío y atributos de la cola. Sin borrado en S3, sin `transcripciones/` y sin Bedrock |
+| IAM de la API | `s3:PutObject` y `s3:GetObject` en `capturas/*`, `s3:GetObject` en `dataset/*` (carga con `pnpm aws:prod:seed`), `s3:ListBucket` en el bucket, envío y atributos de la cola. Sin borrado en S3, sin `transcripciones/` y sin Bedrock |
 | IAM de la Lambda | Lectura de `capturas/*` y `transcripciones/*`, escritura en `transcripciones/*`, Transcribe, Textract, Bedrock y Guardrail, y el token del pipeline |
 | Base | La API no puede crear, modificar ni borrar tablas. Borrar una captura borra su borrador, corrección y eventos; la observación confirmada se conserva |
 | Retención | Audio, foto y transcripción: 7 días en S3. Texto original y referencia al archivo: 7 días en la base |
@@ -87,28 +87,36 @@ El diagrama muestra el código con los cambios `cola-ia-y-amplify` y `endurecer-
 
 Requisitos: perfil `toqui` con `aws login` y Docker en ejecución. Avisar al equipo antes de desplegar o destruir.
 
-## Estado
+La imagen de la API es ARM64 y necesita Docker con **buildx** (BuildKit): el constructor clásico falla con `does not provide the specified platform (linux/arm64)`. En un equipo x86_64 además hace falta emulación (`docker run --privileged --rm tonistiigi/binfmt --install arm64`; se pierde al reiniciar). Docker Desktop trae ambos. En Linux sin el plugin, se instala el binario de [docker/buildx](https://github.com/docker/buildx/releases) en `~/.docker/cli-plugins/docker-buildx`. Con emulación, la imagen tarda unos minutos más.
 
-Desplegado y verificado el 15-10-2026 con `pnpm aws:prod:smoke` (5/5): web y rutas de la SPA por CloudFront, API en Fargate conectada a Aurora con migraciones aplicadas, ALB cerrado fuera de CloudFront y pipeline S3 → EventBridge → Step Functions → Lambda. URL pública: `pnpm aws:prod:env` o la salida `WebUrl` del stack `ToquiApp`. Usuarios sintéticos creados en el pool de producción con `pnpm aws:prod:users` (misma contraseña de `infra/.env`).
 
-Tiempos del primer despliegue: `ToquiRed` 38 s, `ToquiDatos` 7 min, `ToquiApp` 8 min.
+Desplegado y verificado el 16-10-2026, de madrugada, con los cambios `cola-ia-y-amplify`, `endurecer-seguridad-aws` y `migrar-dataset-nucleos`. Web en `https://main.dgsos3g6dvh6h.amplifyapp.com`. La URL de la API (CloudFront) está en `pnpm aws:prod:env` o en la salida `WebUrl` de `ToquiApp`. Usuarios sintéticos del pool de producción: `pnpm aws:prod:users`, con la contraseña de `infra/.env`.
 
-**En el código, sin desplegar** (cambio `cola-ia-y-amplify`): la cola, la DLQ, la Lambda `toqui-prod-proceso` y el secreto del token reemplazan a EventBridge, Step Functions y la Lambda `eco`. Los adaptadores de la Lambda (Transcribe, Textract y Guardrail) se probaron el 15-10-2026 contra `ToquiDev` con datos sintéticos. La API encola en modo `PIPELINE_MODE=cola` (texto al crear, audio y foto con `POST /capturas/:id/subida`), con el catálogo completo de manifestaciones en el mensaje. La clasificación de la Lambda sigue con el proveedor `fake` hasta integrar Claude.
+- `pnpm aws:prod:smoke`: 5/5 pasos correctos. Cubre la web y las rutas de la SPA en Amplify, el proxy `/api`, la API conectada a Aurora y S3, el ALB inalcanzable desde internet, y un trabajo sintético SQS → Lambda → API interna, con el token aceptado.
+- Contenedor `migraciones`: aplicó `20261016100000_dataset_nucleos`, que vació las tablas, y creó `toqui_app`.
+- `pnpm aws:prod:seed`: cargó el dataset E1 por núcleos v1.0.0, con los mismos conteos que en local. Son 3 jardines, 57 educadoras, 18 salas, 252 niños y niñas, 192 descriptores, 576 manifestaciones, 11.400 observaciones, 13.026 evidencias y 5.760 valoraciones.
+- Prueba de punta a punta con `educadora.jar0001@example.com`, por la web de Amplify:
+  - el ingreso SRP en Cognito y `/me`, `/ninos`, la trayectoria y `/nucleos` funcionan;
+  - una nota de texto llega a `borrador_listo` por la cola y la Lambda, con la clasificación `fake`;
+  - la nota de prueba se descartó después.
+- No verificado en producción: audio y foto (subida a S3, Transcribe y Textract) y el uso desde un navegador real.
 
-**En el código, sin desplegar** (cambio `migrar-dataset-nucleos`): modelo del dataset E1 por núcleos. Su migración (`20261016100000_dataset_nucleos`) **vacía** las tablas del dataset y de las capturas al desplegarse; después se carga con `pnpm aws:prod:seed`. No se revierte redesplegando la versión anterior: Prisma no deshace migraciones, la API anterior falla con el esquema nuevo y `/health` no lo detecta. Plan de rollback en `openspec/changes/migrar-dataset-nucleos/design.md`. El rol de tarea de la API agrega `s3:GetObject` sobre `dataset/*` del bucket de capturas, que el ciclo de vida borra a los 7 días. El mensaje de la cola lleva el catálogo del nivel educativo del niño o niña (192 manifestaciones, unos 40 KB). Verificado el 16-10-2026:
-- la migración, sobre una base local con el esquema anterior;
-- la imagen de la API con `--cargar-dataset` contra PostgreSQL 17 local, desde una carpeta y desde S3 (bucket de `ToquiDev`, prefijo borrado después);
-- `pnpm aws:prod:seed --dry-run` contra la cuenta; desde la revisión del PR se niega mientras `ToquiApp` siga en `UPDATE_ROLLBACK_COMPLETE`.
+Tiempos del 16-10-2026: `ToquiApp`, 8 min (reemplaza el ALB y crea el VPC Origin); la carga del dataset, unos 3 min. Los del primer despliegue, el 15-10: `ToquiRed` 38 s, `ToquiDatos` 7 min y `ToquiApp` 8 min.
 
-Costo: una tarea Fargate de pocos minutos y unos 12 MB en S3 durante 7 días.
+Lecciones del despliegue. Los tres intentos anteriores terminaron en `UPDATE_ROLLBACK_COMPLETE` por estas causas:
+- `ALTER ROLE ... NOSUPERUSER` falla en Aurora: el administrador es `rds_superuser`, no superusuario, y Postgres le impide tocar ese atributo. Ahora el entrypoint no lo usa, y un rol creado así ya es `NOSUPERUSER`. En el Postgres local de Docker no se ve, porque ahí el administrador sí es superusuario.
+- Al reemplazar el ALB público por el interno, el listener nuevo no podía usar el *target group* del ALB anterior, porque un *target group* no puede estar en dos ALB. Se resolvió con un id lógico nuevo (`ApiTgInterno`).
+- En un equipo x86_64 sin buildx, la imagen ARM64 no se construye (ver [Desplegar y verificar](#desplegar-y-verificar)).
 
-**En el código, sin desplegar** (cambio `endurecer-seguridad-aws`): ALB interno con VPC Origin, sin web en CloudFront, permisos mínimos de la API, salida acotada, usuario `toqui_app` y retención de 7 días en la base. Verificado con las pruebas de CDK, `cdk synth`, las pruebas e2e de la API y el modo `--migrar` contra PostgreSQL 17 local. El despliegue reemplaza el ALB (`toqui-prod-api-int`): la API queda sin servicio unos minutos y el VPC Origin tarda hasta 15 minutos en crearse.
+Un rollback de `ToquiApp` no revierte las migraciones ya aplicadas. Sobre la migración `dataset_nucleos`, ver el plan de rollback en `openspec/changes/migrar-dataset-nucleos/design.md`.
+
+Costo de la carga: una tarea Fargate de pocos minutos y unos 12 MB en `dataset/` del bucket de capturas, que se borran a los 7 días.
 
 ## Pendiente
 
-- Desplegar la cola, la Lambda de proceso y el endurecimiento (`pnpm aws:prod:deploy`, con aviso al equipo) y verificar con `pnpm aws:prod:smoke`.
-- Clasificación con Claude en la Lambda (`IA_PROVIDER=bedrock`).
-- Con aviso al equipo, desplegar `migrar-dataset-nucleos` (vacía las tablas) y cargar el dataset en Aurora: `pnpm aws:prod:seed --dataset <ruta a datos_publicos>`.
+- Clasificación con Claude en la Lambda (`IA_PROVIDER=bedrock` con `@toqui/ia`).
+- Probar audio y foto en producción desde la web: subida firmada (CORS), Transcribe y Textract.
+- Avisos a la web (AppSync Events) y memoria y Knowledge Base (`cola-ia-y-amplify`, secciones 6 y 8).
 - Alerta de presupuesto en Billing → Budgets.
 - Dominio propio con certificado (opcional).
 - CI/CD de despliegue; hoy se despliega desde una máquina del equipo.

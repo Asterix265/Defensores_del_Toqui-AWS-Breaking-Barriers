@@ -67,6 +67,7 @@ Verificado el 15-10-2026: 56 pruebas de la API (e2e con Postgres en Docker), con
   - Hecho: cola, DLQ, Lambda `toqui-prod-proceso` (handler `proceso.handler`, log `/toqui/prod/proceso`), secreto `toqui/prod/pipeline-token` en ECS y en la Lambda, permisos de D12 más `textract:DetectDocumentText`, y `SQS_URL_CAPTURAS` con `sqs:SendMessage` para la API. Se eliminaron EventBridge, Step Functions, `PasoEco` y `eventBridge` del bucket. `pnpm aws:prod:smoke` (paso 5) encola un trabajo sintético y verifica en el log que la Lambda llega a la API interna. Verificado con `prod-stacks.test.ts` (13 pruebas) y `typecheck`; sin desplegar.
   - Pendiente: `PIPELINE_MODE=cola` en la API, junto con 3.1 (hoy la API solo acepta `aws | inline`).
 - [ ] 5.2 Desplegar `ToquiApp` con aviso al equipo y ampliar `pnpm aws:prod:smoke`: `/api/health` con las tres dependencias en `up`, y una nota de texto sintética creada con un usuario de prueba que llega a `borrador_listo` en menos de 60 s. Verificar que el smoke pasa
+  - Desplegado el 16-10-2026, con `pnpm aws:prod:smoke` en 5/5. Una nota de texto creada a mano por la web de Amplify, con `educadora.jar0001`, llegó a `borrador_listo`. Pendiente: que el smoke cree esa nota con un usuario de prueba.
 - [ ] 5.3 Actualizar `docs/arquitectura-aws.md` (diagrama, servicios y permisos) y el README con el flujo nuevo y los comandos verificados
 
 ## 6. Avisos a la web
@@ -90,7 +91,7 @@ Verificado el 15-10-2026: 56 pruebas de la API (e2e con Postgres en Docker), con
 
   Si `Authorization` no pasa, aplicar el plan B de D10
 - [ ] 7.4 Con 7.3 en verde: cambiar el comportamiento por defecto de CloudFront al ALB, eliminar el bucket web, `BucketDeployment` y la función de rutas SPA, quitar la URL de CloudFront del CORS y quitar el build de la web de `pnpm aws:prod:deploy`. Verificar con una prueba de CDK y con `pnpm aws:prod:smoke`, ajustado para que revise la web en Amplify
-  - Implementado en código por `endurecer-seguridad-aws` (tareas 1.1 y 1.2), con CloudFront hacia un ALB interno por VPC Origin. Pendiente: desplegar y verificar con `pnpm aws:prod:smoke`.
+  - Implementado en código por `endurecer-seguridad-aws` (tareas 1.1 y 1.2), con CloudFront hacia un ALB interno por VPC Origin. Desplegado el 16-10-2026 y verificado con `pnpm aws:prod:smoke` (5/5, web en Amplify).
 - [ ] 7.5 Documentar en el README y en `docs/arquitectura-aws.md` la URL, el flujo de publicación (push a `main`) y `pnpm aws:prod:amplify` una vez verificado
 
 ## 8. Memoria y base de conocimiento

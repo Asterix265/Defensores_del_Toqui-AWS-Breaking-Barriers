@@ -57,4 +57,9 @@
     - contrato regenerado sin diferencias;
     - `openspec validate` correcto.
   - Tras la revisión del PR (16-10-2026): API 70 e infra 26 pruebas; lint, formato, tipos, `infra:synth` y contrato sin cambios.
-- [ ] 6.3 Con aviso al equipo: `pnpm aws:prod:deploy`, `pnpm aws:prod:seed` y `pnpm aws:prod:smoke` (fuera de este PR)
+- [x] 6.3 Con aviso al equipo: `pnpm aws:prod:deploy`, `pnpm aws:prod:seed` y `pnpm aws:prod:smoke` (fuera de este PR)
+  - Hecho el 16-10-2026:
+    - el contenedor `migraciones` aplicó `20261016100000_dataset_nucleos`;
+    - `pnpm aws:prod:seed` cargó los mismos conteos que en local;
+    - `pnpm aws:prod:smoke` dio 5/5, con el paso 5 actualizado al mensaje con `nivelEducativo` y el catálogo por núcleo;
+    - una nota de texto creada por la web de Amplify con una educadora sintética llegó a `borrador_listo`.

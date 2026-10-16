@@ -16,6 +16,7 @@ import * as ec2 from 'aws-cdk-lib/aws-ec2';
 import { Platform } from 'aws-cdk-lib/aws-ecr-assets';
 import * as ecs from 'aws-cdk-lib/aws-ecs';
 import * as ecsPatterns from 'aws-cdk-lib/aws-ecs-patterns';
+import type * as elbv2 from 'aws-cdk-lib/aws-elasticloadbalancingv2';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
 import { SqsEventSource } from 'aws-cdk-lib/aws-lambda-event-sources';
@@ -168,6 +169,10 @@ export class AppStack extends Stack {
       },
     });
     api.targetGroup.configureHealthCheck({ path: '/health', healthyHttpCodes: '200' });
+    // Al reemplazar el ALB (público → interno), CloudFormation crea el listener nuevo antes de
+    // borrar el anterior, y un target group no puede estar en dos ALB: con un id lógico nuevo el
+    // target group también se reemplaza. Es el mismo nombre que usaron los intentos del 16-10.
+    (api.targetGroup.node.defaultChild as elbv2.CfnTargetGroup).overrideLogicalId('ApiTgInterno');
 
     // Migraciones y usuario `toqui_app` antes de cada arranque de la API, con el administrador:
     // sus credenciales solo llegan a este contenedor, que termina antes de que arranque la API (D5).

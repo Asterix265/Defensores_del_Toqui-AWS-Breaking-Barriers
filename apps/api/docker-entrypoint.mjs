@@ -39,6 +39,8 @@ function migrar() {
 /**
  * Crea el usuario de la API si no existe, le fija la contraseña del secreto y le da solo DML.
  * Idempotente; el advisory lock evita choques si arrancan varias tareas a la vez.
+ * Sin `NOSUPERUSER`: en Aurora el administrador (`rds_superuser`) no es superusuario y Postgres
+ * rechaza cualquier cláusula sobre ese atributo; un rol creado así ya es NOSUPERUSER.
  */
 function sqlUsuarioApp(usuario, password, base) {
   const literal = `'${password.replaceAll("'", "''")}'`;
@@ -49,7 +51,7 @@ DO $$ BEGIN
   CREATE ROLE ${usuario} LOGIN;
 EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
-ALTER ROLE ${usuario} WITH LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE PASSWORD ${literal};
+ALTER ROLE ${usuario} WITH LOGIN NOCREATEDB NOCREATEROLE PASSWORD ${literal};
 REVOKE CREATE ON SCHEMA public FROM PUBLIC;
 GRANT CONNECT ON DATABASE "${base}" TO ${usuario};
 GRANT USAGE ON SCHEMA public TO ${usuario};

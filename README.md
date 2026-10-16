@@ -12,7 +12,7 @@ La línea base declarada en la presentación es de **4 horas semanales** de docu
 
 ## Estado actual
 
-La base técnica del monorepo está lista (cambio OpenSpec `levantar-stack-base`): web, API, pipeline, paquete compartido e infraestructura compilan, tienen pruebas de humo y se comunican en local. De `definir-mvp-e1`, la **API** ya implementa el modelo de dominio, la carga del dataset, la autenticación con Cognito (y modo local), la captura con borrador y confirmación, el endpoint interno del pipeline y la trayectoria (ver [API de registro](#api-de-registro)). La Lambda de proceso (`apps/pipeline`, cambio `cola-ia-y-amplify`) ya normaliza con Transcribe y Textract, anonimiza con el Guardrail y entrega al endpoint interno; faltan la clasificación con Claude, el encolado desde la API, la conexión de la web a la API y el panel de impacto. Los servicios AWS de desarrollo (stack `ToquiDev`) y la arquitectura de producción (`ToquiRed`, `ToquiDatos`, `ToquiApp`) están desplegados; la API y el pipeline de producción todavía solo tienen los endpoints y pasos técnicos de ejemplo. El cambio `migrar-dataset-nucleos` adopta el dataset E1 por núcleos (modelo, carga, API y adaptación mínima de la IA y la web). Su migración vacía las tablas, y la carga en Aurora (`pnpm aws:prod:seed`) está preparada, pero aún no se ha ejecutado.
+La base técnica del monorepo está lista (cambio OpenSpec `levantar-stack-base`): web, API, pipeline, paquete compartido e infraestructura compilan, tienen pruebas de humo y se comunican en local. De `definir-mvp-e1`, la **API** ya implementa el modelo de dominio, la carga del dataset, la autenticación con Cognito (y modo local), la captura con borrador y confirmación, el endpoint interno del pipeline y la trayectoria (ver [API de registro](#api-de-registro)). La Lambda de proceso (`apps/pipeline`, cambio `cola-ia-y-amplify`) ya normaliza con Transcribe y Textract, anonimiza con el Guardrail y entrega al endpoint interno; faltan la clasificación con Claude, el encolado desde la API, la conexión de la web a la API y el panel de impacto. Los servicios AWS de desarrollo (stack `ToquiDev`) y la arquitectura de producción (`ToquiRed`, `ToquiDatos`, `ToquiApp`) están desplegados. El 16-10-2026 se desplegó en producción la cola SQS con la Lambda de proceso, el endurecimiento de seguridad (ALB interno con VPC Origin, usuario `toqui_app`) y el dataset E1 por núcleos (cambio `migrar-dataset-nucleos`), que ya está cargado en Aurora. La web en Amplify funciona de punta a punta con un usuario sintético (ingreso, niños y niñas, trayectoria y nota de texto hasta la propuesta), pero la clasificación todavía es simulada (`fake`). Detalle en [arquitectura AWS](docs/arquitectura-aws.md#estado).
 
 ## Stack
 
@@ -132,7 +132,7 @@ Quien clone solo este repositorio deberá obtener los materiales públicos y ubi
 
 Dataset sintético **E1 por núcleos de aprendizaje** v1.0.0 (cambio `migrar-dataset-nucleos`): elaborado el 16-10-2026, con datos observados hasta el 15-10-2026. Reemplaza al dataset público anterior (9 niveles y 5 dominios) y **cambia el esquema**: 8 núcleos, escala 1–8 dentro de cada núcleo y nivel educativo (Sala Cuna, Nivel Medio y Transición), evidencia con fragmento literal y valoraciones con nivel sugerido y validado. No se convierte la escala anterior.
 
-Conteos verificados con `pnpm db:seed` el 16-10-2026:
+Conteos verificados con `pnpm db:seed` el 16-10-2026 (iguales en Aurora de producción con `pnpm aws:prod:seed`):
 
 | Entidad | Registros |
 | --- | ---: |
@@ -162,7 +162,7 @@ openspec list --specs
 openspec validate <cambio> --strict --no-interactive
 ```
 
-Sin instalación global también funciona `npx @fission-ai/openspec@1.4.1 <comando>`. Cambios activos: `levantar-stack-base` (base técnica, implementada) y `definir-mvp-e1` (MVP del desafío, pendiente).
+Sin instalación global también funciona `npx @fission-ai/openspec@1.4.1 <comando>`. Los cambios activos (`openspec list`) incluyen `levantar-stack-base` (base técnica, implementada), `definir-mvp-e1` (MVP del desafío, en curso), `cola-ia-y-amplify`, `endurecer-seguridad-aws` y `migrar-dataset-nucleos` (desplegados el 16-10-2026); ninguno está archivado todavía.
 
 La configuración y el contexto están en `openspec/config.yaml`. Las especificaciones consolidadas se guardan en `openspec/specs/`, los cambios en `openspec/changes/` y su historial en `openspec/changes/archive/`.
 
@@ -180,9 +180,9 @@ Se excluyeron las skills de otras bases de datos, de los servicios en la nube de
 
 ## Próximos pasos
 
-1. Completar `definir-mvp-e1`: pipeline con Transcribe y Bedrock que entregue al endpoint interno, conectar la web a la API y medir el impacto. En `ToquiApp` falta desplegar la cola y la Lambda de proceso (el `PIPELINE_TOKEN` ya va en Secrets Manager) y cargar el dataset en Aurora.
+1. Completar `definir-mvp-e1`: clasificación con Claude en la Lambda de proceso (`IA_PROVIDER=bedrock` con `@toqui/ia`), probar audio y foto en producción y medir el impacto.
 2. Resolver cómo representar la rúbrica institucional frente a la ruta sintética del dataset.
-3. Configurar IAM, acceso a modelos de Bedrock y despliegue en AWS, documentando permisos, costos y limpieza.
+3. Alerta de presupuesto, CI/CD de despliegue y limpieza al terminar la hackatón (ver [arquitectura AWS](docs/arquitectura-aws.md#pendiente)).
 4. Medir tiempo de documentación y trazabilidad con datos sintéticos; reportar resultados reales de la demo.
 
 Las reglas de colaboración están en [AGENTS.md](AGENTS.md); [CLAUDE.md](CLAUDE.md) incorpora esas mismas reglas para Claude Code.

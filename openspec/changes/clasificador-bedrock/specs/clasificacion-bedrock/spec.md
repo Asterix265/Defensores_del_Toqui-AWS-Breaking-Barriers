@@ -111,7 +111,7 @@ El prompt SHALL incluir, solo cuando existan, hasta 5 fragmentos de conocimiento
 - **THEN** ese es el texto que recibe Claude y el `textoFuente` del borrador, y las citas salen de ese texto
 
 ### Requirement: Selección del proveedor por configuración
-La configuración de la Lambda SHALL aceptar `IA_PROVIDER` con los valores `fake` y `bedrock`, con `fake` por defecto, y `MODELO_EXTRACCION` con `us.anthropic.claude-sonnet-5-5` por defecto. `IA_PROVIDER=bedrock` combinado con `LECTOR_FOTO=ia` SHALL rechazarse al cargar la configuración con un mensaje claro. Con `fake`, el comportamiento actual SHALL permanecer sin cambios.
+La configuración de la Lambda SHALL aceptar `IA_PROVIDER` con los valores `fake` y `bedrock`, con `fake` por defecto, y `MODELO_EXTRACCION` con `us.anthropic.claude-sonnet-5` por defecto. `IA_PROVIDER=bedrock` combinado con `LECTOR_FOTO=ia` SHALL rechazarse al cargar la configuración con un mensaje claro. Con `fake`, el comportamiento actual SHALL permanecer sin cambios.
 
 #### Scenario: Proveedor por defecto
 - **WHEN** la configuración no define `IA_PROVIDER`
@@ -119,7 +119,7 @@ La configuración de la Lambda SHALL aceptar `IA_PROVIDER` con los valores `fake
 
 #### Scenario: Bedrock con el modelo por defecto
 - **WHEN** `IA_PROVIDER` es `bedrock` y no se define `MODELO_EXTRACCION`
-- **THEN** las dependencias incluyen un `ClasificadorBedrock` con el modelo `us.anthropic.claude-sonnet-5-5`
+- **THEN** las dependencias incluyen un `ClasificadorBedrock` con el modelo `us.anthropic.claude-sonnet-5`
 
 #### Scenario: Bedrock con lectura de fotos por IA
 - **WHEN** `IA_PROVIDER` es `bedrock` y `LECTOR_FOTO` es `ia`

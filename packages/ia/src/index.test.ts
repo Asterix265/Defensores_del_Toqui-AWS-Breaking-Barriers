@@ -29,6 +29,7 @@ describe('API pública de @toqui/ia', () => {
   it('exporta solo lo del contrato', () => {
     expect(Object.keys(ia).sort()).toEqual([
       'ErrorIa',
+      'clasificarConClaude',
       'crearProveedor',
       'normalizarTexto',
       'textoDeTranscripcion',

@@ -20,7 +20,7 @@
   ```
 
 - El orquestador valida lo que devuelve el clasificador con `validarClasificacion` (`apps/pipeline/src/validacion.ts`) y, si hay problemas, vuelve a llamar con `correccion` (hasta 2 intentos); si vuelve a fallar entrega «evidencia insuficiente». Los errores que lanza el clasificador **se propagan**: el handler `proceso` los trata como transitorios y SQS reintenta (hasta `maxReceiveCount: 3`). **`validarClasificacion` exige esta forma exacta**: `{ nivelSugerido: 1..9 | null, evidenciaInsuficiente: boolean, manifestaciones: { idManifestacion, cita }[] (máx. 5) }`; con evidencia insuficiente, `nivelSugerido` debe ser `null` y la lista vacía; sin ella, debe haber nivel y al menos una manifestación, todas del nivel sugerido, y cada `cita` debe cumplir `textoFuente.includes(cita)` (comparación **exacta**).
-- Hoy el único proveedor es `ClasificadorFake` (`apps/pipeline/src/ia/fake.ts`); `config.ts` define `IA_PROVIDER: z.enum(['fake'])` y `dependencias.ts#crearIa` solo tiene el caso `fake`. La Lambda **ya tiene** `bedrock:InvokeModel` (modelos Anthropic y perfiles de inferencia) y `bedrock:ApplyGuardrail`, y `infra/lib/app-stack.ts` fija `IA_PROVIDER: 'fake'`, un `timeout` de 120 s y `MODELOS.extraccion = 'us.anthropic.claude-sonnet-5-5'`.
+- Hoy el único proveedor es `ClasificadorFake` (`apps/pipeline/src/ia/fake.ts`); `config.ts` define `IA_PROVIDER: z.enum(['fake'])` y `dependencias.ts#crearIa` solo tiene el caso `fake`. La Lambda **ya tiene** `bedrock:InvokeModel` (modelos Anthropic y perfiles de inferencia) y `bedrock:ApplyGuardrail`, y `infra/lib/app-stack.ts` fija `IA_PROVIDER: 'fake'`, un `timeout` de 120 s y `MODELOS.extraccion = 'us.anthropic.claude-sonnet-5'`.
 - `@toqui/ia` (`packages/ia`, PR #19) ya contiene lo que hace falta, pero **no exportado**: `NOMBRE_HERRAMIENTA`, `SISTEMA_EXTRACCION`, `HERRAMIENTA_BORRADOR` (esquema JSON de la herramienta `registrar_borrador`, con campos `evidenciaInsuficiente`, `nivel` y `manifestaciones`), `mensajeExtraccion`, `etiquetaNota` y `ubicarCita` (tolerante a mayúsculas, espacios repetidos y comillas en los extremos; devuelve el fragmento tal cual está en el texto). `index.ts` solo exporta `crearProveedor`, `ErrorIa`, `normalizarTexto`, `textoDeTranscripcion`, `validar` y tipos. **Ojo**: la herramienta devuelve `nivel`, mientras que el puerto espera `nivelSugerido`.
 - `@toqui/ia` tiene `"main": "./dist/index.js"`: otro paquete que lo importe necesita que su `dist/` exista (como `@toqui/shared`). Hoy la CI compila solo `@toqui/shared` antes de los tipos y las pruebas.
 - Audio: `TranscriptorAws` espera hasta 90 s a Transcribe (la Lambda tiene 120 s). Con Claude después (hasta dos llamadas), 120 s no alcanza.
@@ -92,7 +92,7 @@ Comportamiento, en este orden:
 1. Construye `system` y el mensaje de usuario con las funciones de D2.
 2. Llama **una vez** a `ConverseCommand`:
    `{ modelId: modelo, system: [{ text }], messages: [{ role: 'user', content: [{ text }] }], toolConfig: { tools: [{ toolSpec: HERRAMIENTA_BORRADOR }], toolChoice: { auto: {} } }, inferenceConfig: { maxTokens: 1500 } }`.
-   Usa `cliente.send(comando, { abortSignal: AbortSignal.timeout(tiempoMaximoMs ?? 60_000) })`. `toolChoice` queda en `auto` porque `us.anthropic.claude-sonnet-5-5` rechaza forzar la herramienta (pendiente de confirmar en la prueba en vivo).
+   Usa `cliente.send(comando, { abortSignal: AbortSignal.timeout(tiempoMaximoMs ?? 60_000) })`. `toolChoice` queda en `auto` porque `us.anthropic.claude-sonnet-5` rechaza forzar la herramienta (pendiente de confirmar en la prueba en vivo).
 3. Busca el bloque `toolUse` con `name === NOMBRE_HERRAMIENTA` en `output.message.content`. Si no hay (el modelo respondió solo texto) o su `input` no es un objeto, devuelve `{}`: el orquestador lo verá como respuesta inválida y reintentará con `correccion`.
 4. **Normaliza** el objeto (D3) y lo devuelve.
 
@@ -157,7 +157,7 @@ export class ClasificadorBedrock implements Clasificador {
 
 ### D5. Configuración y selección del proveedor
 
-- `apps/pipeline/src/config.ts`: `IA_PROVIDER: z.enum(['fake', 'bedrock']).default('fake')` y `MODELO_EXTRACCION: z.string().min(1).default('us.anthropic.claude-sonnet-5-5')` (mismo nombre estilo que `GUARDRAIL_ID` y `BUCKET_CAPTURAS`; el valor por defecto coincide con `MODELOS.extraccion` de la infraestructura). Se agrega un `.refine` que rechaza `IA_PROVIDER=bedrock` con `LECTOR_FOTO=ia` y el mensaje «La lectura de fotos con IA no está disponible con bedrock: usa LECTOR_FOTO=textract».
+- `apps/pipeline/src/config.ts`: `IA_PROVIDER: z.enum(['fake', 'bedrock']).default('fake')` y `MODELO_EXTRACCION: z.string().min(1).default('us.anthropic.claude-sonnet-5')` (mismo nombre estilo que `GUARDRAIL_ID` y `BUCKET_CAPTURAS`; el valor por defecto coincide con `MODELOS.extraccion` de la infraestructura). Se agrega un `.refine` que rechaza `IA_PROVIDER=bedrock` con `LECTOR_FOTO=ia` y el mensaje «La lectura de fotos con IA no está disponible con bedrock: usa LECTOR_FOTO=textract».
 - `apps/pipeline/src/dependencias.ts`: se crea **un solo** `BedrockRuntimeClient` por contenedor y se comparte entre `AnonimizadorGuardrail` y `ClasificadorBedrock`. `crearIa` recibe ese cliente y agrega el caso `bedrock` → `{ clasificador: new ClasificadorBedrock(cliente, env.MODELO_EXTRACCION) }`. Para `bedrock` no hay `lectorImagen` propio: como la configuración ya prohíbe `LECTOR_FOTO=ia` con `bedrock`, `crearDependencias` siempre usa Textract en ese caso (hágase explícito el tipo: `lectorImagen` opcional en el resultado de `crearIa`, y un error claro si `LECTOR_FOTO=ia` y no hay lector).
 - El comentario de `crearIa` («Para integrar Claude en Bedrock: agregar `bedrock`…») se reemplaza por uno que describa el estado real.
 
@@ -197,7 +197,7 @@ En `infra/lib/app-stack.ts`:
 
 ### D9. Prueba en vivo opcional
 
-`packages/ia/src/clasificador.live.test.ts`, con `describe.skipIf(process.env.RUN_BEDROCK_LIVE !== '1')`. Usa `new BedrockRuntimeClient({ region: 'us-east-1' })` con el perfil de `AWS_PROFILE` y el modelo de `BEDROCK_MODEL_EXTRACCION` (por defecto `us.anthropic.claude-sonnet-5-5`). Casos: una nota con una conducta clara (espera propuesta válida, citas literales), una nota sin conducta («participó bien», espera evidencia insuficiente) y una nota con una etiqueta `</nota>` (no debe romper). Imprime el nivel y las manifestaciones propuestas **sin** el texto de la nota. **Quien implementa no la ejecuta**: la ejecuta quien revisa, con aviso por el costo (centavos).
+`packages/ia/src/clasificador.live.test.ts`, con `describe.skipIf(process.env.RUN_BEDROCK_LIVE !== '1')`. Usa `new BedrockRuntimeClient({ region: 'us-east-1' })` con el perfil de `AWS_PROFILE` y el modelo de `BEDROCK_MODEL_EXTRACCION` (por defecto `us.anthropic.claude-sonnet-5`). Casos: una nota con una conducta clara (espera propuesta válida, citas literales), una nota sin conducta («participó bien», espera evidencia insuficiente) y una nota con una etiqueta `</nota>` (no debe romper). Imprime el nivel y las manifestaciones propuestas **sin** el texto de la nota. **Quien implementa no la ejecuta**: la ejecuta quien revisa, con aviso por el costo (centavos).
 
 ## Guía de implementación (reglas para quien aplique este cambio)
 
@@ -226,9 +226,17 @@ En `infra/lib/app-stack.ts`:
 4. Si sale bien: un PR de una línea cambia `IA_PROVIDER_PROCESO` a `'bedrock'` y se vuelve a desplegar `ToquiApp` (solo cambia la Lambda).
 5. **Reversión rápida** sin redesplegar: en la consola de Lambda, `toqui-prod-proceso` → Configuración → Variables de entorno, poner `IA_PROVIDER=fake`. Reversión definitiva: volver la constante a `'fake'`.
 
+## Resultado de la prueba en vivo (16-10-2026)
+
+- Con el perfil `toqui`, `us.anthropic.claude-sonnet-5-5` responde `AccessDeniedException`: la cuenta del evento tiene una lista de modelos permitidos (`ws-bedrock-model-allowlist-policy-1`) que incluye Sonnet 5, Opus 5 y Fable 5, pero no Sonnet 5.5 ni Haiku 5.5. **El modelo de extracción pasa a `us.anthropic.claude-sonnet-5`** (`MODELOS.extraccion`, valor por defecto de `MODELO_EXTRACCION`, `infra/scripts/comun.ts` y `.env.example`).
+- Con `us.anthropic.claude-sonnet-5`, `clasificador.live.test.ts` pasa 3 de 3: conducta clara (nivel 7, `MAN-L07-MF-01`, cita literal), «participó bien» (evidencia insuficiente) y nota con `</nota>` (no propone el nivel 9 que pedía el texto inyectado). Cada llamada tarda entre 2,6 y 4,9 s. El esquema con `type: ['integer', 'null']` y `toolChoice: auto` funcionan.
+- Si una llamada falla, el error del SDK trae la solicitud firmada (token de sesión y firma) y vitest la imprimía completa. Las dos pruebas en vivo pasan ahora por `pruebas/sin-credenciales.ts`, que relanza solo el nombre y el mensaje.
+- Sin probar todavía: el Guardrail de producción, la Lambda real (su rol podría no tener la misma lista de modelos) y `MODELOS.resumen` (Haiku 5.5, también denegado; aún no se usa).
+
 ## Open Questions
 
-- ¿`us.anthropic.claude-sonnet-5-5` acepta el esquema de herramienta con `type: ['integer', 'null']` y la combinación `toolChoice: auto`? Lo responde la prueba en vivo.
-- ¿Qué latencia real tiene una clasificación con el catálogo completo? Si supera ~20 s, revisar `maxTokens` y el timeout.
+- ~~¿El modelo acepta el esquema y `toolChoice: auto`?~~ Sí, con Sonnet 5 (ver el resultado de la prueba en vivo).
+- ~~¿Latencia real?~~ Entre 2,6 y 4,9 s por llamada con el catálogo completo. Aun así conviene bajar `tiempoMaximoMs` (hoy 60 s) para que el peor caso de audio quepa en 180 s.
+- ¿El rol de la Lambda `toqui-prod-proceso` tiene la misma lista de modelos permitidos que el rol de participante? Comprobarlo antes de activar `bedrock`.
 - ¿Conviene subir `maxAttempts` del cliente de Bedrock por encima de 3 para absorber picos de throttling? Decidir con datos de la prueba.
 - ¿Qué `textoFuente` se guarda a largo plazo, el anonimizado (hoy) o el original con citas mapeadas (`ProveedorBedrock`)? No bloquea este cambio.

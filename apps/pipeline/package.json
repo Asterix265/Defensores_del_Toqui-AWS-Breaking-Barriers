@@ -15,6 +15,7 @@
     "@aws-sdk/client-secrets-manager": "^3.1152.0",
     "@aws-sdk/client-textract": "^3.1152.0",
     "@aws-sdk/client-transcribe": "^3.1151.0",
+    "@toqui/ia": "workspace:*",
     "@toqui/shared": "workspace:*",
     "zod": "catalog:"
   },

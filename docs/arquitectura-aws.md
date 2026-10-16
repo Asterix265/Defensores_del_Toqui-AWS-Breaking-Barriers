@@ -92,14 +92,14 @@ Desplegado y verificado el 15-10-2026 con `pnpm aws:prod:smoke` (5/5): web y rut
 
 Tiempos del primer despliegue: `ToquiRed` 38 s, `ToquiDatos` 7 min, `ToquiApp` 8 min.
 
-**En el código, sin desplegar** (cambio `cola-ia-y-amplify`): la cola, la DLQ, la Lambda `toqui-prod-proceso` y el secreto del token reemplazan a EventBridge, Step Functions y la Lambda `eco`. Los adaptadores de la Lambda (Transcribe, Textract y Guardrail) se probaron el 15-10-2026 contra `ToquiDev` con datos sintéticos. La API encola en modo `PIPELINE_MODE=cola` (texto al crear, audio y foto con `POST /capturas/:id/subida`), con el catálogo completo de manifestaciones en el mensaje. La clasificación de la Lambda sigue con el proveedor `fake` hasta integrar Claude.
+**En el código, sin desplegar** (cambio `cola-ia-y-amplify`): la cola, la DLQ, la Lambda `toqui-prod-proceso` y el secreto del token reemplazan a EventBridge, Step Functions y la Lambda `eco`. Los adaptadores de la Lambda (Transcribe, Textract y Guardrail) se probaron el 15-10-2026 contra `ToquiDev` con datos sintéticos. La API encola en modo `PIPELINE_MODE=cola` (texto al crear, audio y foto con `POST /capturas/:id/subida`), con el catálogo completo de manifestaciones en el mensaje. La clasificación de la Lambda sigue con el proveedor `fake`: Claude (`IA_PROVIDER=bedrock`) está en el código, sin activar (ver [Pendiente](#pendiente)).
 
 **En el código, sin desplegar** (cambio `endurecer-seguridad-aws`): ALB interno con VPC Origin, sin web en CloudFront, permisos mínimos de la API, salida acotada, usuario `toqui_app` y retención de 7 días en la base. Verificado con las pruebas de CDK, `cdk synth`, las pruebas e2e de la API y el modo `--migrar` contra PostgreSQL 17 local. El despliegue reemplaza el ALB (`toqui-prod-api-int`): la API queda sin servicio unos minutos y el VPC Origin tarda hasta 15 minutos en crearse.
 
 ## Pendiente
 
 - Desplegar la cola, la Lambda de proceso y el endurecimiento (`pnpm aws:prod:deploy`, con aviso al equipo) y verificar con `pnpm aws:prod:smoke`.
-- Clasificación con Claude en la Lambda (`IA_PROVIDER=bedrock`).
+- Activar la clasificación con Claude en la Lambda (cambio `clasificador-bedrock`): el código está listo y probado con un cliente simulado, pero producción sigue con `IA_PROVIDER=fake` hasta la prueba en vivo contra Bedrock (`packages/ia/src/clasificador.live.test.ts`). Para activarlo, cambiar `IA_PROVIDER_PROCESO` a `'bedrock'` en `infra/lib/app-stack.ts` y redesplegar `ToquiApp`; reversión rápida sin redesplegar: `IA_PROVIDER=fake` en las variables de entorno de `toqui-prod-proceso` desde la consola de Lambda. El cambio también sube el `timeout` de la Lambda de 120 s a 180 s (la cola pasa de 720 s a 1080 s de visibilidad).
 - Cargar el dataset en Aurora (`pnpm db:seed` con `DATASET_DIR` y la `DATABASE_URL` de producción, o una tarea de ECS).
 - Alerta de presupuesto en Billing → Budgets.
 - Dominio propio con certificado (opcional).

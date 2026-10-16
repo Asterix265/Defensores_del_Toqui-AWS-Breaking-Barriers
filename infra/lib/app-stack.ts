@@ -33,10 +33,18 @@ const DIST_PIPELINE = resolve(RAIZ_REPO, 'apps/pipeline/dist');
 /** Prefix list administrada de CloudFront (origin-facing) en us-east-1. */
 export const PREFIX_LIST_CLOUDFRONT = 'pl-3b927c52';
 
+/**
+ * Perfiles de inferencia de Claude. La cuenta del evento tiene una lista de modelos permitidos
+ * (`ws-bedrock-model-allowlist-policy-1`): Sonnet 5 está permitido; Sonnet 5.5 y Haiku 5.5 no
+ * (comprobado el 16-10-2026 con `clasificador.live.test.ts`).
+ */
 export const MODELOS = {
-  extraccion: 'us.anthropic.claude-sonnet-5-5',
+  extraccion: 'us.anthropic.claude-sonnet-5',
   resumen: 'us.anthropic.claude-haiku-5-5',
 } as const;
+
+/** Proveedor de IA de la Lambda de proceso. Pasar a 'bedrock' solo tras la prueba en vivo. */
+export const IA_PROVIDER_PROCESO: 'fake' | 'bedrock' = 'fake';
 
 /** Prefijo de los archivos de captura (audio y foto) en el bucket. */
 export const PREFIJO_CAPTURAS = 'capturas/';
@@ -251,7 +259,8 @@ export class AppStack extends Stack {
       enforceSSL: true,
       retentionPeriod: Duration.days(14),
     });
-    const timeoutProceso = Duration.seconds(120);
+    // Audio: hasta 90 s de Transcribe, el Guardrail y hasta dos llamadas a Claude de 60 s.
+    const timeoutProceso = Duration.seconds(180);
     const cola = new sqs.Queue(this, 'ColaCapturas', {
       queueName: 'toqui-prod-capturas',
       encryption: sqs.QueueEncryption.SQS_MANAGED,
@@ -282,7 +291,8 @@ export class AppStack extends Stack {
         BUCKET_CAPTURAS: capturas.bucketName,
         GUARDRAIL_ID: guardrail.attrGuardrailId,
         GUARDRAIL_VERSION: version.attrVersion,
-        IA_PROVIDER: 'fake',
+        IA_PROVIDER: IA_PROVIDER_PROCESO,
+        MODELO_EXTRACCION: MODELOS.extraccion,
         LECTOR_FOTO: 'textract',
         TRANSCRIBE_IDIOMA: 'es-US',
         MAX_INTENTOS: String(MAX_INTENTOS_PROCESO),

@@ -20,6 +20,10 @@ import type {
 
 import type { MeResponseDtoOutput } from '../model';
 
+import { fetchConToken } from '../../fetch-con-token';
+
+type SecondParameter<T extends (...args: never) => unknown> = Parameters<T>[1];
+
 const withQueryKey = <T extends object, K>(query: T, queryKey: K): T & { queryKey: K } => {
   const result = { queryKey } as T & { queryKey: K };
   for (const key of Object.keys(query)) {
@@ -52,16 +56,13 @@ export const getGetMeUrl = () => {
 /**
  * @summary Quién es la persona, su grupo y su jardín
  */
-export const getMe = async (options?: RequestInit): Promise<getMeResponse> => {
-  const res = await fetch(getGetMeUrl(), {
+export const getMe = async (
+  options?: Parameters<typeof fetchConToken>[1],
+): Promise<getMeResponse> => {
+  return fetchConToken<getMeResponse>(getGetMeUrl(), {
     ...options,
     method: 'GET',
   });
-
-  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
-
-  const data: getMeResponse['data'] = body ? JSON.parse(body) : {};
-  return { data, status: res.status, headers: res.headers } as getMeResponse;
 };
 
 export const getGetMeQueryKey = () => {
@@ -73,14 +74,14 @@ export const getGetMeQueryOptions = <
   TError = unknown,
 >(options?: {
   query?: Partial<UseQueryOptions<Awaited<ReturnType<typeof getMe>>, TError, TData>>;
-  fetch?: RequestInit;
+  request?: SecondParameter<typeof fetchConToken>;
 }) => {
-  const { query: queryOptions, fetch: fetchOptions } = options ?? {};
+  const { query: queryOptions, request: requestOptions } = options ?? {};
 
   const queryKey = queryOptions?.queryKey ?? getGetMeQueryKey();
 
   const queryFn: QueryFunction<Awaited<ReturnType<typeof getMe>>> = ({ signal }) =>
-    getMe({ signal, ...fetchOptions });
+    getMe({ signal, ...requestOptions });
 
   return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
     Awaited<ReturnType<typeof getMe>>,
@@ -103,7 +104,7 @@ export function useGetMe<TData = Awaited<ReturnType<typeof getMe>>, TError = unk
         >,
         'initialData'
       >;
-    fetch?: RequestInit;
+    request?: SecondParameter<typeof fetchConToken>;
   },
   queryClient?: QueryClient,
 ): DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
@@ -118,14 +119,14 @@ export function useGetMe<TData = Awaited<ReturnType<typeof getMe>>, TError = unk
         >,
         'initialData'
       >;
-    fetch?: RequestInit;
+    request?: SecondParameter<typeof fetchConToken>;
   },
   queryClient?: QueryClient,
 ): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
 export function useGetMe<TData = Awaited<ReturnType<typeof getMe>>, TError = unknown>(
   options?: {
     query?: Partial<UseQueryOptions<Awaited<ReturnType<typeof getMe>>, TError, TData>>;
-    fetch?: RequestInit;
+    request?: SecondParameter<typeof fetchConToken>;
   },
   queryClient?: QueryClient,
 ): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
@@ -136,7 +137,7 @@ export function useGetMe<TData = Awaited<ReturnType<typeof getMe>>, TError = unk
 export function useGetMe<TData = Awaited<ReturnType<typeof getMe>>, TError = unknown>(
   options?: {
     query?: Partial<UseQueryOptions<Awaited<ReturnType<typeof getMe>>, TError, TData>>;
-    fetch?: RequestInit;
+    request?: SecondParameter<typeof fetchConToken>;
   },
   queryClient?: QueryClient,
 ): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {

@@ -8,6 +8,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ThemeProvider } from '@mui/material/styles';
 import { HttpResponse, http } from 'msw';
 import { setupServer } from 'msw/node';
+import { getGetMeMockHandler } from '../api/generated/auth/auth.msw';
 import {
   getListarManifestacionesMockHandler,
   getListarNivelesMockHandler,
@@ -364,7 +365,25 @@ function trayectoria(idNino: string): TrayectoriaResponseDtoOutput {
   };
 }
 
+/** Educadora sintética que responde `GET /me`; el token no trae nombre, solo el correo. */
+export const EDUCADORA = {
+  id: 'edu-prueba-1',
+  email: 'mercedes@integra.cl',
+  nombre: null,
+  grupo: 'educadora' as const,
+  idJardin: 'JAR-0001',
+};
+
+/** Clave del ingreso en modo local (sin Cognito), la que usan las pruebas. */
+export const CLAVE_SESION_LOCAL = 'toqui.sesion.local';
+
+/** Deja una sesión local guardada, como si la educadora ya hubiera ingresado. */
+export function conSesion() {
+  localStorage.setItem(CLAVE_SESION_LOCAL, EDUCADORA.email);
+}
+
 export const servidor = setupServer(
+  getGetMeMockHandler(EDUCADORA),
   getListarNinosMockHandler(NINOS),
   getListarNivelesMockHandler(NIVELES),
   getListarManifestacionesMockHandler(MANIFESTACIONES),

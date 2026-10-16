@@ -1,9 +1,11 @@
 import type { ReactNode } from 'react';
 import Box from '@mui/material/Box';
 import ButtonBase from '@mui/material/ButtonBase';
+import IconButton from '@mui/material/IconButton';
 import Stack from '@mui/material/Stack';
 import CheckCircleRounded from '@mui/icons-material/CheckCircleRounded';
 import EditNoteRounded from '@mui/icons-material/EditNoteRounded';
+import LogoutRounded from '@mui/icons-material/LogoutRounded';
 import MicRounded from '@mui/icons-material/MicRounded';
 import PhotoCameraRounded from '@mui/icons-material/PhotoCameraRounded';
 import { AvisoVerde, Encabezado, Pantalla } from './componentes';
@@ -21,14 +23,30 @@ export function Inicio({
   nombre,
   notasHoy,
   onElegir,
+  onSalir,
 }: {
   nombre: string;
   notasHoy: number;
   onElegir: (formato: Formato) => void;
+  /** Pide cerrar sesión; la confirmación la muestra quien llama. */
+  onSalir?: () => void;
 }) {
   return (
     <Pantalla>
-      <Encabezado titulo={`Hola, ${nombre}`} subtitulo="¿Qué quieres registrar?" />
+      <Box sx={{ display: 'flex', alignItems: 'flex-start' }}>
+        <Box sx={{ flex: 1 }}>
+          <Encabezado titulo={`Hola, ${nombre}`} subtitulo="¿Qué quieres registrar?" />
+        </Box>
+        {onSalir && (
+          <IconButton
+            aria-label="Cerrar sesión"
+            onClick={onSalir}
+            sx={{ mt: 2, mr: 1, width: 48, height: 48, color: 'text.secondary' }}
+          >
+            <LogoutRounded />
+          </IconButton>
+        )}
+      </Box>
       <BotonesFormato detalles={DETALLE_CELULAR} onElegir={onElegir} />
       {notasHoy > 0 && (
         <Box sx={{ px: 2, pt: 2, pb: 2 }}>

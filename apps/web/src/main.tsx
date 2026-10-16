@@ -8,9 +8,11 @@ import '@fontsource/nunito-sans/600.css';
 import '@fontsource/nunito-sans/700.css';
 import '@fontsource/nunito-sans/800.css';
 import { App } from './App';
+import { configurarAuth } from './auth/sesion';
 import { tema } from './registro/tema';
 import './styles.css';
 
+configurarAuth();
 const queryClient = new QueryClient();
 
 createRoot(document.getElementById('root')!).render(

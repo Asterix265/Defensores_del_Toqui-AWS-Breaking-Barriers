@@ -1,8 +1,10 @@
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { fireEvent, screen, within } from '@testing-library/react';
+import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { HttpResponse, http } from 'msw';
 import {
+  CLAVE_SESION_LOCAL,
   capturasCreadas,
+  conSesion,
   EJEMPLO_AUDIO,
   EJEMPLO_FOTO,
   conProveedores,
@@ -10,7 +12,24 @@ import {
   reiniciarApi,
   servidor,
 } from './prueba-api';
-import { RegistroApp } from './RegistroApp';
+import {
+  AVISO_SESION_TERMINADA,
+  AVISO_SIN_JARDIN,
+  RegistroApp,
+  nombreVisible,
+} from './RegistroApp';
+
+describe('nombreVisible', () => {
+  it.each([
+    [{ nombre: 'Mercedes Soto', email: 'x@integra.cl' }, 'Mercedes'],
+    [{ nombre: '  Ana  María ', email: null }, 'Ana'],
+    [{ nombre: '', email: 'mercedes.soto@integra.cl' }, 'Mercedes'],
+    [{ nombre: null, email: 'rosa_p@integra.cl' }, 'Rosa'],
+    [{ nombre: null, email: null }, 'tía'],
+  ])('%o → %s', (me, esperado) => {
+    expect(nombreVisible(me)).toBe(esperado);
+  });
+});
 
 beforeAll(() => servidor.listen({ onUnhandledFrame: 'error' }));
 afterEach(() => {
@@ -22,7 +41,7 @@ afterAll(() => servidor.close());
 const boton = (nombre: string | RegExp) => screen.getByRole('button', { name: nombre });
 
 async function ingresado() {
-  localStorage.setItem('toqui.registro.correo', 'mercedes@integra.cl');
+  conSesion();
   const vista = conProveedores(<RegistroApp />);
   await screen.findByRole('heading', { name: 'Hola, Mercedes' });
   return vista;
@@ -48,21 +67,15 @@ describe('RegistroApp', () => {
     instalarMicrofono();
   });
 
-  it('ingresa con correo y código, carga el jardín desde la API y recuerda la sesión', async () => {
+  it('ingresa con correo y contraseña, carga el jardín desde la API y recuerda la sesión', async () => {
     const { unmount } = conProveedores(<RegistroApp />);
 
-    fireEvent.change(screen.getByRole('textbox', { name: 'Correo' }), {
-      target: { value: 'mercedes@integra.cl' },
-    });
-    fireEvent.click(boton('Enviar código'));
-
+    const correo = await screen.findByRole('textbox', { name: 'Correo' });
     expect(boton('Entrar')).toBeDisabled();
-    fireEvent.change(screen.getByRole('textbox', { name: 'Número 1 de 6' }), {
-      target: { value: '482913' },
-    });
+    fireEvent.change(correo, { target: { value: 'mercedes@integra.cl' } });
+    fireEvent.change(screen.getByLabelText('Contraseña'), { target: { value: 'una clave' } });
     fireEvent.click(boton('Entrar'));
 
-    expect(screen.getByRole('status')).toHaveTextContent('Cargando tu jardín…');
     expect(await screen.findByRole('heading', { name: 'Hola, Mercedes' })).toBeInTheDocument();
 
     unmount();
@@ -72,10 +85,71 @@ describe('RegistroApp', () => {
 
   it('avisa si no puede conectarse con la API', async () => {
     servidor.use(http.get('*/ninos', () => new HttpResponse(null, { status: 500 })));
-    localStorage.setItem('toqui.registro.correo', 'mercedes@integra.cl');
+    conSesion();
     conProveedores(<RegistroApp />);
 
     expect(await screen.findByRole('alert')).toHaveTextContent('No se pudo conectar con la API');
+  });
+
+  it('cierra sesión tras confirmar y al recargar sigue en el ingreso', async () => {
+    const { unmount } = await ingresado();
+    localStorage.setItem('toqui.registro.sala', 'Sala Prueba');
+
+    fireEvent.click(boton('Cerrar sesión'));
+    const dialogo = await screen.findByRole('dialog', { name: '¿Cerrar sesión?' });
+    fireEvent.click(within(dialogo).getByRole('button', { name: 'Cerrar sesión' }));
+
+    expect(await screen.findByRole('form', { name: 'Ingreso' })).toBeInTheDocument();
+    expect(localStorage.getItem(CLAVE_SESION_LOCAL)).toBeNull();
+    expect(localStorage.getItem('toqui.registro.sala')).toBeNull();
+
+    unmount();
+    conProveedores(<RegistroApp />);
+    expect(await screen.findByRole('form', { name: 'Ingreso' })).toBeInTheDocument();
+  });
+
+  it('cancelar el cierre de sesión deja todo como estaba', async () => {
+    await ingresado();
+
+    fireEvent.click(boton('Cerrar sesión'));
+    const dialogo = await screen.findByRole('dialog', { name: '¿Cerrar sesión?' });
+    fireEvent.click(within(dialogo).getByRole('button', { name: 'Cancelar' }));
+
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    expect(screen.getByRole('heading', { name: 'Hola, Mercedes' })).toBeInTheDocument();
+    expect(localStorage.getItem(CLAVE_SESION_LOCAL)).not.toBeNull();
+  });
+
+  it('si la API rechaza el token vuelve al ingreso con un aviso', async () => {
+    servidor.use(http.get('*/ninos', () => new HttpResponse(null, { status: 401 })));
+    conSesion();
+    conProveedores(<RegistroApp />);
+
+    expect(await screen.findByRole('form', { name: 'Ingreso' })).toBeInTheDocument();
+    expect(screen.getByText(AVISO_SESION_TERMINADA)).toBeInTheDocument();
+    expect(localStorage.getItem(CLAVE_SESION_LOCAL)).toBeNull();
+  });
+
+  it('varios 401 a la vez vuelven al ingreso una sola vez, con el aviso', async () => {
+    servidor.use(
+      http.get('*/me', () => new HttpResponse(null, { status: 401 })),
+      http.get('*/ninos', () => new HttpResponse(null, { status: 401 })),
+    );
+    conSesion();
+    conProveedores(<RegistroApp />);
+
+    expect(await screen.findByRole('form', { name: 'Ingreso' })).toBeInTheDocument();
+    expect(screen.getAllByText(AVISO_SESION_TERMINADA)).toHaveLength(1);
+    expect(localStorage.getItem(CLAVE_SESION_LOCAL)).toBeNull();
+  });
+
+  it('una cuenta sin jardín vuelve al ingreso explicando el motivo', async () => {
+    servidor.use(http.get('*/me', () => new HttpResponse(null, { status: 403 })));
+    conSesion();
+    conProveedores(<RegistroApp />);
+
+    expect(await screen.findByText(AVISO_SIN_JARDIN)).toBeInTheDocument();
+    expect(screen.getByRole('form', { name: 'Ingreso' })).toBeInTheDocument();
   });
 
   it('guarda una nota escrita en la API y sigue en Mis notas al recargar', async () => {

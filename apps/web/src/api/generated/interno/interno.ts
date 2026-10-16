@@ -19,6 +19,10 @@ import type {
   ErrorPipelineRequestDto,
 } from '../model';
 
+import { fetchConToken } from '../../fetch-con-token';
+
+type SecondParameter<T extends (...args: never) => unknown> = Parameters<T>[1];
+
 export type entregarBorradorResponse200 = {
   data: CapturaEstadoResponseDtoOutput;
   status: 200;
@@ -39,7 +43,7 @@ export const getEntregarBorradorUrl = (id: string) => {
 export const entregarBorrador = async (
   id: string,
   borradorEntranteDto: BorradorEntranteDto,
-  options?: RequestInit,
+  options?: Parameters<typeof fetchConToken>[1],
 ): Promise<entregarBorradorResponse> => {
   const getHeaders = (
     h?: NonNullable<RequestInit['headers']>,
@@ -60,17 +64,12 @@ export const entregarBorrador = async (
     }
     return headers;
   };
-  const res = await fetch(getEntregarBorradorUrl(id), {
+  return fetchConToken<entregarBorradorResponse>(getEntregarBorradorUrl(id), {
     ...options,
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
     body: JSON.stringify(borradorEntranteDto),
   });
-
-  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
-
-  const data: entregarBorradorResponse['data'] = body ? JSON.parse(body) : {};
-  return { data, status: res.status, headers: res.headers } as entregarBorradorResponse;
 };
 
 export const getEntregarBorradorMutationKey = () => ['entregarBorrador'] as const;
@@ -82,7 +81,7 @@ export const getEntregarBorradorMutationOptions = <TError = unknown, TContext = 
     EntregarBorradorMutationVariables,
     TContext
   >;
-  fetch?: RequestInit;
+  request?: SecondParameter<typeof fetchConToken>;
 }): UseMutationOptions<
   Awaited<ReturnType<typeof entregarBorrador>>,
   TError,
@@ -90,11 +89,11 @@ export const getEntregarBorradorMutationOptions = <TError = unknown, TContext = 
   TContext
 > => {
   const mutationKey = getEntregarBorradorMutationKey();
-  const { mutation: mutationOptions, fetch: fetchOptions } = options
+  const { mutation: mutationOptions, request: requestOptions } = options
     ? options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey
       ? options
       : { ...options, mutation: { ...options.mutation, mutationKey } }
-    : { mutation: { mutationKey }, fetch: undefined };
+    : { mutation: { mutationKey }, request: undefined };
 
   const mutationFn: MutationFunction<
     Awaited<ReturnType<typeof entregarBorrador>>,
@@ -102,7 +101,7 @@ export const getEntregarBorradorMutationOptions = <TError = unknown, TContext = 
   > = (props) => {
     const { id, data } = props ?? {};
 
-    return entregarBorrador(id, data, fetchOptions);
+    return entregarBorrador(id, data, requestOptions);
   };
 
   return { mutationFn, ...mutationOptions };
@@ -126,7 +125,7 @@ export const useEntregarBorrador = <TError = unknown, TContext = unknown>(
       EntregarBorradorMutationVariables,
       TContext
     >;
-    fetch?: RequestInit;
+    request?: SecondParameter<typeof fetchConToken>;
   },
   queryClient?: QueryClient,
 ): UseMutationResult<
@@ -157,7 +156,7 @@ export const getInformarErrorPipelineUrl = (id: string) => {
 export const informarErrorPipeline = async (
   id: string,
   errorPipelineRequestDto: ErrorPipelineRequestDto,
-  options?: RequestInit,
+  options?: Parameters<typeof fetchConToken>[1],
 ): Promise<informarErrorPipelineResponse> => {
   const getHeaders = (
     h?: NonNullable<RequestInit['headers']>,
@@ -178,17 +177,12 @@ export const informarErrorPipeline = async (
     }
     return headers;
   };
-  const res = await fetch(getInformarErrorPipelineUrl(id), {
+  return fetchConToken<informarErrorPipelineResponse>(getInformarErrorPipelineUrl(id), {
     ...options,
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
     body: JSON.stringify(errorPipelineRequestDto),
   });
-
-  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
-
-  const data: informarErrorPipelineResponse['data'] = body ? JSON.parse(body) : {};
-  return { data, status: res.status, headers: res.headers } as informarErrorPipelineResponse;
 };
 
 export const getInformarErrorPipelineMutationKey = () => ['informarErrorPipeline'] as const;
@@ -203,7 +197,7 @@ export const getInformarErrorPipelineMutationOptions = <
     InformarErrorPipelineMutationVariables,
     TContext
   >;
-  fetch?: RequestInit;
+  request?: SecondParameter<typeof fetchConToken>;
 }): UseMutationOptions<
   Awaited<ReturnType<typeof informarErrorPipeline>>,
   TError,
@@ -211,11 +205,11 @@ export const getInformarErrorPipelineMutationOptions = <
   TContext
 > => {
   const mutationKey = getInformarErrorPipelineMutationKey();
-  const { mutation: mutationOptions, fetch: fetchOptions } = options
+  const { mutation: mutationOptions, request: requestOptions } = options
     ? options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey
       ? options
       : { ...options, mutation: { ...options.mutation, mutationKey } }
-    : { mutation: { mutationKey }, fetch: undefined };
+    : { mutation: { mutationKey }, request: undefined };
 
   const mutationFn: MutationFunction<
     Awaited<ReturnType<typeof informarErrorPipeline>>,
@@ -223,7 +217,7 @@ export const getInformarErrorPipelineMutationOptions = <
   > = (props) => {
     const { id, data } = props ?? {};
 
-    return informarErrorPipeline(id, data, fetchOptions);
+    return informarErrorPipeline(id, data, requestOptions);
   };
 
   return { mutationFn, ...mutationOptions };
@@ -247,7 +241,7 @@ export const useInformarErrorPipeline = <TError = unknown, TContext = unknown>(
       InformarErrorPipelineMutationVariables,
       TContext
     >;
-    fetch?: RequestInit;
+    request?: SecondParameter<typeof fetchConToken>;
   },
   queryClient?: QueryClient,
 ): UseMutationResult<

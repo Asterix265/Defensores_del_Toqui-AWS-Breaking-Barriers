@@ -31,6 +31,10 @@ import type {
   ListarCapturasResponseDtoOutput,
 } from '../model';
 
+import { fetchConToken } from '../../fetch-con-token';
+
+type SecondParameter<T extends (...args: never) => unknown> = Parameters<T>[1];
+
 const withQueryKey = <T extends object, K>(query: T, queryKey: K): T & { queryKey: K } => {
   const result = { queryKey } as T & { queryKey: K };
   for (const key of Object.keys(query)) {
@@ -65,7 +69,7 @@ export const getCrearCapturaUrl = () => {
  */
 export const crearCaptura = async (
   crearCapturaRequestDto: CrearCapturaRequestDto,
-  options?: RequestInit,
+  options?: Parameters<typeof fetchConToken>[1],
 ): Promise<crearCapturaResponse> => {
   const getHeaders = (
     h?: NonNullable<RequestInit['headers']>,
@@ -86,17 +90,12 @@ export const crearCaptura = async (
     }
     return headers;
   };
-  const res = await fetch(getCrearCapturaUrl(), {
+  return fetchConToken<crearCapturaResponse>(getCrearCapturaUrl(), {
     ...options,
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
     body: JSON.stringify(crearCapturaRequestDto),
   });
-
-  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
-
-  const data: crearCapturaResponse['data'] = body ? JSON.parse(body) : {};
-  return { data, status: res.status, headers: res.headers } as crearCapturaResponse;
 };
 
 export const getCrearCapturaMutationKey = () => ['crearCaptura'] as const;
@@ -108,7 +107,7 @@ export const getCrearCapturaMutationOptions = <TError = unknown, TContext = unkn
     CrearCapturaMutationVariables,
     TContext
   >;
-  fetch?: RequestInit;
+  request?: SecondParameter<typeof fetchConToken>;
 }): UseMutationOptions<
   Awaited<ReturnType<typeof crearCaptura>>,
   TError,
@@ -116,11 +115,11 @@ export const getCrearCapturaMutationOptions = <TError = unknown, TContext = unkn
   TContext
 > => {
   const mutationKey = getCrearCapturaMutationKey();
-  const { mutation: mutationOptions, fetch: fetchOptions } = options
+  const { mutation: mutationOptions, request: requestOptions } = options
     ? options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey
       ? options
       : { ...options, mutation: { ...options.mutation, mutationKey } }
-    : { mutation: { mutationKey }, fetch: undefined };
+    : { mutation: { mutationKey }, request: undefined };
 
   const mutationFn: MutationFunction<
     Awaited<ReturnType<typeof crearCaptura>>,
@@ -128,7 +127,7 @@ export const getCrearCapturaMutationOptions = <TError = unknown, TContext = unkn
   > = (props) => {
     const { data } = props ?? {};
 
-    return crearCaptura(data, fetchOptions);
+    return crearCaptura(data, requestOptions);
   };
 
   return { mutationFn, ...mutationOptions };
@@ -150,7 +149,7 @@ export const useCrearCaptura = <TError = unknown, TContext = unknown>(
       CrearCapturaMutationVariables,
       TContext
     >;
-    fetch?: RequestInit;
+    request?: SecondParameter<typeof fetchConToken>;
   },
   queryClient?: QueryClient,
 ): UseMutationResult<
@@ -190,17 +189,12 @@ export const getListarCapturasUrl = (params?: ListarCapturasParams) => {
  */
 export const listarCapturas = async (
   params?: ListarCapturasParams,
-  options?: RequestInit,
+  options?: Parameters<typeof fetchConToken>[1],
 ): Promise<listarCapturasResponse> => {
-  const res = await fetch(getListarCapturasUrl(params), {
+  return fetchConToken<listarCapturasResponse>(getListarCapturasUrl(params), {
     ...options,
     method: 'GET',
   });
-
-  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
-
-  const data: listarCapturasResponse['data'] = body ? JSON.parse(body) : {};
-  return { data, status: res.status, headers: res.headers } as listarCapturasResponse;
 };
 
 export const getListarCapturasQueryKey = (params?: ListarCapturasParams) => {
@@ -214,15 +208,15 @@ export const getListarCapturasQueryOptions = <
   params?: ListarCapturasParams,
   options?: {
     query?: Partial<UseQueryOptions<Awaited<ReturnType<typeof listarCapturas>>, TError, TData>>;
-    fetch?: RequestInit;
+    request?: SecondParameter<typeof fetchConToken>;
   },
 ) => {
-  const { query: queryOptions, fetch: fetchOptions } = options ?? {};
+  const { query: queryOptions, request: requestOptions } = options ?? {};
 
   const queryKey = queryOptions?.queryKey ?? getListarCapturasQueryKey(params);
 
   const queryFn: QueryFunction<Awaited<ReturnType<typeof listarCapturas>>> = ({ signal }) =>
-    listarCapturas(params, { signal, ...fetchOptions });
+    listarCapturas(params, { signal, ...requestOptions });
 
   return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
     Awaited<ReturnType<typeof listarCapturas>>,
@@ -249,7 +243,7 @@ export function useListarCapturas<
         >,
         'initialData'
       >;
-    fetch?: RequestInit;
+    request?: SecondParameter<typeof fetchConToken>;
   },
   queryClient?: QueryClient,
 ): DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
@@ -268,7 +262,7 @@ export function useListarCapturas<
         >,
         'initialData'
       >;
-    fetch?: RequestInit;
+    request?: SecondParameter<typeof fetchConToken>;
   },
   queryClient?: QueryClient,
 ): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
@@ -279,7 +273,7 @@ export function useListarCapturas<
   params?: ListarCapturasParams,
   options?: {
     query?: Partial<UseQueryOptions<Awaited<ReturnType<typeof listarCapturas>>, TError, TData>>;
-    fetch?: RequestInit;
+    request?: SecondParameter<typeof fetchConToken>;
   },
   queryClient?: QueryClient,
 ): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
@@ -294,7 +288,7 @@ export function useListarCapturas<
   params?: ListarCapturasParams,
   options?: {
     query?: Partial<UseQueryOptions<Awaited<ReturnType<typeof listarCapturas>>, TError, TData>>;
-    fetch?: RequestInit;
+    request?: SecondParameter<typeof fetchConToken>;
   },
   queryClient?: QueryClient,
 ): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
@@ -326,17 +320,12 @@ export const getAvisarSubidaUrl = (id: string) => {
  */
 export const avisarSubida = async (
   id: string,
-  options?: RequestInit,
+  options?: Parameters<typeof fetchConToken>[1],
 ): Promise<avisarSubidaResponse> => {
-  const res = await fetch(getAvisarSubidaUrl(id), {
+  return fetchConToken<avisarSubidaResponse>(getAvisarSubidaUrl(id), {
     ...options,
     method: 'POST',
   });
-
-  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
-
-  const data: avisarSubidaResponse['data'] = body ? JSON.parse(body) : {};
-  return { data, status: res.status, headers: res.headers } as avisarSubidaResponse;
 };
 
 export const getAvisarSubidaMutationKey = () => ['avisarSubida'] as const;
@@ -348,7 +337,7 @@ export const getAvisarSubidaMutationOptions = <TError = unknown, TContext = unkn
     AvisarSubidaMutationVariables,
     TContext
   >;
-  fetch?: RequestInit;
+  request?: SecondParameter<typeof fetchConToken>;
 }): UseMutationOptions<
   Awaited<ReturnType<typeof avisarSubida>>,
   TError,
@@ -356,11 +345,11 @@ export const getAvisarSubidaMutationOptions = <TError = unknown, TContext = unkn
   TContext
 > => {
   const mutationKey = getAvisarSubidaMutationKey();
-  const { mutation: mutationOptions, fetch: fetchOptions } = options
+  const { mutation: mutationOptions, request: requestOptions } = options
     ? options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey
       ? options
       : { ...options, mutation: { ...options.mutation, mutationKey } }
-    : { mutation: { mutationKey }, fetch: undefined };
+    : { mutation: { mutationKey }, request: undefined };
 
   const mutationFn: MutationFunction<
     Awaited<ReturnType<typeof avisarSubida>>,
@@ -368,7 +357,7 @@ export const getAvisarSubidaMutationOptions = <TError = unknown, TContext = unkn
   > = (props) => {
     const { id } = props ?? {};
 
-    return avisarSubida(id, fetchOptions);
+    return avisarSubida(id, requestOptions);
   };
 
   return { mutationFn, ...mutationOptions };
@@ -390,7 +379,7 @@ export const useAvisarSubida = <TError = unknown, TContext = unknown>(
       AvisarSubidaMutationVariables,
       TContext
     >;
-    fetch?: RequestInit;
+    request?: SecondParameter<typeof fetchConToken>;
   },
   queryClient?: QueryClient,
 ): UseMutationResult<
@@ -420,17 +409,12 @@ export const getObtenerCapturaUrl = (id: string) => {
  */
 export const obtenerCaptura = async (
   id: string,
-  options?: RequestInit,
+  options?: Parameters<typeof fetchConToken>[1],
 ): Promise<obtenerCapturaResponse> => {
-  const res = await fetch(getObtenerCapturaUrl(id), {
+  return fetchConToken<obtenerCapturaResponse>(getObtenerCapturaUrl(id), {
     ...options,
     method: 'GET',
   });
-
-  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
-
-  const data: obtenerCapturaResponse['data'] = body ? JSON.parse(body) : {};
-  return { data, status: res.status, headers: res.headers } as obtenerCapturaResponse;
 };
 
 export const getObtenerCapturaQueryKey = (id: string) => {
@@ -444,15 +428,15 @@ export const getObtenerCapturaQueryOptions = <
   id: string,
   options?: {
     query?: Partial<UseQueryOptions<Awaited<ReturnType<typeof obtenerCaptura>>, TError, TData>>;
-    fetch?: RequestInit;
+    request?: SecondParameter<typeof fetchConToken>;
   },
 ) => {
-  const { query: queryOptions, fetch: fetchOptions } = options ?? {};
+  const { query: queryOptions, request: requestOptions } = options ?? {};
 
   const queryKey = queryOptions?.queryKey ?? getObtenerCapturaQueryKey(id);
 
   const queryFn: QueryFunction<Awaited<ReturnType<typeof obtenerCaptura>>> = ({ signal }) =>
-    obtenerCaptura(id, { signal, ...fetchOptions });
+    obtenerCaptura(id, { signal, ...requestOptions });
 
   return {
     queryKey,
@@ -482,7 +466,7 @@ export function useObtenerCaptura<
         >,
         'initialData'
       >;
-    fetch?: RequestInit;
+    request?: SecondParameter<typeof fetchConToken>;
   },
   queryClient?: QueryClient,
 ): DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
@@ -501,7 +485,7 @@ export function useObtenerCaptura<
         >,
         'initialData'
       >;
-    fetch?: RequestInit;
+    request?: SecondParameter<typeof fetchConToken>;
   },
   queryClient?: QueryClient,
 ): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
@@ -512,7 +496,7 @@ export function useObtenerCaptura<
   id: string,
   options?: {
     query?: Partial<UseQueryOptions<Awaited<ReturnType<typeof obtenerCaptura>>, TError, TData>>;
-    fetch?: RequestInit;
+    request?: SecondParameter<typeof fetchConToken>;
   },
   queryClient?: QueryClient,
 ): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
@@ -527,7 +511,7 @@ export function useObtenerCaptura<
   id: string,
   options?: {
     query?: Partial<UseQueryOptions<Awaited<ReturnType<typeof obtenerCaptura>>, TError, TData>>;
-    fetch?: RequestInit;
+    request?: SecondParameter<typeof fetchConToken>;
   },
   queryClient?: QueryClient,
 ): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
@@ -560,7 +544,7 @@ export const getConfirmarCapturaUrl = (id: string) => {
 export const confirmarCaptura = async (
   id: string,
   confirmacionRequestDto: ConfirmacionRequestDto,
-  options?: RequestInit,
+  options?: Parameters<typeof fetchConToken>[1],
 ): Promise<confirmarCapturaResponse> => {
   const getHeaders = (
     h?: NonNullable<RequestInit['headers']>,
@@ -581,17 +565,12 @@ export const confirmarCaptura = async (
     }
     return headers;
   };
-  const res = await fetch(getConfirmarCapturaUrl(id), {
+  return fetchConToken<confirmarCapturaResponse>(getConfirmarCapturaUrl(id), {
     ...options,
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
     body: JSON.stringify(confirmacionRequestDto),
   });
-
-  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
-
-  const data: confirmarCapturaResponse['data'] = body ? JSON.parse(body) : {};
-  return { data, status: res.status, headers: res.headers } as confirmarCapturaResponse;
 };
 
 export const getConfirmarCapturaMutationKey = () => ['confirmarCaptura'] as const;
@@ -603,7 +582,7 @@ export const getConfirmarCapturaMutationOptions = <TError = unknown, TContext = 
     ConfirmarCapturaMutationVariables,
     TContext
   >;
-  fetch?: RequestInit;
+  request?: SecondParameter<typeof fetchConToken>;
 }): UseMutationOptions<
   Awaited<ReturnType<typeof confirmarCaptura>>,
   TError,
@@ -611,11 +590,11 @@ export const getConfirmarCapturaMutationOptions = <TError = unknown, TContext = 
   TContext
 > => {
   const mutationKey = getConfirmarCapturaMutationKey();
-  const { mutation: mutationOptions, fetch: fetchOptions } = options
+  const { mutation: mutationOptions, request: requestOptions } = options
     ? options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey
       ? options
       : { ...options, mutation: { ...options.mutation, mutationKey } }
-    : { mutation: { mutationKey }, fetch: undefined };
+    : { mutation: { mutationKey }, request: undefined };
 
   const mutationFn: MutationFunction<
     Awaited<ReturnType<typeof confirmarCaptura>>,
@@ -623,7 +602,7 @@ export const getConfirmarCapturaMutationOptions = <TError = unknown, TContext = 
   > = (props) => {
     const { id, data } = props ?? {};
 
-    return confirmarCaptura(id, data, fetchOptions);
+    return confirmarCaptura(id, data, requestOptions);
   };
 
   return { mutationFn, ...mutationOptions };
@@ -647,7 +626,7 @@ export const useConfirmarCaptura = <TError = unknown, TContext = unknown>(
       ConfirmarCapturaMutationVariables,
       TContext
     >;
-    fetch?: RequestInit;
+    request?: SecondParameter<typeof fetchConToken>;
   },
   queryClient?: QueryClient,
 ): UseMutationResult<
@@ -677,17 +656,12 @@ export const getDescartarCapturaUrl = (id: string) => {
  */
 export const descartarCaptura = async (
   id: string,
-  options?: RequestInit,
+  options?: Parameters<typeof fetchConToken>[1],
 ): Promise<descartarCapturaResponse> => {
-  const res = await fetch(getDescartarCapturaUrl(id), {
+  return fetchConToken<descartarCapturaResponse>(getDescartarCapturaUrl(id), {
     ...options,
     method: 'POST',
   });
-
-  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
-
-  const data: descartarCapturaResponse['data'] = body ? JSON.parse(body) : {};
-  return { data, status: res.status, headers: res.headers } as descartarCapturaResponse;
 };
 
 export const getDescartarCapturaMutationKey = () => ['descartarCaptura'] as const;
@@ -699,7 +673,7 @@ export const getDescartarCapturaMutationOptions = <TError = unknown, TContext = 
     DescartarCapturaMutationVariables,
     TContext
   >;
-  fetch?: RequestInit;
+  request?: SecondParameter<typeof fetchConToken>;
 }): UseMutationOptions<
   Awaited<ReturnType<typeof descartarCaptura>>,
   TError,
@@ -707,11 +681,11 @@ export const getDescartarCapturaMutationOptions = <TError = unknown, TContext = 
   TContext
 > => {
   const mutationKey = getDescartarCapturaMutationKey();
-  const { mutation: mutationOptions, fetch: fetchOptions } = options
+  const { mutation: mutationOptions, request: requestOptions } = options
     ? options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey
       ? options
       : { ...options, mutation: { ...options.mutation, mutationKey } }
-    : { mutation: { mutationKey }, fetch: undefined };
+    : { mutation: { mutationKey }, request: undefined };
 
   const mutationFn: MutationFunction<
     Awaited<ReturnType<typeof descartarCaptura>>,
@@ -719,7 +693,7 @@ export const getDescartarCapturaMutationOptions = <TError = unknown, TContext = 
   > = (props) => {
     const { id } = props ?? {};
 
-    return descartarCaptura(id, fetchOptions);
+    return descartarCaptura(id, requestOptions);
   };
 
   return { mutationFn, ...mutationOptions };
@@ -743,7 +717,7 @@ export const useDescartarCaptura = <TError = unknown, TContext = unknown>(
       DescartarCapturaMutationVariables,
       TContext
     >;
-    fetch?: RequestInit;
+    request?: SecondParameter<typeof fetchConToken>;
   },
   queryClient?: QueryClient,
 ): UseMutationResult<
@@ -773,17 +747,12 @@ export const getObtenerArchivoCapturaUrl = (id: string) => {
  */
 export const obtenerArchivoCaptura = async (
   id: string,
-  options?: RequestInit,
+  options?: Parameters<typeof fetchConToken>[1],
 ): Promise<obtenerArchivoCapturaResponse> => {
-  const res = await fetch(getObtenerArchivoCapturaUrl(id), {
+  return fetchConToken<obtenerArchivoCapturaResponse>(getObtenerArchivoCapturaUrl(id), {
     ...options,
     method: 'GET',
   });
-
-  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
-
-  const data: obtenerArchivoCapturaResponse['data'] = body ? JSON.parse(body) : {};
-  return { data, status: res.status, headers: res.headers } as obtenerArchivoCapturaResponse;
 };
 
 export const getObtenerArchivoCapturaQueryKey = (id: string) => {
@@ -799,15 +768,15 @@ export const getObtenerArchivoCapturaQueryOptions = <
     query?: Partial<
       UseQueryOptions<Awaited<ReturnType<typeof obtenerArchivoCaptura>>, TError, TData>
     >;
-    fetch?: RequestInit;
+    request?: SecondParameter<typeof fetchConToken>;
   },
 ) => {
-  const { query: queryOptions, fetch: fetchOptions } = options ?? {};
+  const { query: queryOptions, request: requestOptions } = options ?? {};
 
   const queryKey = queryOptions?.queryKey ?? getObtenerArchivoCapturaQueryKey(id);
 
   const queryFn: QueryFunction<Awaited<ReturnType<typeof obtenerArchivoCaptura>>> = ({ signal }) =>
-    obtenerArchivoCaptura(id, { signal, ...fetchOptions });
+    obtenerArchivoCaptura(id, { signal, ...requestOptions });
 
   return {
     queryKey,
@@ -841,7 +810,7 @@ export function useObtenerArchivoCaptura<
         >,
         'initialData'
       >;
-    fetch?: RequestInit;
+    request?: SecondParameter<typeof fetchConToken>;
   },
   queryClient?: QueryClient,
 ): DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
@@ -862,7 +831,7 @@ export function useObtenerArchivoCaptura<
         >,
         'initialData'
       >;
-    fetch?: RequestInit;
+    request?: SecondParameter<typeof fetchConToken>;
   },
   queryClient?: QueryClient,
 ): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
@@ -875,7 +844,7 @@ export function useObtenerArchivoCaptura<
     query?: Partial<
       UseQueryOptions<Awaited<ReturnType<typeof obtenerArchivoCaptura>>, TError, TData>
     >;
-    fetch?: RequestInit;
+    request?: SecondParameter<typeof fetchConToken>;
   },
   queryClient?: QueryClient,
 ): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
@@ -892,7 +861,7 @@ export function useObtenerArchivoCaptura<
     query?: Partial<
       UseQueryOptions<Awaited<ReturnType<typeof obtenerArchivoCaptura>>, TError, TData>
     >;
-    fetch?: RequestInit;
+    request?: SecondParameter<typeof fetchConToken>;
   },
   queryClient?: QueryClient,
 ): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {

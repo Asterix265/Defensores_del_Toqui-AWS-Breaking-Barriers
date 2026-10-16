@@ -11,7 +11,7 @@ describe('loadEnv', () => {
     const env = loadEnv({ ...BASE, AUTH_MODE: 'local' });
     expect(env.PORT).toBe(3000);
     expect(env.AWS_REGION).toBe('us-east-1');
-    expect(env.PIPELINE_MODE).toBe('aws');
+    expect(env.PIPELINE_MODE).toBe('inline');
     expect(env.IA_PROVIDER).toBe('fake');
     expect(env.ZONA_HORARIA).toBe('America/Santiago');
   });
@@ -39,7 +39,15 @@ describe('loadEnv', () => {
       COGNITO_USER_POOL_ID: 'us-east-1_x',
       COGNITO_CLIENT_ID: 'cliente',
       S3_BUCKET_CAPTURAS: 'toqui-prod-capturas-123',
+      PIPELINE_MODE: 'cola',
+      SQS_URL_CAPTURAS: 'https://sqs.us-east-1.amazonaws.com/123/toqui-prod-capturas',
     });
-    expect(env).toMatchObject({ AUTH_MODE: 'cognito', PIPELINE_MODE: 'aws' });
+    expect(env).toMatchObject({ AUTH_MODE: 'cognito', PIPELINE_MODE: 'cola' });
+  });
+
+  it('exige la URL de la cola en modo cola', () => {
+    expect(() => loadEnv({ ...BASE, AUTH_MODE: 'local', PIPELINE_MODE: 'cola' })).toThrow(
+      /PIPELINE_MODE=cola requiere SQS_URL_CAPTURAS/,
+    );
   });
 });

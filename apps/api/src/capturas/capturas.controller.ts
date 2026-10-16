@@ -12,7 +12,7 @@ import {
 } from '@toqui/shared';
 import { Grupos, IdentidadActual } from '../auth/decoradores';
 import type { Identidad } from '../auth/identidad';
-import { PipelineInlineService } from '../pipeline/pipeline-inline.service';
+import { DespachadorService } from '../pipeline/despachador.service';
 import { CapturasService } from './capturas.service';
 
 class CrearCapturaRequestDto extends createZodDto(CrearCapturaRequestSchema) {}
@@ -29,7 +29,7 @@ class ArchivoResponseDto extends createZodDto(ArchivoResponseSchema) {}
 export class CapturasController {
   constructor(
     private readonly capturas: CapturasService,
-    private readonly pipeline: PipelineInlineService,
+    private readonly despachador: DespachadorService,
   ) {}
 
   @Post()
@@ -41,8 +41,8 @@ export class CapturasController {
   @ZodResponse({ status: 201, type: CrearCapturaResponseDto })
   async crear(@IdentidadActual() identidad: Identidad, @Body() body: CrearCapturaRequestDto) {
     const { id, subida } = await this.capturas.crear(identidad, body);
-    // Audio y foto se procesan cuando la web avisa que el archivo llegó a S3.
-    if (this.pipeline.activo && !subida) this.pipeline.programar(id);
+    // El texto se procesa de inmediato; audio y foto, cuando la web avisa que el archivo llegó a S3.
+    if (!subida) await this.despachador.programar(id);
     return { captura: await this.capturas.detalle(identidad, id), subida };
   }
 
@@ -51,16 +51,12 @@ export class CapturasController {
   @Grupos('educadora')
   @ApiOperation({
     operationId: 'avisarSubida',
-    summary:
-      'Avisa que el audio o la foto ya está en S3; en modo inline, lo comprueba y lo procesa',
+    summary: 'Avisa que el audio o la foto ya está en S3: lo comprueba y lo manda a procesar',
   })
   @ZodResponse({ status: 200, type: CapturaDetalleDto })
   async subida(@IdentidadActual() identidad: Identidad, @Param('id') id: string) {
-    // En modo aws el pipeline lo dispara EventBridge al llegar el objeto: aquí no se hace nada.
-    if (this.pipeline.activo) {
-      const verificada = await this.capturas.verificarSubida(identidad, id);
-      if (verificada.procesar) this.pipeline.programar(id, verificada.archivo);
-    }
+    const verificada = await this.capturas.verificarSubida(identidad, id);
+    if (verificada.procesar) await this.despachador.programar(id, verificada.archivo);
     return this.capturas.detalle(identidad, id);
   }
 

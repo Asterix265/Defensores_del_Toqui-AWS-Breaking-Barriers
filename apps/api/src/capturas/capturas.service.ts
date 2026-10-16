@@ -4,9 +4,7 @@ import {
   ForbiddenException,
   Inject,
   Injectable,
-  Logger,
   NotFoundException,
-  ServiceUnavailableException,
   UnprocessableEntityException,
 } from '@nestjs/common';
 import { z } from 'zod';
@@ -63,8 +61,6 @@ const LARGO_EXTRACTO = 140;
 
 @Injectable()
 export class CapturasService {
-  private readonly logger = new Logger(CapturasService.name);
-
   constructor(
     @Inject(ENV) private readonly env: Env,
     private readonly prisma: PrismaService,
@@ -73,8 +69,8 @@ export class CapturasService {
   ) {}
 
   /**
-   * Crea la captura en `procesando`. Audio y foto devuelven el PUT firmado: el pipeline se
-   * dispara cuando el archivo llega a S3. En modo `aws`, el texto se guarda en S3 por el mismo motivo.
+   * Crea la captura en `procesando`. Audio y foto devuelven el PUT firmado: se mandan a procesar
+   * cuando la web avisa la subida (`verificarSubida`). El texto lo despacha el controlador.
    */
   async crear(
     identidad: Identidad,
@@ -103,18 +99,6 @@ export class CapturasService {
         eventos: { create: { tipo: 'inicio' } },
       },
     });
-
-    if (datos.formato === 'texto' && this.env.PIPELINE_MODE === 'aws') {
-      try {
-        await this.almacenamiento.guardarTexto(id, datos.texto!);
-      } catch (error) {
-        this.logger.error(`No se pudo enviar ${id} al pipeline`, error as Error);
-        await this.marcarError(id, 'No se pudo enviar la captura al pipeline');
-        throw new ServiceUnavailableException(
-          'No se pudo enviar la nota a procesar; intente de nuevo',
-        );
-      }
-    }
     return { id, subida: firmada?.subida ?? null };
   }
 

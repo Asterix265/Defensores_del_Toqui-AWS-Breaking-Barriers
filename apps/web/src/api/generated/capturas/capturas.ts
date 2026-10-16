@@ -322,7 +322,7 @@ export const getAvisarSubidaUrl = (id: string) => {
 };
 
 /**
- * @summary Avisa que el audio o la foto ya está en S3; en modo inline, lo comprueba y lo procesa
+ * @summary Avisa que el audio o la foto ya está en S3: lo comprueba y lo manda a procesar
  */
 export const avisarSubida = async (
   id: string,
@@ -380,7 +380,7 @@ export type AvisarSubidaMutationError = unknown;
 export type AvisarSubidaMutationVariables = { id: string };
 
 /**
- * @summary Avisa que el audio o la foto ya está en S3; en modo inline, lo comprueba y lo procesa
+ * @summary Avisa que el audio o la foto ya está en S3: lo comprueba y lo manda a procesar
  */
 export const useAvisarSubida = <TError = unknown, TContext = unknown>(
   options?: {

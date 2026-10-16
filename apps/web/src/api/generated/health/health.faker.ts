@@ -15,6 +15,10 @@ export const getGetHealthResponseMock = (
   status: faker.helpers.arrayElement(['ok', 'degraded'] as const),
   version: faker.string.alpha({ length: { min: 10, max: 20 } }),
   timestamp: faker.date.past().toISOString().slice(0, 19) + 'Z',
-  dependencies: { database: faker.helpers.arrayElement(['up', 'down'] as const) },
+  dependencies: {
+    database: faker.helpers.arrayElement(['up', 'down'] as const),
+    storage: faker.helpers.arrayElement(['up', 'down'] as const),
+    queue: faker.helpers.arrayElement(['up', 'down'] as const),
+  },
   ...overrideResponse,
 });

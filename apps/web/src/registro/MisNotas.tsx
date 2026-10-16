@@ -1,7 +1,9 @@
 import Box from '@mui/material/Box';
+import ButtonBase from '@mui/material/ButtonBase';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import CheckCircleRounded from '@mui/icons-material/CheckCircleRounded';
+import ChevronRightRounded from '@mui/icons-material/ChevronRightRounded';
 import { ChipArea, Encabezado, ICONO_FORMATO, NinoAvatar, Pantalla } from './componentes';
 import { etiquetaDia, formatoHora } from './formato';
 import type { Nino } from './datos';
@@ -16,8 +18,22 @@ const ESTADO: Record<NotaGuardada['estado'], { texto: string; color: string } | 
   descartada: null,
 };
 
-/** Notas que registró la tía (guardadas en la API), agrupadas por día (diseño 1d). */
-export function MisNotas({ ninos, ahora }: { ninos: Nino[]; ahora: Date }) {
+/** Estados que todavía piden una decisión: se abren para revisarlos. */
+const PENDIENTES: NotaGuardada['estado'][] = ['borrador_listo', 'error'];
+
+/**
+ * Notas que registró la tía (guardadas en la API), agrupadas por día (diseño 1d). Las «Sin
+ * revisar» y «Con error» abren su revisión con `onRevisar`.
+ */
+export function MisNotas({
+  ninos,
+  ahora,
+  onRevisar,
+}: {
+  ninos: Nino[];
+  ahora: Date;
+  onRevisar: (capturaId: string) => void;
+}) {
   const consulta = useNotas(ninos, { mias: 'true' });
   const ordenadas = (consulta.data ?? [])
     .filter((n) => n.estado !== 'descartada')
@@ -57,7 +73,11 @@ export function MisNotas({ ninos, ahora }: { ninos: Nino[]; ahora: Date }) {
           </Typography>
           <Stack sx={{ px: 2, gap: 1.25 }}>
             {delDia.map((nota) => (
-              <TarjetaNota key={nota.id} nota={nota} />
+              <TarjetaNota
+                key={nota.id}
+                nota={nota}
+                onRevisar={PENDIENTES.includes(nota.estado) ? () => onRevisar(nota.id) : undefined}
+              />
             ))}
           </Stack>
         </Box>
@@ -67,19 +87,21 @@ export function MisNotas({ ninos, ahora }: { ninos: Nino[]; ahora: Date }) {
   );
 }
 
-function TarjetaNota({ nota }: { nota: NotaGuardada }) {
+function TarjetaNota({ nota, onRevisar }: { nota: NotaGuardada; onRevisar?: () => void }) {
   const { nino } = nota;
   const estado = ESTADO[nota.estado];
   const Icono = ICONO_FORMATO[nota.formato];
-  return (
+  const tarjeta = (
     <Stack
       component="article"
       sx={{
+        width: '100%',
         p: 1.75,
         gap: 1.25,
-        bgcolor: '#fff',
+        textAlign: 'left',
+        bgcolor: onRevisar ? colores.amarilloSuave : '#fff',
         border: 1,
-        borderColor: 'divider',
+        borderColor: onRevisar ? colores.amarillo : 'divider',
         borderRadius: '16px',
       }}
     >
@@ -131,9 +153,20 @@ function TarjetaNota({ nota }: { nota: NotaGuardada }) {
           >
             {nota.estado === 'confirmada' && <CheckCircleRounded sx={{ fontSize: 20 }} />}
             {estado.texto}
+            {onRevisar && <ChevronRightRounded sx={{ fontSize: 22 }} />}
           </Box>
         )}
       </Box>
     </Stack>
+  );
+  if (!onRevisar) return tarjeta;
+  return (
+    <ButtonBase
+      onClick={onRevisar}
+      aria-label={`Revisar nota de ${nino.nombre}`}
+      sx={{ borderRadius: '16px', display: 'block', width: '100%' }}
+    >
+      {tarjeta}
+    </ButtonBase>
   );
 }

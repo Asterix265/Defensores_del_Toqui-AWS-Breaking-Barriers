@@ -17,7 +17,7 @@ import {
   prepararFoto,
   tipoBase,
 } from './captura';
-import { AvisoVerde, CabeceraConCerrar, Pantalla } from './componentes';
+import { AvisoVerde, CabeceraConCerrar, Pantalla, PieAcciones } from './componentes';
 import { colores } from './tema';
 
 const CONFIG = {
@@ -164,7 +164,7 @@ export function SubirArchivo({
           </Box>
         )}
       </Stack>
-      <Box sx={{ mt: 'auto', px: 2, pt: 2, pb: 3.5 }}>
+      <PieAcciones>
         <Button
           variant="contained"
           fullWidth
@@ -174,7 +174,7 @@ export function SubirArchivo({
         >
           Seguir
         </Button>
-      </Box>
+      </PieAcciones>
     </Pantalla>
   );
 }

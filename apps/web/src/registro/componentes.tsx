@@ -38,14 +38,16 @@ export const ICONO_NUCLEO: Record<Nucleo, SvgIconComponent> = {
   PM: CalculateRounded,
 };
 
-/** Contenedor de cada pantalla: ocupa el alto disponible y deja el contenido en columna. */
+/**
+ * Contenedor de cada pantalla: ocupa al menos el alto disponible y deja el contenido en columna.
+ * No se encoge: si no cabe, desplaza quien la contiene (la página en el celular, el diálogo en PC).
+ */
 export function Pantalla({ children, oscura = false }: { children: ReactNode; oscura?: boolean }) {
   return (
     <Box
       component="main"
       sx={{
-        flex: 1,
-        minHeight: 0,
+        flex: '1 0 auto',
         display: 'flex',
         flexDirection: 'column',
         bgcolor: oscura ? colores.camara : 'background.default',
@@ -54,6 +56,31 @@ export function Pantalla({ children, oscura = false }: { children: ReactNode; os
     >
       {children}
     </Box>
+  );
+}
+
+/**
+ * Acciones principales al pie de la pantalla («Listo», «Seguir con…», «Está bien»): quedan
+ * pegadas abajo mientras el contenido se desplaza, en el celular y en el diálogo de PC.
+ */
+export function PieAcciones({ children }: { children: ReactNode }) {
+  return (
+    <Stack
+      sx={{
+        mt: 'auto',
+        position: 'sticky',
+        bottom: 0,
+        zIndex: 1,
+        px: 2,
+        pt: 1.5,
+        pb: 'calc(28px + env(safe-area-inset-bottom))',
+        gap: 0.75,
+        bgcolor: 'background.default',
+        boxShadow: '0 -10px 16px -14px rgba(58,36,20,.35)',
+      }}
+    >
+      {children}
+    </Stack>
   );
 }
 
@@ -74,10 +101,12 @@ export function Encabezado({ titulo, subtitulo }: { titulo: string; subtitulo?: 
 export function CabeceraConCerrar({
   titulo,
   subtitulo,
+  etiquetaCerrar = 'Cancelar nota',
   onCancelar,
 }: {
   titulo: string;
   subtitulo?: string;
+  etiquetaCerrar?: string;
   onCancelar: () => void;
 }) {
   return (
@@ -85,7 +114,7 @@ export function CabeceraConCerrar({
       <Box sx={{ flex: 1 }}>
         <Encabezado titulo={titulo} subtitulo={subtitulo} />
       </Box>
-      <IconButton aria-label="Cancelar nota" onClick={onCancelar} sx={{ mt: 2.5, mr: 1 }}>
+      <IconButton aria-label={etiquetaCerrar} onClick={onCancelar} sx={{ mt: 2.5, mr: 1 }}>
         <CloseRounded sx={{ fontSize: 28, color: 'text.secondary' }} />
       </IconButton>
     </Box>

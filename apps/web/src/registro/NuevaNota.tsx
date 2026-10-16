@@ -1,5 +1,6 @@
 import { useEffect, useEffectEvent, useMemo, useRef, useState } from 'react';
 import { keyframes } from '@emotion/react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import Alert from '@mui/material/Alert';
 import AlertTitle from '@mui/material/AlertTitle';
 import Box from '@mui/material/Box';
@@ -20,7 +21,13 @@ import MicRounded from '@mui/icons-material/MicRounded';
 import PhotoCameraRounded from '@mui/icons-material/PhotoCameraRounded';
 import PhotoLibraryRounded from '@mui/icons-material/PhotoLibraryRounded';
 import RemoveRounded from '@mui/icons-material/RemoveRounded';
-import { etiquetaSala, type Manifestacion, type NivelRuta } from './api';
+import {
+  getObtenerArchivoCapturaQueryKey,
+  getObtenerCapturaQueryKey,
+  obtenerArchivoCaptura,
+  obtenerCaptura,
+} from '../api/generated/capturas/capturas';
+import { etiquetaSala, ordenarSalas, type Manifestacion, type NivelRuta } from './api';
 import {
   formatoBytes,
   iniciarGrabacion,
@@ -35,6 +42,7 @@ import {
   Encabezado,
   NinoAvatar,
   Pantalla,
+  PieAcciones,
 } from './componentes';
 import { formatoDuracion } from './formato';
 import { NUCLEOS, type Formato, type ManifestacionCitada, type Nino } from './datos';
@@ -48,6 +56,7 @@ import {
   type EtapaRegistro,
   type Procesamiento,
 } from './registrar';
+import type { EnCurso } from './salida';
 import { SubirArchivo } from './SubirArchivo';
 import { colores } from './tema';
 
@@ -90,6 +99,8 @@ export function NuevaNota({
   catalogo,
   onGuardada,
   onCancelar,
+  onBorrada = onCancelar,
+  onEnCurso,
 }: {
   formato: Formato;
   escritorio?: boolean;
@@ -100,7 +111,12 @@ export function NuevaNota({
   catalogo: { niveles: NivelRuta[]; manifestaciones: Manifestacion[] };
   /** La nota quedó confirmada en la API. */
   onGuardada: (nino: Nino) => void;
+  /** La educadora pidió salir (Cancelar o la ×); quien llama decide si confirmar. */
   onCancelar: () => void;
+  /** La educadora borró la nota desde la revisión. */
+  onBorrada?: () => void;
+  /** Qué se perdería al salir ahora; vuelve a `no` al cerrar la nota. */
+  onEnCurso?: (enCurso: EnCurso) => void;
 }) {
   const [etapa, setEtapa] = useState<Etapa>(
     escritorio && formato !== 'texto' ? 'subir' : ETAPA_INICIAL[formato],
@@ -110,9 +126,25 @@ export function NuevaNota({
   const [nombreArchivo, setNombreArchivo] = useState<string>();
   const [ninoId, setNinoId] = useState<string | null>(ninoFijo?.id ?? null);
   const [captura, setCaptura] = useState<CapturaDetalle | null>(null);
+  const [grabando, setGrabando] = useState(false);
+  const [hayTexto, setHayTexto] = useState(false);
   const vistaPrevia = useVistaPrevia(entrada);
+  const cliente = useQueryClient();
 
   const nino = ninoFijo ?? ninos.find((n) => n.id === ninoId);
+
+  // Desde que se crea la captura en la API, salir no la borra: queda «Sin revisar».
+  let enCurso: EnCurso = 'no';
+  if (etapa === 'procesando' || etapa === 'revision') enCurso = 'revision';
+  else if (
+    etapa === 'nino' ||
+    (etapa === 'grabando' && grabando) ||
+    (etapa === 'escribiendo' && hayTexto)
+  ) {
+    enCurso = 'captura';
+  }
+  useEffect(() => onEnCurso?.(enCurso), [enCurso, onEnCurso]);
+  useEffect(() => () => onEnCurso?.('no'), [onEnCurso]);
 
   const capturar = (nueva: Entrada) => {
     setEntrada(nueva);
@@ -124,6 +156,7 @@ export function NuevaNota({
       return (
         <Grabando
           onCancelar={onCancelar}
+          onGrabando={setGrabando}
           onTerminar={(audio, segundos) => {
             setDuracion(segundos);
             capturar({ formato: 'audio', archivo: audio });
@@ -157,6 +190,7 @@ export function NuevaNota({
       return (
         <Escribiendo
           onCancelar={onCancelar}
+          onHayTexto={setHayTexto}
           onListo={(texto) => capturar({ formato: 'texto', texto })}
         />
       );
@@ -181,6 +215,8 @@ export function NuevaNota({
           onListo={(detalle) => {
             setCaptura(detalle);
             setEtapa('revision');
+            // La nota ya existe en la API: si se cierra sin decidir, aparece «Sin revisar».
+            void cliente.invalidateQueries({ queryKey: ['/api/capturas'] });
           }}
           onCancelar={onCancelar}
         />
@@ -197,7 +233,8 @@ export function NuevaNota({
           vistaPrevia={vistaPrevia}
           catalogo={catalogo}
           onGuardada={() => onGuardada(nino)}
-          onBorrada={onCancelar}
+          onBorrada={onBorrada}
+          onCancelar={onCancelar}
         />
       );
   }
@@ -219,6 +256,95 @@ function useVistaPrevia(entrada: Entrada | null): string | undefined {
   return url;
 }
 
+/**
+ * Revisión de una nota que ya está en la API (diseño D4): la abre «Mis notas» o «Por revisar».
+ * Usa la misma `Revision`; el audio o la foto se piden con la URL temporal de la API.
+ */
+export function RevisarCaptura({
+  capturaId,
+  ninos,
+  catalogo,
+  onGuardada,
+  onCancelar,
+  onBorrada = onCancelar,
+  onEnCurso,
+}: {
+  capturaId: string;
+  /** Niños y niñas del jardín, para mostrar al dueño de la nota. */
+  ninos: Nino[];
+  catalogo: { niveles: NivelRuta[]; manifestaciones: Manifestacion[] };
+  onGuardada: (nino: Nino) => void;
+  onCancelar: () => void;
+  onBorrada?: () => void;
+  onEnCurso?: (enCurso: EnCurso) => void;
+}) {
+  const consulta = useQuery({
+    queryKey: getObtenerCapturaQueryKey(capturaId),
+    queryFn: async ({ signal }) => {
+      const res = await obtenerCaptura(capturaId, { signal });
+      if (res.status !== 200) throw new Error(`La API respondió ${res.status}`);
+      return res.data;
+    },
+  });
+  const captura = consulta.data;
+  const archivo = useQuery({
+    queryKey: getObtenerArchivoCapturaQueryKey(capturaId),
+    queryFn: async ({ signal }) => {
+      const res = await obtenerArchivoCaptura(capturaId, { signal });
+      if (res.status !== 200) throw new Error(`La API respondió ${res.status}`);
+      return res.data;
+    },
+    enabled: captura?.tieneArchivo === true,
+    // La URL es temporal: no se reutiliza entre aperturas.
+    gcTime: 0,
+  });
+  const nino = captura && ninos.find((n) => n.id === captura.nino.id);
+  const pendiente = captura?.estado === 'borrador_listo' || captura?.estado === 'error';
+
+  useEffect(() => onEnCurso?.(pendiente ? 'revision' : 'no'), [pendiente, onEnCurso]);
+  useEffect(() => () => onEnCurso?.('no'), [onEnCurso]);
+
+  if (captura && nino && pendiente) {
+    return (
+      <Revision
+        formato={captura.formato}
+        nino={nino}
+        captura={captura}
+        vistaPrevia={archivo.data?.url}
+        catalogo={catalogo}
+        onGuardada={() => onGuardada(nino)}
+        onBorrada={onBorrada}
+        onCancelar={onCancelar}
+      />
+    );
+  }
+
+  let mensaje = 'Cargando la nota…';
+  if (consulta.isError || (captura && !nino)) mensaje = 'No se pudo abrir la nota.';
+  else if (captura?.estado === 'procesando') {
+    mensaje = 'La nota sigue procesándose. Vuelve a abrirla en un momento.';
+  } else if (captura) mensaje = 'Esta nota ya no está pendiente de revisión.';
+  return (
+    <Pantalla>
+      <CabeceraConCerrar titulo="Revisar nota" etiquetaCerrar="Cerrar" onCancelar={onCancelar} />
+      <Stack sx={{ flex: 1, px: 2.5, pt: 4, gap: 2.5, alignItems: 'center' }}>
+        {consulta.isPending && <CircularProgress aria-hidden />}
+        <Typography
+          role={consulta.isPending ? 'status' : 'alert'}
+          sx={{ fontSize: 17, fontWeight: 700 }}
+        >
+          {mensaje}
+        </Typography>
+      </Stack>
+      <PieAcciones>
+        <Button variant="text" onClick={onCancelar} sx={{ color: 'text.secondary' }}>
+          Volver
+        </Button>
+      </PieAcciones>
+    </Pantalla>
+  );
+}
+
 const onda = keyframes`
   0%, 100% { transform: scaleY(.45); }
   50% { transform: scaleY(1); }
@@ -229,9 +355,12 @@ const BARRAS = [20, 38, 56, 30, 48, 24, 42, 18];
 /** Graba con el micrófono del dispositivo. Si no hay permiso, lo explica y permite volver. */
 function Grabando({
   onTerminar,
+  onGrabando,
   onCancelar,
 }: {
   onTerminar: (audio: Blob, segundos: number) => void;
+  /** Hay audio grabándose (no mientras se pide el micrófono ni si no hay permiso). */
+  onGrabando: (grabando: boolean) => void;
   onCancelar: () => void;
 }) {
   const [segundos, setSegundos] = useState(0);
@@ -253,6 +382,8 @@ function Grabando({
       grabacion.current?.cancelar();
     };
   }, []);
+
+  useEffect(() => onGrabando(estado === 'grabando' && !error), [estado, error, onGrabando]);
 
   useEffect(() => {
     if (estado !== 'grabando') return;
@@ -451,29 +582,33 @@ function Camara({
 
 function Escribiendo({
   onListo,
+  onHayTexto,
   onCancelar,
 }: {
   onListo: (texto: string) => void;
+  onHayTexto: (hay: boolean) => void;
   onCancelar: () => void;
 }) {
   const [texto, setTexto] = useState('');
+  const hay = texto.trim() !== '';
+  useEffect(() => onHayTexto(hay), [hay, onHayTexto]);
   return (
     <Pantalla>
       <CabeceraConCerrar titulo="Escribe tu nota" onCancelar={onCancelar} />
       <Box sx={{ px: 2, pt: 2 }}>
         <CajaTexto valor={texto} onCambio={setTexto} autoFocus etiqueta="Texto de la nota" />
       </Box>
-      <Box sx={{ mt: 'auto', px: 2, pt: 2, pb: 3.5 }}>
+      <PieAcciones>
         <Button
           variant="contained"
           fullWidth
-          disabled={!texto.trim()}
+          disabled={!hay}
           endIcon={<ArrowForwardRounded />}
           onClick={() => onListo(texto.trim())}
         >
           Listo
         </Button>
-      </Box>
+      </PieAcciones>
     </Pantalla>
   );
 }
@@ -498,9 +633,10 @@ function ElegirNino({
 }) {
   const elegido = ninos.find((n) => n.id === seleccionado);
   const grupos = agrupar
-    ? [...new Set(ninos.map((n) => n.sala))]
-        .sort()
-        .map((sala) => ({ sala, ninos: ninos.filter((n) => n.sala === sala) }))
+    ? ordenarSalas([...new Set(ninos.map((n) => n.sala))]).map((sala) => ({
+        sala,
+        ninos: ninos.filter((n) => n.sala === sala),
+      }))
     : [{ sala: null, ninos }];
   return (
     <Pantalla>
@@ -512,7 +648,7 @@ function ElegirNino({
       <Box sx={{ px: 2, pt: 1.75 }}>
         <AvisoVerde icono={<CheckCircleRounded />}>{aviso}</AvisoVerde>
       </Box>
-      <Box sx={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
+      <Box>
         {grupos.map((grupo) => (
           <Box
             key={grupo.sala ?? 'sala'}
@@ -536,7 +672,7 @@ function ElegirNino({
           </Box>
         ))}
       </Box>
-      <Box sx={{ mt: 'auto', px: 2, pt: 1, pb: 3.5 }}>
+      <PieAcciones>
         <Button
           variant="contained"
           fullWidth
@@ -547,7 +683,7 @@ function ElegirNino({
         >
           {elegido ? `Seguir con ${elegido.nombre}` : 'Elige un niño o niña'}
         </Button>
-      </Box>
+      </PieAcciones>
     </Pantalla>
   );
 }
@@ -668,7 +804,7 @@ function Procesando({
           </>
         )}
       </Stack>
-      <Stack sx={{ px: 2, pb: 3.5, gap: 0.75 }}>
+      <PieAcciones>
         {error && (
           <Button
             variant="contained"
@@ -684,7 +820,7 @@ function Procesando({
         <Button variant="text" onClick={onCancelar} sx={{ color: 'text.secondary' }}>
           Cancelar
         </Button>
-      </Stack>
+      </PieAcciones>
     </Pantalla>
   );
 }
@@ -703,33 +839,60 @@ const ESTADO_PASO: Record<Procesamiento['pasos'][number]['estado'], string> = {
 
 const NOMBRE_FORMATO: Record<Formato, string> = { audio: 'Audio', foto: 'Foto', texto: 'Texto' };
 
-/** Aviso visible de lo que se procesó y de qué pasos aún no son reales. */
+/** Rótulo del texto de la revisión cuando es real. */
+const TITULO_TEXTO: Record<Formato, string> = {
+  audio: 'Lo que entendimos de tu audio',
+  foto: 'Lo que leímos en tu foto',
+  texto: 'Tu nota',
+};
+
+const LISTO_FORMATO: Record<Formato, string> = {
+  audio: 'Listo: revisamos tu audio',
+  foto: 'Listo: revisamos tu foto',
+  texto: 'Listo: revisamos tu nota',
+};
+
+/**
+ * Aviso de lo que se procesó: un título breve y, plegados, los detalles técnicos (archivo, S3 y
+ * cada paso del pipeline). Si algún paso no es real, el título lo dice.
+ */
 function AvisoProcesamiento({ procesamiento }: { procesamiento: Procesamiento }) {
   const { entrada } = procesamiento;
   return (
     <Alert
-      severity={procesamiento.simulado ? 'warning' : 'info'}
-      sx={{ mx: 2, mt: 2, borderRadius: '14px' }}
+      severity={procesamiento.simulado ? 'warning' : 'success'}
+      sx={{ mx: 2, mt: 2, borderRadius: '14px', '& .MuiAlert-message': { minWidth: 0 } }}
     >
-      <AlertTitle sx={{ fontWeight: 800 }}>
+      <AlertTitle sx={{ fontWeight: 800, mb: 0 }}>
         {procesamiento.simulado
           ? 'Procesamiento simulado: aún no implementado'
-          : 'Procesamiento completado'}
+          : LISTO_FORMATO[entrada.formato]}
       </AlertTitle>
-      <Typography variant="body2" sx={{ fontWeight: 600 }}>
-        Se recibió: {NOMBRE_FORMATO[entrada.formato]}
-        {entrada.tipoArchivo ? ` (${entrada.tipoArchivo}, ${formatoBytes(entrada.bytes)})` : ''}
-        {entrada.claveS3 ? `, guardado en S3 (${entrada.claveS3}).` : '.'}
-      </Typography>
-      <Box component="ul" sx={{ m: 0, mt: 0.75, pl: 2.5 }}>
-        {procesamiento.pasos.map((p) => (
-          <Typography component="li" variant="body2" key={p.paso}>
-            <b>
-              {NOMBRE_PASO[p.paso]}: {ESTADO_PASO[p.estado]}.
-            </b>{' '}
-            {p.detalle}
-          </Typography>
-        ))}
+      <Box
+        component="details"
+        sx={{ mt: 0.5, '& summary': { cursor: 'pointer', fontWeight: 700, fontSize: 14 } }}
+      >
+        <summary>Detalles técnicos</summary>
+        <Typography variant="body2" sx={{ fontWeight: 600, mt: 0.75, overflowWrap: 'anywhere' }}>
+          Se recibió: {NOMBRE_FORMATO[entrada.formato]}
+          {entrada.tipoArchivo ? ` (${entrada.tipoArchivo}, ${formatoBytes(entrada.bytes)})` : ''}
+          {entrada.claveS3 ? `, guardado en S3 (${entrada.claveS3}).` : '.'}
+        </Typography>
+        <Box component="ul" sx={{ m: 0, mt: 0.75, pl: 2.5 }}>
+          {procesamiento.pasos.map((p) => (
+            <Typography
+              component="li"
+              variant="body2"
+              key={p.paso}
+              sx={{ overflowWrap: 'anywhere' }}
+            >
+              <b>
+                {NOMBRE_PASO[p.paso]}: {ESTADO_PASO[p.estado]}.
+              </b>{' '}
+              {p.detalle}
+            </Typography>
+          ))}
+        </Box>
       </Box>
     </Alert>
   );
@@ -749,6 +912,7 @@ function Revision({
   catalogo,
   onGuardada,
   onBorrada,
+  onCancelar,
 }: {
   formato: Formato;
   nino: Nino;
@@ -759,6 +923,8 @@ function Revision({
   catalogo: { niveles: NivelRuta[]; manifestaciones: Manifestacion[] };
   onGuardada: () => void;
   onBorrada: () => void;
+  /** Cerrar sin decidir: la nota queda «Sin revisar». */
+  onCancelar: () => void;
 }) {
   const { borrador } = captura;
   const sinPropuesta = !borrador || borrador.evidenciaInsuficiente;
@@ -772,7 +938,9 @@ function Revision({
   const ocupado = confirmar.isPending || descartar.isPending;
   const listo = manifestaciones.length > 0 && !ocupado;
   const error = confirmar.error ?? descartar.error;
-  const deEjemplo = formato !== 'texto';
+  // El texto es de ejemplo solo si la transcripción o la lectura fueron simuladas (o la API
+  // no lo informa, como en los borradores antiguos).
+  const deEjemplo = formato !== 'texto' && (borrador?.procesamiento?.simulado ?? true);
 
   const cambiarNivel = (n: number) => {
     setNivel(n);
@@ -782,7 +950,12 @@ function Revision({
 
   return (
     <Pantalla>
-      <Encabezado titulo="¿Está bien?" subtitulo={SUBTITULO_REVISION[formato]} />
+      <CabeceraConCerrar
+        titulo="¿Está bien?"
+        subtitulo={SUBTITULO_REVISION[formato]}
+        etiquetaCerrar="Cerrar revisión"
+        onCancelar={onCancelar}
+      />
       {borrador?.procesamiento && <AvisoProcesamiento procesamiento={borrador.procesamiento} />}
       {captura.estado === 'error' && (
         <Alert severity="error" sx={{ mx: 2, mt: 2, borderRadius: '14px' }}>
@@ -847,7 +1020,7 @@ function Revision({
             <Typography variant="caption" color="text.secondary">
               {deEjemplo
                 ? `Texto de ejemplo (no es ${formato === 'audio' ? 'tu audio' : 'tu foto'})`
-                : 'Tu nota'}
+                : TITULO_TEXTO[formato]}
             </Typography>
             <Box
               sx={{
@@ -952,7 +1125,8 @@ function Revision({
           {error.message}
         </Alert>
       )}
-      <Stack sx={{ mt: 'auto', px: 2, pt: 2, pb: 3.5, gap: 0.75 }}>
+      <Box sx={{ height: 16 }} />
+      <PieAcciones>
         <Button
           variant="contained"
           color="success"
@@ -975,7 +1149,7 @@ function Revision({
         >
           Borrar nota
         </Button>
-      </Stack>
+      </PieAcciones>
     </Pantalla>
   );
 }

@@ -7,6 +7,7 @@ import { useNotas, type NotaGuardada } from '../registrar';
 import { descargarCsv, notasACsv } from '../reporte';
 import { FiltrosPanel } from './FiltrosPanel';
 import { ETIQUETA_PERIODO, desde, type Periodo } from './periodo';
+import { PorRevisar } from './PorRevisar';
 import { TablaNotas } from './TablaNotas';
 import { BotonNuevaNota, TituloVista } from './TituloVista';
 
@@ -21,6 +22,8 @@ export function NotasSalas({
   sala,
   onSala,
   onNuevaNota,
+  onRevisar,
+  onAbrirNota,
 }: {
   ninos: Nino[];
   salas: string[];
@@ -28,6 +31,10 @@ export function NotasSalas({
   sala: string | null;
   onSala: (sala: string | null) => void;
   onNuevaNota: () => void;
+  /** Abre la revisión de una nota «Sin revisar» o «Con error». */
+  onRevisar: (capturaId: string) => void;
+  /** Abre el detalle de una nota confirmada. */
+  onAbrirNota: (capturaId: string) => void;
 }) {
   const [periodo, setPeriodo] = useState<Periodo>('7dias');
 
@@ -73,12 +80,14 @@ export function NotasSalas({
         onPeriodo={setPeriodo}
       />
 
+      <PorRevisar ninos={ninos} ahora={ahora} onRevisar={onRevisar} />
+
       {consulta.isError && (
         <Alert severity="error" sx={{ mt: 2.5, borderRadius: '14px' }}>
           No se pudieron cargar las notas. Revisa que la API esté levantada.
         </Alert>
       )}
-      <TablaNotas notas={visibles} ahora={ahora} />
+      <TablaNotas notas={visibles} ahora={ahora} onAbrir={onAbrirNota} />
     </>
   );
 }

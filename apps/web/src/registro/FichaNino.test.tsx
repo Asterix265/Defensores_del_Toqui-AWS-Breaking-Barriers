@@ -119,7 +119,8 @@ describe('Grabar con y sin niño o niña', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Está bien' }));
 
     expect(await screen.findByText('Nota guardada para Tomás A.')).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'Hola, Mercedes' })).toBeInTheDocument();
+    // Vuelve a donde se abrió la nota (la ficha de Martina), igual que con Atrás.
+    expect(screen.getByRole('heading', { name: 'Martina P.' })).toBeInTheDocument();
   });
 });
 

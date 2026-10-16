@@ -6,7 +6,9 @@ import { etiquetaSala, useObservacionesDe } from '../api';
 import { areasSinNotas, DIAS_PERIODO, registrosDe, resumenAreas } from '../areas';
 import { NinoAvatar } from '../componentes';
 import { NUCLEOS, type Nino } from '../datos';
+import { alertasPorNino, useEstadoSala } from '../estado';
 import { colores } from '../tema';
+import { EstadoSala } from './EstadoSala';
 import { ChipsSala } from './FiltrosPanel';
 import { BotonNuevaNota, TituloVista } from './TituloVista';
 
@@ -31,8 +33,12 @@ export function SalaEscritorio({
   sala: string | null;
   onSala: (sala: string | null) => void;
   onAbrir: (ninoId: string) => void;
-  onNuevaNota: () => void;
+  /** Sin esta acción (directora) no se muestra «Nueva nota». */
+  onNuevaNota?: () => void;
 }) {
+  // Con «Todas las salas» el estado por área es el de la sala propia.
+  const salaEstado = sala ?? salaPropia;
+  const alertas = alertasPorNino(useEstadoSala(salaEstado).data);
   const salas = sala ? [sala] : todas;
   const ninosDeSala = (s: string) => ninos.filter((n) => n.sala === s);
   const visibles = ninos.filter((n) => salas.includes(n.sala));
@@ -49,7 +55,7 @@ export function SalaEscritorio({
         titulo="Mi sala"
         subtitulo={`${visibles.length} niños y niñas · áreas con notas en los últimos ${DIAS_PERIODO} días`}
       >
-        <BotonNuevaNota onClick={onNuevaNota} />
+        {onNuevaNota && <BotonNuevaNota onClick={onNuevaNota} />}
       </TituloVista>
 
       <Box sx={{ pt: 3, display: 'flex', alignItems: 'center', gap: 1.25, flexWrap: 'wrap' }}>
@@ -60,6 +66,17 @@ export function SalaEscritorio({
           cantidadPorSala={(s) => ninosDeSala(s).length}
         />
       </Box>
+
+      {salaEstado && (
+        <EstadoSala
+          sala={salaEstado}
+          ninos={ninos}
+          titulo={`Estado por área · ${etiquetaSala(salaEstado)}${
+            salaEstado === salaPropia ? ' (tu sala)' : ''
+          }`}
+          onAbrir={onAbrir}
+        />
+      )}
 
       {salas.map((s) => (
         <Box key={s} component="section" aria-label={etiquetaSala(s)} sx={{ pt: 3 }}>
@@ -89,6 +106,7 @@ export function SalaEscritorio({
                 <TarjetaNino
                   nino={nino}
                   sinNotas={sinNotasDe(nino)}
+                  paraRevisar={alertas.get(nino.id)?.length ?? 0}
                   onClick={() => onAbrir(nino.id)}
                 />
               </li>
@@ -103,10 +121,13 @@ export function SalaEscritorio({
 function TarjetaNino({
   nino,
   sinNotas,
+  paraRevisar,
   onClick,
 }: {
   nino: Nino;
   sinNotas: number;
+  /** Áreas con alerta relativa a la sala (reglas de demostración, no diagnóstico). */
+  paraRevisar: number;
   onClick: () => void;
 }) {
   return (
@@ -121,8 +142,8 @@ function TarjetaNino({
         justifyContent: 'flex-start',
         textAlign: 'left',
         bgcolor: '#fff',
-        border: 1,
-        borderColor: 'divider',
+        border: paraRevisar > 0 ? 2 : 1,
+        borderColor: paraRevisar > 0 ? colores.amarillo : 'divider',
         borderRadius: '16px',
         '&:hover': { borderColor: colores.textoSuave },
       }}
@@ -130,6 +151,25 @@ function TarjetaNino({
       <NinoAvatar nino={nino} tamano={48} />
       <Box sx={{ flex: 1, minWidth: 0 }}>
         <Box sx={{ fontSize: 17, fontWeight: 700 }}>{nino.nombre}</Box>
+        {paraRevisar > 0 && (
+          <Box
+            component="span"
+            sx={{
+              display: 'inline-block',
+              mt: 0.5,
+              mr: 0.75,
+              px: 1.25,
+              py: 0.25,
+              borderRadius: 999,
+              bgcolor: colores.rojoSuave,
+              color: colores.rojoOscuro,
+              fontSize: 14,
+              fontWeight: 700,
+            }}
+          >
+            Revisar {paraRevisar} {paraRevisar === 1 ? 'área' : 'áreas'}
+          </Box>
+        )}
         {sinNotas > 0 ? (
           <Box
             component="span"

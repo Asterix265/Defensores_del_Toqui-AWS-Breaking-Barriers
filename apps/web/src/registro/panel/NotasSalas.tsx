@@ -30,7 +30,8 @@ export function NotasSalas({
   ahora: Date;
   sala: string | null;
   onSala: (sala: string | null) => void;
-  onNuevaNota: () => void;
+  /** Sin esta acción (directora) no se muestra «Nueva nota». */
+  onNuevaNota?: () => void;
   /** Abre la revisión de una nota «Sin revisar» o «Con error». */
   onRevisar: (capturaId: string) => void;
   /** Abre el detalle de una nota confirmada. */
@@ -66,9 +67,9 @@ export function NotasSalas({
           onClick={descargar}
           sx={{ minHeight: 52, px: 3, fontSize: 17, bgcolor: '#fff' }}
         >
-          Descargar reporte
+          Descargar CSV
         </Button>
-        <BotonNuevaNota onClick={onNuevaNota} />
+        {onNuevaNota && <BotonNuevaNota onClick={onNuevaNota} />}
       </TituloVista>
 
       <FiltrosPanel

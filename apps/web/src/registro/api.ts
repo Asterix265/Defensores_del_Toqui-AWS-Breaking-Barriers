@@ -42,7 +42,7 @@ export function esSinPermiso(error: unknown): boolean {
 }
 
 /** El cliente generado no lanza ante un error HTTP: se convierte aquí para que React Query lo vea. */
-async function datos<T>(respuesta: Promise<{ data: T; status: number }>): Promise<T> {
+export async function datos<T>(respuesta: Promise<{ data: T; status: number }>): Promise<T> {
   const { data, status } = await respuesta;
   if (status < 200 || status >= 300) throw new ErrorApi(status);
   return data;

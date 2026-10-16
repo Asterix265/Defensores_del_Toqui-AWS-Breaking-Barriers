@@ -1,10 +1,13 @@
 import { useState } from 'react';
+import type { MeResponseDtoOutput } from '../api/generated/model';
 import Box from '@mui/material/Box';
 import type { Manifestacion, NivelRuta } from './api';
 import type { Nino } from './datos';
 import { useVistaConHistorial } from './historial';
 import { NuevaNotaEscritorio } from './NuevaNotaEscritorio';
 import { DetalleNota } from './panel/DetalleNota';
+import { Equipo } from './panel/Equipo';
+import { VistaJardin } from './panel/VistaJardin';
 import { CabeceraPanel, type Seccion } from './panel/CabeceraPanel';
 import { FichaEscritorio } from './panel/FichaEscritorio';
 import { NotasSalas } from './panel/NotasSalas';
@@ -24,6 +27,8 @@ interface VistaPanel {
 }
 
 const INICIAL: VistaPanel = { seccion: 'notas', ninoId: null, nota: null, detalle: null };
+/** La directora entra a la vista general del jardín. */
+const INICIAL_DIRECTORA: VistaPanel = { ...INICIAL, seccion: 'jardin' };
 
 /**
  * Vista de escritorio con las pestañas del celular: «Mi sala» (niños y niñas y su ficha) y
@@ -37,6 +42,8 @@ export function PanelSalas({
   catalogo,
   ahora,
   nombre,
+  grupo = 'educadora',
+  idUsuario = '',
   onGuardada,
   onSalir,
 }: {
@@ -46,15 +53,20 @@ export function PanelSalas({
   catalogo: { niveles: NivelRuta[]; manifestaciones: Manifestacion[] };
   ahora: Date;
   nombre: string;
+  /** La directora ve «Jardín» y «Equipo» y no registra notas (la API no se lo permite). */
+  grupo?: MeResponseDtoOutput['grupo'];
+  idUsuario?: string;
   onGuardada: (nino: Nino) => void;
   /** Pide cerrar sesión; la confirmación la muestra quien llama. */
   onSalir?: () => void;
 }) {
   const [sala, setSala] = useState<string | null>(null);
+  const directora = grupo === 'directora';
+  const inicial = directora ? INICIAL_DIRECTORA : INICIAL;
   const salida = useSalidaNota();
   const { vista, ir, volver } = useVistaConHistorial<VistaPanel>({
     clave: 'panel',
-    inicial: INICIAL,
+    inicial,
     // Adelante no rearma una nota a medio hacer; una revisión sí, porque está en la API.
     restaurable: (v) => !v.nota || v.nota.capturaId !== undefined,
     interceptar: () => {
@@ -67,12 +79,25 @@ export function PanelSalas({
   const base = { ...vista, nota: null, detalle: null };
 
   const cambiarSeccion = (s: Seccion) => ir({ ...INICIAL, seccion: s });
+  // La directora no registra: sin «Nueva nota» en ninguna vista.
+  const conNota = <T,>(accion: T) => (directora ? undefined : accion);
   const abrirNota = (n: VistaPanel['nota']) => ir({ ...base, nota: n });
   const nuevaGeneral = () => abrirNota({});
   const ficha = seccion === 'sala' ? ninos.find((n) => n.id === ninoAbierto) : undefined;
 
   let contenido;
-  if (seccion === 'notas') {
+  if (seccion === 'jardin') {
+    contenido = (
+      <VistaJardin
+        onAbrirSala={(s) => {
+          setSala(s);
+          cambiarSeccion('sala');
+        }}
+      />
+    );
+  } else if (seccion === 'equipo') {
+    contenido = <Equipo idUsuario={idUsuario} />;
+  } else if (seccion === 'notas') {
     contenido = (
       <NotasSalas
         ninos={ninos}
@@ -80,7 +105,7 @@ export function PanelSalas({
         ahora={ahora}
         sala={sala}
         onSala={setSala}
-        onNuevaNota={nuevaGeneral}
+        onNuevaNota={conNota(nuevaGeneral)}
         onRevisar={(capturaId) => abrirNota({ capturaId })}
         onAbrirNota={(id) => ir({ ...base, detalle: id })}
       />
@@ -92,7 +117,7 @@ export function PanelSalas({
         salaPropia={salaPropia}
         ahora={ahora}
         onVolver={() => volver({ ...INICIAL, seccion: 'sala' })}
-        onNuevaNota={() => abrirNota({ ninoId: ficha.id })}
+        onNuevaNota={conNota(() => abrirNota({ ninoId: ficha.id }))}
       />
     );
   } else {
@@ -105,7 +130,7 @@ export function PanelSalas({
         sala={sala}
         onSala={setSala}
         onAbrir={(id) => ir({ ...INICIAL, seccion: 'sala', ninoId: id })}
-        onNuevaNota={nuevaGeneral}
+        onNuevaNota={conNota(nuevaGeneral)}
       />
     );
   }
@@ -115,6 +140,7 @@ export function PanelSalas({
       <CabeceraPanel
         nombre={nombre}
         seccion={seccion}
+        directora={directora}
         onSeccion={cambiarSeccion}
         onSalir={onSalir}
       />

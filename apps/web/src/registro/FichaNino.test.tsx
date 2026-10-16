@@ -36,7 +36,9 @@ describe('Mi sala', () => {
     // Martina tiene notas recientes en 4 de los 8 núcleos.
     expect(await screen.findByText('4 áreas sin notas')).toBeInTheDocument();
     expect(boton(/Martina/)).toHaveTextContent('4 áreas sin notas');
-    expect(boton(/Tomás/)).toHaveTextContent('8 áreas sin notas');
+    expect(boton(/^Tomás/)).toHaveTextContent('8 áreas sin notas');
+    // Tomás queda para revisar en Movimiento (estado sintético de `prueba-api`).
+    expect(await screen.findByText('Revisar 1 área')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /Vicente/ })).not.toBeInTheDocument();
   });
 
@@ -65,7 +67,7 @@ describe('Mi sala', () => {
 
   it('invita a registrar la primera nota de un niño o niña sin registros', async () => {
     await abrirMiSala();
-    fireEvent.click(boton(/Tomás/));
+    fireEvent.click(boton(/^Tomás/));
     expect(await screen.findByText(/Aún no hay notas de Tomás A\./)).toBeInTheDocument();
     expect(screen.getAllByText('Sin notas aún. Buen momento para observar.')).toHaveLength(8);
   });

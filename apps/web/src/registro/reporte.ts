@@ -15,8 +15,16 @@ const COLUMNAS = [
   'nota',
 ];
 
+/** Separador de Excel en español (con `,` Excel junta todo en una columna). */
+const SEPARADOR = ';';
+
 function celda(valor: string): string {
-  return /[",\n;]/.test(valor) ? `"${valor.replace(/"/g, '""')}"` : valor;
+  return /[",\n\r;]/.test(valor) ? `"${valor.replace(/"/g, '""')}"` : valor;
+}
+
+/** CSV con encabezado; cada celda se escapa si trae comillas, separadores o saltos de línea. */
+export function aCsv(columnas: string[], filas: string[][]): string {
+  return [columnas, ...filas].map((fila) => fila.map(celda).join(SEPARADOR)).join('\r\n');
 }
 
 /** Reporte CSV de las notas visibles en el panel. Solo contiene datos sintéticos de la demo. */
@@ -35,7 +43,7 @@ export function notasACsv(notas: NotaGuardada[]): string {
       nota.texto ?? '',
     ];
   });
-  return [COLUMNAS, ...filas].map((fila) => fila.map(celda).join(',')).join('\n');
+  return aCsv(COLUMNAS, filas);
 }
 
 export function descargarCsv(nombreArchivo: string, contenido: string) {

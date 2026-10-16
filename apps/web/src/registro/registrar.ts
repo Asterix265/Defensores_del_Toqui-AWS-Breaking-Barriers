@@ -34,7 +34,17 @@ export type EtapaRegistro = 'creando' | 'subiendo' | 'procesando';
 export class ErrorRegistro extends Error {}
 
 const ESPERA_ENTRE_CONSULTAS_MS = 1000;
-const ESPERA_MAXIMA_MS = 30_000;
+
+/**
+ * Cuánto esperar el borrador antes de dejar de consultar. El audio y la foto pasan por
+ * Transcribe o Textract en la Lambda de proceso (hasta 120 s por intento), así que esperan más
+ * que una nota escrita.
+ */
+export const ESPERA_MAXIMA_MS: Record<Entrada['formato'], number> = {
+  texto: 30_000,
+  audio: 150_000,
+  foto: 150_000,
+};
 
 /** Nivel de la ruta cuyo rango de edad contiene la edad; el último si la supera. */
 export function nivelEsperado(edadMeses: number, niveles: NivelRuta[]): number {
@@ -97,13 +107,16 @@ export async function registrarCaptura(
   }
 
   onEtapa('procesando');
-  const limite = Date.now() + ESPERA_MAXIMA_MS;
+  const limite = Date.now() + ESPERA_MAXIMA_MS[entrada.formato];
   for (;;) {
     const actual = await obtenerCaptura(captura.id);
     if (actual.status !== 200) throw new ErrorRegistro('No se pudo consultar la nota.');
     if (actual.data.estado !== 'procesando') return actual.data;
     if (Date.now() > limite) {
-      throw new ErrorRegistro('El procesamiento está tardando demasiado. Intenta de nuevo.');
+      // La nota no se pierde: sigue procesándose y aparece en «Mis notas» al terminar.
+      throw new ErrorRegistro(
+        'La nota sigue procesándose. La verás en «Mis notas» cuando termine; no hace falta registrarla de nuevo.',
+      );
     }
     await new Promise((r) => setTimeout(r, esperaMs));
   }

@@ -206,7 +206,7 @@ Se excluyeron las skills de otras bases de datos, de los servicios en la nube de
 
 1. Completar `definir-mvp-e1`: comprobar la clasificación con Claude con una nota real (desplegada el 16-10-2026), probar audio y foto en producción y medir el impacto.
 2. Resolver cómo representar la rúbrica institucional frente a la ruta sintética del dataset.
-3. Alerta de presupuesto, activar el despliegue continuo (`ToquiCiCd`) y limpieza al terminar la hackatón (ver [arquitectura AWS](docs/arquitectura-aws.md#pendiente)).
+3. Alerta de presupuesto y limpieza al terminar la hackatón (ver [arquitectura AWS](docs/arquitectura-aws.md#pendiente)).
 4. Medir tiempo de documentación y trazabilidad con datos sintéticos; reportar resultados reales de la demo.
 
 Las reglas de colaboración están en [AGENTS.md](AGENTS.md); [CLAUDE.md](CLAUDE.md) incorpora esas mismas reglas para Claude Code.

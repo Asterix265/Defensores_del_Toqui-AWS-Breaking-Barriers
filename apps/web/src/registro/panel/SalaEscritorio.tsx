@@ -28,6 +28,7 @@ export function SalaEscritorio({
 }: {
   ninos: Nino[];
   salas: string[];
+  /** Cadena vacía si no hay sala propia (directora). */
   salaPropia: string;
   ahora: Date;
   sala: string | null;
@@ -36,8 +37,8 @@ export function SalaEscritorio({
   /** Sin esta acción (directora) no se muestra «Nueva nota». */
   onNuevaNota?: () => void;
 }) {
-  // Con «Todas las salas» el estado por área es el de la sala propia.
-  const salaEstado = sala ?? salaPropia;
+  // Con «Todas las salas» el estado por área es el de la sala propia; sin ella (directora), ninguno.
+  const salaEstado = sala ?? (salaPropia || null);
   const alertas = alertasPorNino(useEstadoSala(salaEstado).data);
   const salas = sala ? [sala] : todas;
   const ninosDeSala = (s: string) => ninos.filter((n) => n.sala === s);
@@ -52,7 +53,7 @@ export function SalaEscritorio({
   return (
     <>
       <TituloVista
-        titulo="Mi sala"
+        titulo={salaPropia ? 'Mi sala' : 'Salas'}
         subtitulo={`${visibles.length} niños y niñas · áreas con notas en los últimos ${DIAS_PERIODO} días`}
       >
         {onNuevaNota && <BotonNuevaNota onClick={onNuevaNota} />}
@@ -66,6 +67,12 @@ export function SalaEscritorio({
           cantidadPorSala={(s) => ninosDeSala(s).length}
         />
       </Box>
+
+      {!salaEstado && (
+        <Typography sx={{ pt: 3, px: 0.5, color: 'text.secondary', fontWeight: 600 }}>
+          Elige una sala para ver su estado por área.
+        </Typography>
+      )}
 
       {salaEstado && (
         <EstadoSala

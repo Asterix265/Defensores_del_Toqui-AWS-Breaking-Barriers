@@ -31,3 +31,22 @@ export function diaCorto(fecha: Date, ahora: Date): string {
 export function formatoDuracion(segundos: number): string {
   return `${Math.floor(segundos / 60)}:${String(segundos % 60).padStart(2, '0')}`;
 }
+
+/** Marcadores con que el Guardrail reemplaza datos personales, y cómo se leen en pantalla. */
+const DATOS_OCULTOS: Record<string, string> = {
+  NAME: 'nombre',
+  EMAIL: 'correo',
+  PHONE: 'teléfono',
+  ADDRESS: 'dirección',
+};
+
+/**
+ * Texto anonimizado para mostrar: «{NAME} apiló…» → «[nombre] apiló…». El pipeline guarda la
+ * nota anonimizada (no la original), así que el marcador llega a la revisión, al detalle y a la ficha.
+ */
+export function textoLegible(texto: string): string {
+  return texto.replace(
+    /\{(NAME|EMAIL|PHONE|ADDRESS)\}/g,
+    (_, tipo: string) => `[${DATOS_OCULTOS[tipo]}]`,
+  );
+}

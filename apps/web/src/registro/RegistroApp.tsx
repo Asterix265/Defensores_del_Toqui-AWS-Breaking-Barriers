@@ -362,7 +362,9 @@ function AppConDatos({
 }) {
   const salas = ordenarSalas([...new Set(ninos.map((n) => n.sala))]);
   const guardada = leerSala();
-  const salaPropia = guardada && salas.includes(guardada) ? guardada : (salas[0] ?? '');
+  // La directora no tiene sala propia: ve todas sin «Tu sala» (cadena vacía = ninguna).
+  const salaPropia =
+    grupo === 'directora' ? '' : guardada && salas.includes(guardada) ? guardada : (salas[0] ?? '');
   const salida = useSalidaNota();
   const { vista, ir, volver } = useVistaConHistorial<Vista>({
     clave: 'celular',

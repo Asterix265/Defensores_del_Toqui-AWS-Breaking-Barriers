@@ -1,5 +1,6 @@
 import type { ObservacionApi } from './api';
 import { NUCLEOS, type Nucleo, type Formato } from './datos';
+import { textoLegible } from './formato';
 
 /** Ventana de los huecos de evidencia (la que propone `definir-mvp-e1`). */
 export const DIAS_PERIODO = 30;
@@ -34,7 +35,7 @@ export function registroDeObservacion(o: ObservacionApi): Registro {
     id: o.id,
     creada: desdeFecha(o.fecha),
     texto: o.manifestaciones.map((m) => m.textoObservable).join(' · '),
-    detalle: o.notaBreve,
+    detalle: o.notaBreve && textoLegible(o.notaBreve),
     nucleos: [...new Set(o.manifestaciones.map((m) => m.nucleo as Nucleo))],
     formato: o.formato,
     origen: o.origen,

@@ -12,7 +12,7 @@ import { getObtenerCapturaQueryKey, obtenerCaptura } from '../../api/generated/c
 import { etiquetaSala } from '../api';
 import { ChipArea, NinoAvatar } from '../componentes';
 import type { Nino, Nucleo } from '../datos';
-import { formatoCuando } from '../formato';
+import { formatoCuando, textoLegible } from '../formato';
 import { colores } from '../tema';
 
 /**
@@ -38,7 +38,8 @@ export function DetalleNota({
   });
   const captura = consulta.data;
   const nino = captura && ninos.find((n) => n.id === captura.nino.id);
-  const texto = captura?.texto ?? captura?.borrador?.textoFuente ?? null;
+  const anonimizado = captura?.borrador?.textoFuente;
+  const texto = captura?.texto ?? (anonimizado ? textoLegible(anonimizado) : null);
   const observacion = captura?.observacion;
 
   return (
@@ -120,7 +121,7 @@ export function DetalleNota({
                       </Typography>
                       {cita && (
                         <Typography variant="body2" color="text.secondary">
-                          «{cita}»
+                          «{textoLegible(cita)}»
                         </Typography>
                       )}
                     </Stack>

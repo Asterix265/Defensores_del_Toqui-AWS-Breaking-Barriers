@@ -209,6 +209,12 @@ describe('RegistroApp', () => {
     expect(screen.getByText('Texto de ejemplo (no es tu foto)')).toBeInTheDocument();
     expect(screen.getByText(EJEMPLO_FOTO)).toBeInTheDocument();
     fireEvent.click(boton('Borrar nota'));
+    // Borrar pide confirmación: «Volver a la nota» la conserva.
+    fireEvent.click(await screen.findByRole('button', { name: 'Volver a la nota' }));
+    await waitFor(() => expect(screen.queryByText('¿Borrar la nota?')).not.toBeInTheDocument());
+    expect(screen.getByText(EJEMPLO_FOTO)).toBeInTheDocument();
+    fireEvent.click(boton('Borrar nota'));
+    fireEvent.click(await screen.findByRole('button', { name: 'Borrar' }));
 
     expect(await screen.findByRole('heading', { name: 'Hola, Mercedes' })).toBeInTheDocument();
     fireEvent.click(boton('Mis notas'));

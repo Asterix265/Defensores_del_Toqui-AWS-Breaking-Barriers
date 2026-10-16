@@ -101,6 +101,7 @@ export function NuevaNota({
   escritorio = false,
   ninos,
   ninoFijo,
+  salaPrimero,
   catalogo,
   onGuardada,
   onCancelar,
@@ -113,6 +114,8 @@ export function NuevaNota({
   ninos: Nino[];
   /** Niño o niña ya elegido: la nota se le asocia sin pasar por «¿De quién es?». */
   ninoFijo?: Nino;
+  /** Sala que va primero en «¿De quién es?» (en el celular, la que se está viendo en «Mi sala»). */
+  salaPrimero?: string;
   catalogo: { niveles: NivelRuta[]; manifestaciones: Manifestacion[] };
   /** La nota quedó confirmada en la API. */
   onGuardada: (nino: Nino) => void;
@@ -204,7 +207,9 @@ export function NuevaNota({
         <ElegirNino
           aviso={CAPTURA_LISTA[formato]}
           ninos={ninos}
-          agrupar={escritorio}
+          // Con niños y niñas de varias salas (PC, o el celular, que ofrece todo el jardín).
+          agrupar={escritorio || new Set(ninos.map((n) => n.sala)).size > 1}
+          salaPrimero={salaPrimero}
           seleccionado={ninoId}
           onSeleccionar={setNinoId}
           onSeguir={() => setEtapa('procesando')}
@@ -622,6 +627,7 @@ function ElegirNino({
   aviso,
   ninos,
   agrupar,
+  salaPrimero,
   seleccionado,
   onSeleccionar,
   onSeguir,
@@ -629,8 +635,9 @@ function ElegirNino({
 }: {
   aviso: string;
   ninos: Nino[];
-  /** En PC se muestran todas las salas, cada una con su título. */
+  /** Con varias salas, cada una se muestra con su título. */
   agrupar: boolean;
+  salaPrimero?: string;
   seleccionado: string | null;
   onSeleccionar: (id: string) => void;
   onSeguir: () => void;
@@ -638,10 +645,13 @@ function ElegirNino({
 }) {
   const elegido = ninos.find((n) => n.id === seleccionado);
   const grupos = agrupar
-    ? ordenarSalas([...new Set(ninos.map((n) => n.sala))]).map((sala) => ({
-        sala,
-        ninos: ninos.filter((n) => n.sala === sala),
-      }))
+    ? ordenarSalas([...new Set(ninos.map((n) => n.sala))])
+        // La sala que se está viendo, primero; el resto en el orden habitual.
+        .sort((a, b) => Number(b === salaPrimero) - Number(a === salaPrimero))
+        .map((sala) => ({
+          sala,
+          ninos: ninos.filter((n) => n.sala === sala),
+        }))
     : [{ sala: null, ninos }];
   return (
     <Pantalla>

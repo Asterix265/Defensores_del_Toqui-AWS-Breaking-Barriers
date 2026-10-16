@@ -137,8 +137,14 @@ describe('RegistroApp', () => {
     await escribirNota('Apiló tres bloques y aplaudió.');
 
     expect(screen.getByText('Nota lista')).toBeInTheDocument();
-    // Solo la sala propia (la primera, Sala A): Vicente es de la Sala B.
-    expect(screen.queryByRole('button', { name: 'Vicente P.' })).not.toBeInTheDocument();
+    // Todo el jardín, agrupado por sala: la propia (Sala A) primero y Vicente en la Sala B.
+    const grupos = screen.getAllByRole('region').map((r) => r.getAttribute('aria-label'));
+    expect(grupos.slice(0, 2)).toEqual(['Sala A', 'Sala B']);
+    expect(
+      within(screen.getByRole('region', { name: 'Sala B' })).getByRole('button', {
+        name: 'Vicente P.',
+      }),
+    ).toBeInTheDocument();
     await elegirYProcesar('Benjamín S.');
 
     // El borrador de la API: aviso de lo simulado, el texto escrito, nivel 7 y Movimiento.

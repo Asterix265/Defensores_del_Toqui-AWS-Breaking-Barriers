@@ -6,11 +6,13 @@ import IconButton from '@mui/material/IconButton';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import ChevronLeftRounded from '@mui/icons-material/ChevronLeftRounded';
+import EditNoteRounded from '@mui/icons-material/EditNoteRounded';
 import MicRounded from '@mui/icons-material/MicRounded';
+import PhotoCameraRounded from '@mui/icons-material/PhotoCameraRounded';
 import { useObservaciones } from './api';
 import { DIAS_PERIODO, registrosDe, resumenAreas, type ResumenArea } from './areas';
 import { ChipArea, ICONO_NUCLEO, NinoAvatar, Pantalla } from './componentes';
-import { COLOR_NUCLEO, ETIQUETA_NUCLEO, type Nino } from './datos';
+import { COLOR_NUCLEO, ETIQUETA_NUCLEO, type Formato, type Nino } from './datos';
 import { diaCorto } from './formato';
 import { colores } from './tema';
 
@@ -32,14 +34,22 @@ export function FichaNino({
   nino,
   ahora,
   onVolver,
-  onGrabar,
+  onNueva,
 }: {
   nino: Nino;
   ahora: Date;
   onVolver: () => void;
-  /** Graba una nota ya asociada a este niño o niña. */
-  onGrabar: () => void;
+  /** Nota (audio, foto o texto) ya asociada a este niño o niña, de cualquier sala. */
+  onNueva: (formato: Formato) => void;
 }) {
+  const secundario = {
+    width: 48,
+    height: 48,
+    bgcolor: '#fff',
+    color: 'text.primary',
+    border: 1,
+    borderColor: 'divider',
+  } as const;
   return (
     <Pantalla>
       <Stack sx={{ px: 2, pt: 2, gap: 1.5 }}>
@@ -65,8 +75,22 @@ export function FichaNino({
             {nino.nombre}
           </Typography>
           <IconButton
+            aria-label={`Foto de nota de ${nino.nombre}`}
+            onClick={() => onNueva('foto')}
+            sx={secundario}
+          >
+            <PhotoCameraRounded />
+          </IconButton>
+          <IconButton
+            aria-label={`Escribir nota de ${nino.nombre}`}
+            onClick={() => onNueva('texto')}
+            sx={secundario}
+          >
+            <EditNoteRounded />
+          </IconButton>
+          <IconButton
             aria-label={`Grabar nota de ${nino.nombre}`}
-            onClick={onGrabar}
+            onClick={() => onNueva('audio')}
             sx={{
               width: 56,
               height: 56,
@@ -88,7 +112,7 @@ export function FichaNino({
         <UltimasNotas
           nino={nino}
           ahora={ahora}
-          sinNotas="Presiona el micrófono para registrar la primera."
+          sinNotas="Graba, toma una foto o escribe para registrar la primera."
         />
       </Box>
     </Pantalla>

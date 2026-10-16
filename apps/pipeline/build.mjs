@@ -1,10 +1,13 @@
 // Empaqueta cada handler en un archivo ESM independiente para Lambda (runtime nodejs24.x).
 import { build } from 'esbuild';
-import { readdirSync } from 'node:fs';
+import { readdirSync, rmSync } from 'node:fs';
 
 const entryPoints = readdirSync('src/handlers')
   .filter((file) => file.endsWith('.ts') && !file.endsWith('.test.ts'))
   .map((file) => `src/handlers/${file}`);
+
+// Sin restos de builds anteriores: todo lo que queda en dist entra al zip de la Lambda.
+rmSync('dist', { recursive: true, force: true });
 
 await build({
   entryPoints,

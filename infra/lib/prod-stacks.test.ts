@@ -92,6 +92,22 @@ describe('stacks de producción', () => {
     });
   });
 
+  it('reemplaza la tarea de la API rápido y sin corte', () => {
+    app.hasResourceProperties('AWS::ElasticLoadBalancingV2::TargetGroup', {
+      HealthCheckIntervalSeconds: 10,
+      HealthyThresholdCount: 2,
+      TargetGroupAttributes: Match.arrayWith([
+        { Key: 'deregistration_delay.timeout_seconds', Value: '30' },
+      ]),
+    });
+    app.hasResourceProperties('AWS::ECS::Service', {
+      DeploymentConfiguration: Match.objectLike({
+        MinimumHealthyPercent: 100,
+        DeploymentCircuitBreaker: { Enable: true, Rollback: true },
+      }),
+    });
+  });
+
   it('no publica la web: CloudFront solo sirve la API (la web está en Amplify)', () => {
     app.resourceCountIs('Custom::CDKBucketDeployment', 0);
     // El único bucket es el de capturas.

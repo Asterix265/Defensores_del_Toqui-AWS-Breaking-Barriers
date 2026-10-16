@@ -12,12 +12,7 @@ import {
   reiniciarApi,
   servidor,
 } from './prueba-api';
-import {
-  AVISO_SESION_TERMINADA,
-  AVISO_SIN_JARDIN,
-  RegistroApp,
-  nombreVisible,
-} from './RegistroApp';
+import { AVISO_SIN_JARDIN, RegistroApp, nombreVisible } from './RegistroApp';
 
 describe('nombreVisible', () => {
   it.each([
@@ -120,29 +115,6 @@ describe('RegistroApp', () => {
     expect(localStorage.getItem(CLAVE_SESION_LOCAL)).not.toBeNull();
   });
 
-  it('si la API rechaza el token vuelve al ingreso con un aviso', async () => {
-    servidor.use(http.get('*/ninos', () => new HttpResponse(null, { status: 401 })));
-    conSesion();
-    conProveedores(<RegistroApp />);
-
-    expect(await screen.findByRole('form', { name: 'Ingreso' })).toBeInTheDocument();
-    expect(screen.getByText(AVISO_SESION_TERMINADA)).toBeInTheDocument();
-    expect(localStorage.getItem(CLAVE_SESION_LOCAL)).toBeNull();
-  });
-
-  it('varios 401 a la vez vuelven al ingreso una sola vez, con el aviso', async () => {
-    servidor.use(
-      http.get('*/me', () => new HttpResponse(null, { status: 401 })),
-      http.get('*/ninos', () => new HttpResponse(null, { status: 401 })),
-    );
-    conSesion();
-    conProveedores(<RegistroApp />);
-
-    expect(await screen.findByRole('form', { name: 'Ingreso' })).toBeInTheDocument();
-    expect(screen.getAllByText(AVISO_SESION_TERMINADA)).toHaveLength(1);
-    expect(localStorage.getItem(CLAVE_SESION_LOCAL)).toBeNull();
-  });
-
   it('una cuenta sin jardín vuelve al ingreso explicando el motivo', async () => {
     servidor.use(http.get('*/me', () => new HttpResponse(null, { status: 403 })));
     conSesion();
@@ -150,6 +122,14 @@ describe('RegistroApp', () => {
 
     expect(await screen.findByText(AVISO_SIN_JARDIN)).toBeInTheDocument();
     expect(screen.getByRole('form', { name: 'Ingreso' })).toBeInTheDocument();
+  });
+
+  it('un 403 de los niños y niñas también se trata como cuenta sin jardín', async () => {
+    servidor.use(http.get('*/ninos', () => new HttpResponse(null, { status: 403 })));
+    conSesion();
+    conProveedores(<RegistroApp />);
+
+    expect(await screen.findByText(AVISO_SIN_JARDIN)).toBeInTheDocument();
   });
 
   it('guarda una nota escrita en la API y sigue en Mis notas al recargar', async () => {

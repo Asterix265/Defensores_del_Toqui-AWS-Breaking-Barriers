@@ -32,11 +32,15 @@ Tras ingresar, la web SHALL obtener nombre, grupo y jardín de `GET /me`. Si la 
 - **THEN** la web vuelve al ingreso con el aviso de que la cuenta no tiene un jardín asignado
 
 ### Requirement: Sesión terminada
-Si la API responde 401 a una petición con token, la web SHALL cerrar la sesión local y volver al ingreso con un aviso.
+Si la API responde 401 a una petición con token, la web SHALL cerrar la sesión local y volver al ingreso con un aviso. Una falla de red al renovar el token SHALL NOT cerrar la sesión.
 
 #### Scenario: Token rechazado
 - **WHEN** la API responde 401 mientras la educadora usa la app
 - **THEN** la web muestra el ingreso con «Tu sesión terminó. Ingresa de nuevo.»
+
+#### Scenario: Corte de red
+- **WHEN** no se puede renovar el token porque no hay conexión
+- **THEN** la web conserva la sesión, no envía peticiones sin token y reintenta
 
 ### Requirement: Cierre de sesión
 La web SHALL ofrecer cerrar sesión en el celular y en el panel de escritorio, con confirmación. Al confirmar SHALL revocar la sesión del dispositivo, borrar de la memoria los datos del jardín y volver al ingreso. Recargar la página después SHALL NOT recuperar la sesión.
@@ -44,6 +48,10 @@ La web SHALL ofrecer cerrar sesión en el celular y en el panel de escritorio, c
 #### Scenario: Cerrar sesión en el celular
 - **WHEN** la educadora presiona «Cerrar sesión» y confirma
 - **THEN** ve el ingreso, y al recargar sigue en el ingreso
+
+#### Scenario: Cerrar sesión con una consulta en curso
+- **WHEN** la educadora cierra sesión mientras una consulta a la API sigue en curso
+- **THEN** ve el ingreso sin el aviso «Tu sesión terminó»
 
 #### Scenario: Cancelar
 - **WHEN** la educadora presiona «Cerrar sesión» y luego «Cancelar»

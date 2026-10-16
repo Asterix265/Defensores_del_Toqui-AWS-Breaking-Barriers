@@ -65,20 +65,20 @@ export async function leerSalidas(stack = stackObjetivo()): Promise<SalidasDev> 
 
 /**
  * Usuario con el que la prueba de humo ingresa a Cognito: el personal de `infra/.env`
- * (TOQUI_PERSONAL_EMAIL y TOQUI_PERSONAL_PASSWORD, grupo `educadora` de JAR-0001) si está
- * completo; si no, la educadora compartida con TOQUI_DEV_PASSWORD.
+ * (TOQUI_PERSONAL_EMAIL y TOQUI_PERSONAL_PASSWORD) si está completo; si no, la educadora
+ * compartida con TOQUI_DEV_PASSWORD. Solo la compartida declara el grupo y el jardín esperados;
+ * del personal se exige que el token traiga un grupo válido y un jardín, sean cuales sean.
  */
 export function usuarioSmoke(): {
   email: string;
   password: string;
-  grupo: string;
-  idJardin: string;
+  esperado?: { grupo: string; idJardin: string };
 } {
   const email = process.env['TOQUI_PERSONAL_EMAIL'];
   const password = process.env['TOQUI_PERSONAL_PASSWORD'];
-  const compartida = USUARIOS_PRUEBA[0];
-  if (email && password) return { email, password, grupo: 'educadora', idJardin: 'JAR-0001' };
-  return { ...compartida, password: contrasenaPrueba() };
+  if (email && password) return { email, password };
+  const { email: compartido, grupo, idJardin } = USUARIOS_PRUEBA[0];
+  return { email: compartido, password: contrasenaPrueba(), esperado: { grupo, idJardin } };
 }
 
 /** Contraseña de los usuarios de prueba; nunca se guarda en el repositorio. */

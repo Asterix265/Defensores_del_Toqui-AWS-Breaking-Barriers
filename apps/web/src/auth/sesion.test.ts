@@ -50,6 +50,7 @@ describe('sesión con Cognito', () => {
     ['NotAuthorizedException', 'credenciales'],
     ['UserNotFoundException', 'credenciales'],
     ['PasswordResetRequiredException', 'restablecer'],
+    ['UserNotConfirmedException', 'sin_confirmar'],
     ['LimitExceededException', 'demasiados_intentos'],
     ['NetworkError', 'red'],
     ['OtraCosa', 'desconocido'],
@@ -86,11 +87,29 @@ describe('sesión con Cognito', () => {
     await expect(haySesion()).resolves.toBe(true);
   });
 
-  it('sin tokens o si la renovación falla no hay sesión', async () => {
+  it('sin tokens o con el refresh token inválido no hay sesión', async () => {
     amplify.fetchAuthSession.mockResolvedValueOnce({ tokens: undefined });
     await expect(haySesion()).resolves.toBe(false);
-    amplify.fetchAuthSession.mockRejectedValueOnce(errorCognito('NetworkError'));
+    amplify.fetchAuthSession.mockResolvedValueOnce({ tokens: undefined });
     await expect(idToken()).resolves.toBeUndefined();
+  });
+
+  it('una falla de red al renovar no es «sin sesión»', async () => {
+    amplify.fetchAuthSession.mockRejectedValue(errorCognito('NetworkError'));
+    await expect(idToken()).rejects.toThrow('NetworkError');
+    await expect(haySesion()).resolves.toBe(true);
+  });
+
+  it.each([
+    ['CONFIRM_SIGN_UP', 'sin_confirmar', false],
+    ['CONFIRM_SIGN_IN_WITH_TOTP_CODE', 'paso_no_soportado', true],
+    ['CONTINUE_SIGN_IN_WITH_MFA_SELECTION', 'paso_no_soportado', true],
+  ])('el paso %s da %s', async (paso, error, descarta) => {
+    amplify.signIn.mockResolvedValue({ nextStep: { signInStep: paso } });
+    amplify.signOut.mockResolvedValue(undefined);
+    await expect(iniciarSesion('a@b.cl', 'x')).resolves.toEqual({ ok: false, error });
+    // Un desafío a medias se descarta para que el próximo intento empiece limpio.
+    expect(amplify.signOut).toHaveBeenCalledTimes(descarta ? 1 : 0);
   });
 
   it('cerrar sesión no falla aunque la revocación remota falle', async () => {

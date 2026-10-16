@@ -8,12 +8,19 @@ import { fetchAuthSession, signIn, signOut } from 'aws-amplify/auth';
 
 /** Motivos por los que no se pudo ingresar; la pantalla de ingreso los traduce. */
 export type ErrorIngreso =
-  'credenciales' | 'nueva_clave' | 'restablecer' | 'demasiados_intentos' | 'red' | 'desconocido';
+  | 'credenciales'
+  | 'nueva_clave'
+  | 'restablecer'
+  | 'sin_confirmar'
+  | 'paso_no_soportado'
+  | 'demasiados_intentos'
+  | 'red'
+  | 'desconocido';
 
 export type ResultadoIngreso = { ok: true } | { ok: false; error: ErrorIngreso };
 
 /** Marca del modo local: solo indica que hubo ingreso; no es una credencial. */
-const CLAVE_LOCAL = 'toqui.sesion.local';
+export const CLAVE_SESION_LOCAL = 'toqui.sesion.local';
 
 interface ConfigCognito {
   userPoolId: string;
@@ -55,6 +62,8 @@ function traducir(error: unknown): ErrorIngreso {
       return 'credenciales';
     case 'PasswordResetRequiredException':
       return 'restablecer';
+    case 'UserNotConfirmedException':
+      return 'sin_confirmar';
     case 'LimitExceededException':
     case 'TooManyRequestsException':
     case 'TooManyFailedAttemptsException':
@@ -69,7 +78,7 @@ function traducir(error: unknown): ErrorIngreso {
 export async function iniciarSesion(correo: string, clave: string): Promise<ResultadoIngreso> {
   if (modoLocal()) {
     try {
-      localStorage.setItem(CLAVE_LOCAL, correo);
+      localStorage.setItem(CLAVE_SESION_LOCAL, correo);
     } catch {
       // Sin almacenamiento la sesión local dura lo que la pestaña.
     }
@@ -95,39 +104,49 @@ export async function iniciarSesion(correo: string, clave: string): Promise<Resu
         return { ok: false, error: 'nueva_clave' };
       case 'RESET_PASSWORD':
         return { ok: false, error: 'restablecer' };
+      case 'CONFIRM_SIGN_UP':
+        return { ok: false, error: 'sin_confirmar' };
       default:
-        return { ok: false, error: 'desconocido' };
+        // MFA u otro desafío que la web todavía no ofrece: se descarta el intento a medias.
+        await signOut().catch(() => undefined);
+        return { ok: false, error: 'paso_no_soportado' };
     }
   } catch (error) {
     return { ok: false, error: traducir(error) };
   }
 }
 
-/** ¿Hay una sesión guardada y vigente (o renovable) en este dispositivo? */
+/**
+ * ¿Hay una sesión en este dispositivo? Si la renovación del token falla por red, Amplify conserva
+ * los tokens: la sesión sigue y las consultas reintentan. Solo un refresh token inválido o
+ * ausente cuenta como «sin sesión».
+ */
 export async function haySesion(): Promise<boolean> {
   if (modoLocal()) {
     try {
-      return localStorage.getItem(CLAVE_LOCAL) !== null;
+      return localStorage.getItem(CLAVE_SESION_LOCAL) !== null;
     } catch {
       return false;
     }
   }
-  return (await idToken()) !== undefined;
+  try {
+    return (await idToken()) !== undefined;
+  } catch {
+    return true;
+  }
 }
 
 /**
  * ID token vigente para la API; Amplify lo renueva con el refresh token si venció.
  * El de acceso no sirve: la API necesita el correo y `custom:id_jardin`.
+ * `undefined` = no hay sesión (o el refresh token ya no sirve). Una falla transitoria (red,
+ * Cognito no disponible) se propaga como error para no confundirla con una sesión terminada.
  */
 export async function idToken(): Promise<string | undefined> {
   if (modoLocal()) return undefined;
   configurarAuth();
-  try {
-    const { tokens } = await fetchAuthSession();
-    return tokens?.idToken?.toString();
-  } catch {
-    return undefined;
-  }
+  const { tokens } = await fetchAuthSession();
+  return tokens?.idToken?.toString();
 }
 
 /**
@@ -136,7 +155,7 @@ export async function idToken(): Promise<string | undefined> {
  */
 export async function cerrarSesion(): Promise<void> {
   try {
-    localStorage.removeItem(CLAVE_LOCAL);
+    localStorage.removeItem(CLAVE_SESION_LOCAL);
   } catch {
     // Nada que borrar.
   }

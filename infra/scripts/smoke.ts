@@ -28,6 +28,7 @@ import {
   TranscribeClient,
 } from '@aws-sdk/client-transcribe';
 import { CognitoJwtVerifier } from 'aws-jwt-verify';
+import { GRUPOS } from '../lib/componentes.js';
 import { MODELOS, REGION, leerSalidas, prepararCredenciales, usuarioSmoke } from './comun.js';
 
 type Resultado = { paso: string; ok: boolean; detalle: string; ms: number };
@@ -191,9 +192,19 @@ await paso('5. Cognito (login + validación del token)', async () => {
   });
   const datos = await verificador.verify(token);
   const grupos = (datos['cognito:groups'] as string[] | undefined) ?? [];
-  if (!grupos.includes(usuario.grupo)) throw new Error(`grupos inesperados: ${grupos.join(',')}`);
-  if (datos['custom:id_jardin'] !== usuario.idJardin) throw new Error('id_jardin inesperado');
-  return `${usuario.email} · grupo ${grupos.join(',')} · ${String(datos['custom:id_jardin'])}`;
+  const jardin = datos['custom:id_jardin'];
+  // Lo mismo que exige la API: sin un grupo conocido o sin jardín, responde 403.
+  const validos = grupos.filter((g) => (GRUPOS as readonly string[]).includes(g));
+  if (validos.length === 0) throw new Error(`sin grupo válido (${grupos.join(',') || 'ninguno'})`);
+  if (typeof jardin !== 'string' || !jardin) throw new Error('el token no trae custom:id_jardin');
+  const { esperado } = usuario;
+  if (esperado && !grupos.includes(esperado.grupo)) {
+    throw new Error(`se esperaba el grupo ${esperado.grupo}: ${grupos.join(',')}`);
+  }
+  if (esperado && jardin !== esperado.idJardin) {
+    throw new Error(`se esperaba ${esperado.idJardin}: ${jardin}`);
+  }
+  return `${usuario.email} · grupo ${validos.join(',')} · ${jardin}`;
 });
 
 const fallidos = resultados.filter((r) => !r.ok);

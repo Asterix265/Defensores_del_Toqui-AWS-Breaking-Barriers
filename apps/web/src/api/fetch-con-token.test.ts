@@ -41,13 +41,33 @@ describe('fetchConToken', () => {
     expect(sesion.avisarSesionTerminada).not.toHaveBeenCalled();
   });
 
-  it('sin sesión no envía Authorization y un 401 avisa que la sesión terminó', async () => {
+  it('un 401 a una petición con token avisa que la sesión terminó', async () => {
+    sesion.idToken.mockResolvedValue('token-rechazado');
+    servidor.use(http.get('*/api/me', () => new HttpResponse(null, { status: 401 })));
+
+    const r = await fetchConToken<Respuesta>('http://localhost/api/me');
+
+    expect(r.status).toBe(401);
+    expect(sesion.avisarSesionTerminada).toHaveBeenCalledTimes(1);
+  });
+
+  it('un 401 sin token no avisa: no había sesión que terminar', async () => {
     sesion.idToken.mockResolvedValue(undefined);
 
     const r = await fetchConToken<Respuesta>('http://localhost/api/me');
 
     expect(r.status).toBe(401);
     expect(recibidas[0]?.headers.has('Authorization')).toBe(false);
-    expect(sesion.avisarSesionTerminada).toHaveBeenCalledTimes(1);
+    expect(sesion.avisarSesionTerminada).not.toHaveBeenCalled();
+  });
+
+  it('si no se pudo obtener el token por red, la petición no sale', async () => {
+    const red = new Error('Network error');
+    red.name = 'NetworkError';
+    sesion.idToken.mockRejectedValue(red);
+
+    await expect(fetchConToken('http://localhost/api/me')).rejects.toThrow('Network error');
+    expect(recibidas).toHaveLength(0);
+    expect(sesion.avisarSesionTerminada).not.toHaveBeenCalled();
   });
 });

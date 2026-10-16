@@ -22,6 +22,9 @@ export const MENSAJE_ERROR: Record<ErrorIngreso, string> = {
   nueva_clave:
     'Tu cuenta tiene una contraseña temporal. Pide a quien administra la app que la deje definitiva.',
   restablecer: 'Debes restablecer tu contraseña. Pide ayuda a quien administra la app.',
+  sin_confirmar: 'Tu cuenta aún no está confirmada. Pide ayuda a quien administra la app.',
+  paso_no_soportado:
+    'Tu cuenta pide un paso de seguridad que la app todavía no ofrece. Pide ayuda a quien administra la app.',
   demasiados_intentos: 'Demasiados intentos. Espera unos minutos y vuelve a intentarlo.',
   red: 'No hay conexión. Revisa tu internet y vuelve a intentarlo.',
   desconocido: 'No se pudo ingresar. Vuelve a intentarlo.',
@@ -199,8 +202,8 @@ export function Ingreso({
   );
 }
 
-function Punto() {
-  return <Box sx={{ width: 12, height: 12, borderRadius: '50%', bgcolor: 'primary.main' }} />;
+function Punto({ color = 'primary.main' }: { color?: string }) {
+  return <Box sx={{ width: 12, height: 12, borderRadius: '50%', bgcolor: color }} />;
 }
 
 function Icono({ children }: { children: ReactNode }) {
@@ -226,7 +229,7 @@ function Marca() {
       }}
     >
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, fontWeight: 800 }}>
-        <Box sx={{ width: 12, height: 12, borderRadius: '50%', bgcolor: '#fff' }} />
+        <Punto color="#fff" />
         Fundación Integra
       </Box>
       <Stack sx={{ gap: 1.5 }}>

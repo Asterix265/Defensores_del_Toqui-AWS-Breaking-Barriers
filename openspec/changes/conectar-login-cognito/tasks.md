@@ -23,6 +23,15 @@
 - [x] 4.1 README y `docs/guia-aws.md`: cómo ingresar en local con y sin Cognito
 - [x] 4.2 `pnpm aws:smoke` acepta un usuario personal (`TOQUI_PERSONAL_EMAIL` y `TOQUI_PERSONAL_PASSWORD` en `infra/.env`)
 
+## 5. Correcciones de la revisión
+
+- [x] 5.1 Cerrar sesión cambia de pantalla antes de revocar, cancela las consultas en vuelo y no vuelve a cerrarse hasta el próximo ingreso; el ingreso espera la revocación anterior
+- [x] 5.2 Solo un 401 a una petición con token termina la sesión; una falla de red al renovar el token no se confunde con «sin sesión» (al abrir ni durante el uso)
+- [x] 5.3 Pasos de ingreso `CONFIRM_SIGN_UP` y MFA con mensaje propio; el intento a medias se descarta
+- [x] 5.4 Cualquier 403 de la API se trata como cuenta sin jardín; mensaje sin API sin referencias a `pnpm dev`
+- [x] 5.5 `pnpm aws:smoke` valida grupo y jardín del token sin valores fijos para el usuario personal
+- [x] 5.6 Limpieza: `CLAVE_SESION_LOCAL` exportada, solo `Marco`, `Punto` con color
+
 ## Pendientes (fuera de este cambio)
 
 - Pantalla de nueva contraseña para `NEW_PASSWORD_REQUIRED` y recuperación de contraseña.

@@ -3,6 +3,7 @@
  * catálogo, niveles y trayectoria. El procesamiento de las notas sigue simulado en la web.
  */
 import { useQueries, useQuery } from '@tanstack/react-query';
+import { getGetMeQueryKey, getMe } from '../api/generated/auth/auth';
 import {
   getListarManifestacionesQueryKey,
   getListarNivelesQueryKey,
@@ -27,11 +28,28 @@ export type Manifestacion = ManifestacionDtoOutput & { dominio: Dominio };
 export type NivelRuta = NivelRutaDtoOutput;
 export type ObservacionApi = ObservacionTrayectoriaOutput;
 
+/** Error HTTP de la API, con el código para distinguir 403 de una caída. */
+export class ErrorApi extends Error {
+  constructor(readonly status: number) {
+    super(`La API respondió ${status}`);
+    this.name = 'ErrorApi';
+  }
+}
+
 /** El cliente generado no lanza ante un error HTTP: se convierte aquí para que React Query lo vea. */
 async function datos<T>(respuesta: Promise<{ data: T; status: number }>): Promise<T> {
   const { data, status } = await respuesta;
-  if (status < 200 || status >= 300) throw new Error(`La API respondió ${status}`);
+  if (status < 200 || status >= 300) throw new ErrorApi(status);
   return data;
+}
+
+/** Quién tiene la sesión, su grupo y su jardín, según el token (`GET /me`). */
+export function useIdentidad() {
+  return useQuery({
+    queryKey: getGetMeQueryKey(),
+    queryFn: ({ signal }) => datos(getMe({ signal })),
+    staleTime: Infinity,
+  });
 }
 
 /** Colores de avatar del tema; se elige uno estable por id. */

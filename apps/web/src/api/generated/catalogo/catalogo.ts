@@ -24,6 +24,10 @@ import type {
   NivelRutaDtoOutput,
 } from '../model';
 
+import { fetchConToken } from '../../fetch-con-token';
+
+type SecondParameter<T extends (...args: never) => unknown> = Parameters<T>[1];
+
 const withQueryKey = <T extends object, K>(query: T, queryKey: K): T & { queryKey: K } => {
   const result = { queryKey } as T & { queryKey: K };
   for (const key of Object.keys(query)) {
@@ -70,17 +74,12 @@ export const getListarManifestacionesUrl = (params?: ListarManifestacionesParams
  */
 export const listarManifestaciones = async (
   params?: ListarManifestacionesParams,
-  options?: RequestInit,
+  options?: Parameters<typeof fetchConToken>[1],
 ): Promise<listarManifestacionesResponse> => {
-  const res = await fetch(getListarManifestacionesUrl(params), {
+  return fetchConToken<listarManifestacionesResponse>(getListarManifestacionesUrl(params), {
     ...options,
     method: 'GET',
   });
-
-  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
-
-  const data: listarManifestacionesResponse['data'] = body ? JSON.parse(body) : {};
-  return { data, status: res.status, headers: res.headers } as listarManifestacionesResponse;
 };
 
 export const getListarManifestacionesQueryKey = (params?: ListarManifestacionesParams) => {
@@ -96,15 +95,15 @@ export const getListarManifestacionesQueryOptions = <
     query?: Partial<
       UseQueryOptions<Awaited<ReturnType<typeof listarManifestaciones>>, TError, TData>
     >;
-    fetch?: RequestInit;
+    request?: SecondParameter<typeof fetchConToken>;
   },
 ) => {
-  const { query: queryOptions, fetch: fetchOptions } = options ?? {};
+  const { query: queryOptions, request: requestOptions } = options ?? {};
 
   const queryKey = queryOptions?.queryKey ?? getListarManifestacionesQueryKey(params);
 
   const queryFn: QueryFunction<Awaited<ReturnType<typeof listarManifestaciones>>> = ({ signal }) =>
-    listarManifestaciones(params, { signal, ...fetchOptions });
+    listarManifestaciones(params, { signal, ...requestOptions });
 
   return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
     Awaited<ReturnType<typeof listarManifestaciones>>,
@@ -135,7 +134,7 @@ export function useListarManifestaciones<
         >,
         'initialData'
       >;
-    fetch?: RequestInit;
+    request?: SecondParameter<typeof fetchConToken>;
   },
   queryClient?: QueryClient,
 ): DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
@@ -156,7 +155,7 @@ export function useListarManifestaciones<
         >,
         'initialData'
       >;
-    fetch?: RequestInit;
+    request?: SecondParameter<typeof fetchConToken>;
   },
   queryClient?: QueryClient,
 ): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
@@ -169,7 +168,7 @@ export function useListarManifestaciones<
     query?: Partial<
       UseQueryOptions<Awaited<ReturnType<typeof listarManifestaciones>>, TError, TData>
     >;
-    fetch?: RequestInit;
+    request?: SecondParameter<typeof fetchConToken>;
   },
   queryClient?: QueryClient,
 ): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
@@ -186,7 +185,7 @@ export function useListarManifestaciones<
     query?: Partial<
       UseQueryOptions<Awaited<ReturnType<typeof listarManifestaciones>>, TError, TData>
     >;
-    fetch?: RequestInit;
+    request?: SecondParameter<typeof fetchConToken>;
   },
   queryClient?: QueryClient,
 ): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
@@ -216,16 +215,13 @@ export const getListarNivelesUrl = () => {
 /**
  * @summary Niveles de la ruta sintética con su rango de edad en meses
  */
-export const listarNiveles = async (options?: RequestInit): Promise<listarNivelesResponse> => {
-  const res = await fetch(getListarNivelesUrl(), {
+export const listarNiveles = async (
+  options?: Parameters<typeof fetchConToken>[1],
+): Promise<listarNivelesResponse> => {
+  return fetchConToken<listarNivelesResponse>(getListarNivelesUrl(), {
     ...options,
     method: 'GET',
   });
-
-  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
-
-  const data: listarNivelesResponse['data'] = body ? JSON.parse(body) : {};
-  return { data, status: res.status, headers: res.headers } as listarNivelesResponse;
 };
 
 export const getListarNivelesQueryKey = () => {
@@ -237,14 +233,14 @@ export const getListarNivelesQueryOptions = <
   TError = unknown,
 >(options?: {
   query?: Partial<UseQueryOptions<Awaited<ReturnType<typeof listarNiveles>>, TError, TData>>;
-  fetch?: RequestInit;
+  request?: SecondParameter<typeof fetchConToken>;
 }) => {
-  const { query: queryOptions, fetch: fetchOptions } = options ?? {};
+  const { query: queryOptions, request: requestOptions } = options ?? {};
 
   const queryKey = queryOptions?.queryKey ?? getListarNivelesQueryKey();
 
   const queryFn: QueryFunction<Awaited<ReturnType<typeof listarNiveles>>> = ({ signal }) =>
-    listarNiveles({ signal, ...fetchOptions });
+    listarNiveles({ signal, ...requestOptions });
 
   return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
     Awaited<ReturnType<typeof listarNiveles>>,
@@ -270,7 +266,7 @@ export function useListarNiveles<
         >,
         'initialData'
       >;
-    fetch?: RequestInit;
+    request?: SecondParameter<typeof fetchConToken>;
   },
   queryClient?: QueryClient,
 ): DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
@@ -288,7 +284,7 @@ export function useListarNiveles<
         >,
         'initialData'
       >;
-    fetch?: RequestInit;
+    request?: SecondParameter<typeof fetchConToken>;
   },
   queryClient?: QueryClient,
 ): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
@@ -298,7 +294,7 @@ export function useListarNiveles<
 >(
   options?: {
     query?: Partial<UseQueryOptions<Awaited<ReturnType<typeof listarNiveles>>, TError, TData>>;
-    fetch?: RequestInit;
+    request?: SecondParameter<typeof fetchConToken>;
   },
   queryClient?: QueryClient,
 ): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
@@ -312,7 +308,7 @@ export function useListarNiveles<
 >(
   options?: {
     query?: Partial<UseQueryOptions<Awaited<ReturnType<typeof listarNiveles>>, TError, TData>>;
-    fetch?: RequestInit;
+    request?: SecondParameter<typeof fetchConToken>;
   },
   queryClient?: QueryClient,
 ): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {

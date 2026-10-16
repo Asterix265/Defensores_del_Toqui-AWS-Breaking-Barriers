@@ -32,5 +32,7 @@ export default defineConfig({
   test: {
     environment: 'jsdom',
     setupFiles: ['./src/test-setup.ts'],
+    // Las pruebas usan el modo local aunque exista apps/web/.env.local con Cognito.
+    env: { VITE_COGNITO_USER_POOL_ID: '', VITE_COGNITO_CLIENT_ID: '' },
   },
 });

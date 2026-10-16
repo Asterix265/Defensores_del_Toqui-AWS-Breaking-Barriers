@@ -1,6 +1,6 @@
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { fireEvent, screen, within } from '@testing-library/react';
-import { conProveedores, instalarMicrofono, reiniciarApi, servidor } from './prueba-api';
+import { conProveedores, conSesion, instalarMicrofono, reiniciarApi, servidor } from './prueba-api';
 import { RegistroApp } from './RegistroApp';
 
 beforeAll(() => servidor.listen({ onUnhandledFrame: 'error' }));
@@ -11,7 +11,7 @@ afterEach(() => {
 afterAll(() => servidor.close());
 
 async function abrirMiSala() {
-  localStorage.setItem('toqui.registro.correo', 'mercedes@integra.cl');
+  conSesion();
   conProveedores(<RegistroApp />);
   fireEvent.click(await screen.findByRole('button', { name: 'Mi sala' }));
 }

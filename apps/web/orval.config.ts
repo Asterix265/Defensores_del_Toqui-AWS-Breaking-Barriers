@@ -13,6 +13,8 @@ export default defineConfig({
       mock: true,
       clean: true,
       formatter: 'prettier',
+      // Agrega el ID token de Cognito a cada llamada (ver src/api/fetch-con-token.ts).
+      override: { mutator: { path: 'src/api/fetch-con-token.ts', name: 'fetchConToken' } },
     },
   },
 });

@@ -34,6 +34,18 @@ S3, Cognito y el Guardrail los crea el stack CDK `ToquiDev` (`infra/lib/dev-stac
    Debe terminar con «Todo conectado». Revisa identidad, subida a S3, Transcribe, Claude con Guardrail y login en Cognito.
 6. Para la API: agregar a `apps/api/.env` la salida de `pnpm aws:env`.
 
+## Ingreso en la web
+
+La web ingresa con correo y contraseña contra el pool `toqui-dev` (flujo SRP con Amplify Auth: la contraseña no viaja) y envía el **ID token** en `Authorization: Bearer` a cada llamada de la API.
+
+1. `pnpm aws:env` y copiar `COGNITO_USER_POOL_ID` y `COGNITO_CLIENT_ID` a `apps/api/.env`, con `AUTH_MODE=cognito`.
+2. Copiar `apps/web/.env.example` a `apps/web/.env.local` y poner los mismos dos IDs en `VITE_COGNITO_USER_POOL_ID` y `VITE_COGNITO_CLIENT_ID`.
+3. `pnpm aws:users` (una vez) y `pnpm dev`; entrar con un usuario de prueba y `TOQUI_DEV_PASSWORD`.
+
+Sin `apps/web/.env.local` la web usa un ingreso local de prueba (cualquier contraseña, sin token) y la API debe estar en `AUTH_MODE=local`. Mezclar ambos modos falla: con `AUTH_MODE=local` la API rechaza los tokens reales con 401, y con `AUTH_MODE=cognito` rechaza las peticiones sin token.
+
+Cerrar sesión revoca el refresh token del dispositivo, borra los tokens y los datos del jardín en memoria y vuelve al ingreso. Si la API responde 401, la web cierra la sesión y pide ingresar de nuevo. Pendientes: pantalla de nueva contraseña (usuarios con contraseña temporal), recuperación de contraseña e ingreso con código por correo (requiere `FeaturePlan.ESSENTIALS`, con costo).
+
 ## Usuarios de prueba (sintéticos)
 
 | Email | Grupo | Jardín |
@@ -42,6 +54,8 @@ S3, Cognito y el Guardrail los crea el stack CDK `ToquiDev` (`infra/lib/dev-stac
 | `directora.jar0001@example.com` | `directora` | `JAR-0001` |
 
 Se crean o actualizan con `pnpm aws:users` usando `TOQUI_DEV_PASSWORD` de `infra/.env`.
+
+Usuario personal (opcional, en lugar de compartir la contraseña): crearlo con `aws cognito-idp admin-create-user` (`email`, `email_verified=true`, `custom:id_jardin`), `admin-set-user-password --permanent` y `admin-add-user-to-group`, y poner `TOQUI_PERSONAL_EMAIL` y `TOQUI_PERSONAL_PASSWORD` en `infra/.env`; `pnpm aws:smoke` ingresa con él. Sin jardín o sin grupo, la API responde 403.
 
 ## Comandos
 

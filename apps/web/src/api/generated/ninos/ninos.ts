@@ -25,6 +25,10 @@ import type {
   TrayectoriaResponseDtoOutput,
 } from '../model';
 
+import { fetchConToken } from '../../fetch-con-token';
+
+type SecondParameter<T extends (...args: never) => unknown> = Parameters<T>[1];
+
 const withQueryKey = <T extends object, K>(query: T, queryKey: K): T & { queryKey: K } => {
   const result = { queryKey } as T & { queryKey: K };
   for (const key of Object.keys(query)) {
@@ -69,17 +73,12 @@ export const getListarNinosUrl = (params?: ListarNinosParams) => {
  */
 export const listarNinos = async (
   params?: ListarNinosParams,
-  options?: RequestInit,
+  options?: Parameters<typeof fetchConToken>[1],
 ): Promise<listarNinosResponse> => {
-  const res = await fetch(getListarNinosUrl(params), {
+  return fetchConToken<listarNinosResponse>(getListarNinosUrl(params), {
     ...options,
     method: 'GET',
   });
-
-  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
-
-  const data: listarNinosResponse['data'] = body ? JSON.parse(body) : {};
-  return { data, status: res.status, headers: res.headers } as listarNinosResponse;
 };
 
 export const getListarNinosQueryKey = (params?: ListarNinosParams) => {
@@ -93,15 +92,15 @@ export const getListarNinosQueryOptions = <
   params?: ListarNinosParams,
   options?: {
     query?: Partial<UseQueryOptions<Awaited<ReturnType<typeof listarNinos>>, TError, TData>>;
-    fetch?: RequestInit;
+    request?: SecondParameter<typeof fetchConToken>;
   },
 ) => {
-  const { query: queryOptions, fetch: fetchOptions } = options ?? {};
+  const { query: queryOptions, request: requestOptions } = options ?? {};
 
   const queryKey = queryOptions?.queryKey ?? getListarNinosQueryKey(params);
 
   const queryFn: QueryFunction<Awaited<ReturnType<typeof listarNinos>>> = ({ signal }) =>
-    listarNinos(params, { signal, ...fetchOptions });
+    listarNinos(params, { signal, ...requestOptions });
 
   return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
     Awaited<ReturnType<typeof listarNinos>>,
@@ -125,7 +124,7 @@ export function useListarNinos<TData = Awaited<ReturnType<typeof listarNinos>>, 
         >,
         'initialData'
       >;
-    fetch?: RequestInit;
+    request?: SecondParameter<typeof fetchConToken>;
   },
   queryClient?: QueryClient,
 ): DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
@@ -141,7 +140,7 @@ export function useListarNinos<TData = Awaited<ReturnType<typeof listarNinos>>, 
         >,
         'initialData'
       >;
-    fetch?: RequestInit;
+    request?: SecondParameter<typeof fetchConToken>;
   },
   queryClient?: QueryClient,
 ): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
@@ -149,7 +148,7 @@ export function useListarNinos<TData = Awaited<ReturnType<typeof listarNinos>>, 
   params?: ListarNinosParams,
   options?: {
     query?: Partial<UseQueryOptions<Awaited<ReturnType<typeof listarNinos>>, TError, TData>>;
-    fetch?: RequestInit;
+    request?: SecondParameter<typeof fetchConToken>;
   },
   queryClient?: QueryClient,
 ): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
@@ -161,7 +160,7 @@ export function useListarNinos<TData = Awaited<ReturnType<typeof listarNinos>>, 
   params?: ListarNinosParams,
   options?: {
     query?: Partial<UseQueryOptions<Awaited<ReturnType<typeof listarNinos>>, TError, TData>>;
-    fetch?: RequestInit;
+    request?: SecondParameter<typeof fetchConToken>;
   },
   queryClient?: QueryClient,
 ): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
@@ -206,17 +205,12 @@ export const getObtenerTrayectoriaUrl = (id: string, params?: ObtenerTrayectoria
 export const obtenerTrayectoria = async (
   id: string,
   params?: ObtenerTrayectoriaParams,
-  options?: RequestInit,
+  options?: Parameters<typeof fetchConToken>[1],
 ): Promise<obtenerTrayectoriaResponse> => {
-  const res = await fetch(getObtenerTrayectoriaUrl(id, params), {
+  return fetchConToken<obtenerTrayectoriaResponse>(getObtenerTrayectoriaUrl(id, params), {
     ...options,
     method: 'GET',
   });
-
-  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
-
-  const data: obtenerTrayectoriaResponse['data'] = body ? JSON.parse(body) : {};
-  return { data, status: res.status, headers: res.headers } as obtenerTrayectoriaResponse;
 };
 
 export const getObtenerTrayectoriaQueryKey = (id: string, params?: ObtenerTrayectoriaParams) => {
@@ -231,15 +225,15 @@ export const getObtenerTrayectoriaQueryOptions = <
   params?: ObtenerTrayectoriaParams,
   options?: {
     query?: Partial<UseQueryOptions<Awaited<ReturnType<typeof obtenerTrayectoria>>, TError, TData>>;
-    fetch?: RequestInit;
+    request?: SecondParameter<typeof fetchConToken>;
   },
 ) => {
-  const { query: queryOptions, fetch: fetchOptions } = options ?? {};
+  const { query: queryOptions, request: requestOptions } = options ?? {};
 
   const queryKey = queryOptions?.queryKey ?? getObtenerTrayectoriaQueryKey(id, params);
 
   const queryFn: QueryFunction<Awaited<ReturnType<typeof obtenerTrayectoria>>> = ({ signal }) =>
-    obtenerTrayectoria(id, params, { signal, ...fetchOptions });
+    obtenerTrayectoria(id, params, { signal, ...requestOptions });
 
   return {
     queryKey,
@@ -272,7 +266,7 @@ export function useObtenerTrayectoria<
         >,
         'initialData'
       >;
-    fetch?: RequestInit;
+    request?: SecondParameter<typeof fetchConToken>;
   },
   queryClient?: QueryClient,
 ): DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
@@ -294,7 +288,7 @@ export function useObtenerTrayectoria<
         >,
         'initialData'
       >;
-    fetch?: RequestInit;
+    request?: SecondParameter<typeof fetchConToken>;
   },
   queryClient?: QueryClient,
 ): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
@@ -306,7 +300,7 @@ export function useObtenerTrayectoria<
   params?: ObtenerTrayectoriaParams,
   options?: {
     query?: Partial<UseQueryOptions<Awaited<ReturnType<typeof obtenerTrayectoria>>, TError, TData>>;
-    fetch?: RequestInit;
+    request?: SecondParameter<typeof fetchConToken>;
   },
   queryClient?: QueryClient,
 ): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
@@ -322,7 +316,7 @@ export function useObtenerTrayectoria<
   params?: ObtenerTrayectoriaParams,
   options?: {
     query?: Partial<UseQueryOptions<Awaited<ReturnType<typeof obtenerTrayectoria>>, TError, TData>>;
-    fetch?: RequestInit;
+    request?: SecondParameter<typeof fetchConToken>;
   },
   queryClient?: QueryClient,
 ): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {

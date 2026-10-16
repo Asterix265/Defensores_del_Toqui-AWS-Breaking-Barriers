@@ -1,10 +1,17 @@
+import { useState } from 'react';
 import Avatar from '@mui/material/Avatar';
 import Box from '@mui/material/Box';
+import ButtonBase from '@mui/material/ButtonBase';
+import ListItemIcon from '@mui/material/ListItemIcon';
+import Menu from '@mui/material/Menu';
+import MenuItem from '@mui/material/MenuItem';
 import Tab from '@mui/material/Tab';
 import Tabs from '@mui/material/Tabs';
 import Typography from '@mui/material/Typography';
 import EventNoteRounded from '@mui/icons-material/EventNoteRounded';
+import ExpandMoreRounded from '@mui/icons-material/ExpandMoreRounded';
 import GroupsRounded from '@mui/icons-material/GroupsRounded';
+import LogoutRounded from '@mui/icons-material/LogoutRounded';
 
 export type Seccion = 'sala' | 'notas';
 
@@ -14,17 +21,20 @@ function iniciales(nombre: string): string {
 
 /**
  * Barra superior del panel: institución y jardín, pestañas «Mi sala» · «Mis notas» (los mismos
- * destinos e íconos de la barra del celular) y educadora con sesión.
+ * destinos e íconos de la barra del celular) y educadora con sesión, cuyo menú permite salir.
  */
 export function CabeceraPanel({
   nombre,
   seccion,
   onSeccion,
+  onSalir,
 }: {
   nombre: string;
   seccion: Seccion;
   onSeccion: (seccion: Seccion) => void;
+  onSalir?: () => void;
 }) {
+  const [ancla, setAncla] = useState<HTMLElement | null>(null);
   return (
     <Box
       component="header"
@@ -59,10 +69,39 @@ export function CabeceraPanel({
         />
       </Tabs>
 
-      <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center', gap: 1.25 }}>
+      <ButtonBase
+        aria-label={`Cuenta de ${nombre}`}
+        aria-haspopup="menu"
+        aria-expanded={ancla ? 'true' : undefined}
+        disabled={!onSalir}
+        onClick={(e) => setAncla(e.currentTarget)}
+        sx={{ ml: 'auto', display: 'flex', alignItems: 'center', gap: 1.25, p: 1, borderRadius: 3 }}
+      >
         <Avatar sx={{ bgcolor: 'primary.main', fontSize: 14 }}>{iniciales(nombre)}</Avatar>
         <Typography sx={{ fontWeight: 700, fontSize: 16 }}>{nombre}</Typography>
-      </Box>
+        {onSalir && <ExpandMoreRounded sx={{ color: 'text.secondary' }} />}
+      </ButtonBase>
+      {onSalir && (
+        <Menu
+          anchorEl={ancla}
+          open={ancla !== null}
+          onClose={() => setAncla(null)}
+          anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+          transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+        >
+          <MenuItem
+            onClick={() => {
+              setAncla(null);
+              onSalir();
+            }}
+          >
+            <ListItemIcon>
+              <LogoutRounded />
+            </ListItemIcon>
+            Cerrar sesión
+          </MenuItem>
+        </Menu>
+      )}
     </Box>
   );
 }

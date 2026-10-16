@@ -1,6 +1,19 @@
-import { useState, type ComponentProps, type ReactNode } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type ComponentProps,
+  type ReactNode,
+} from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
+import Dialog from '@mui/material/Dialog';
+import DialogActions from '@mui/material/DialogActions';
+import DialogContent from '@mui/material/DialogContent';
+import DialogContentText from '@mui/material/DialogContentText';
+import DialogTitle from '@mui/material/DialogTitle';
 import Snackbar from '@mui/material/Snackbar';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { useTheme } from '@mui/material/styles';
@@ -8,7 +21,15 @@ import { BarraInferior } from './BarraInferior';
 import Button from '@mui/material/Button';
 import CircularProgress from '@mui/material/CircularProgress';
 import Typography from '@mui/material/Typography';
-import { useCatalogo, useNinos } from './api';
+import {
+  alTerminarSesion,
+  cerrarSesion,
+  haySesion,
+  iniciarSesion,
+  modoLocal,
+} from '../auth/sesion';
+import type { MeResponseDtoOutput } from '../api/generated/model';
+import { ErrorApi, useCatalogo, useIdentidad, useNinos } from './api';
 import type { Formato, Nino } from './datos';
 import { FichaNino } from './FichaNino';
 import { Ingreso } from './Ingreso';
@@ -20,9 +41,14 @@ import { PanelSalas } from './PanelSalas';
 import { useNotas } from './registrar';
 import { colores } from './tema';
 
-const CLAVE_SESION = 'toqui.registro.correo';
-/** Sala de la educadora: la API aún no la sabe (llegará con Cognito), así que se recuerda aquí. */
+/** Sala de la educadora: el token no la trae, así que se recuerda en el dispositivo. */
 const CLAVE_SALA = 'toqui.registro.sala';
+/** Correo del ingreso simulado anterior; se borra al cerrar sesión. */
+const CLAVE_CORREO_ANTERIOR = 'toqui.registro.correo';
+
+export const AVISO_SESION_TERMINADA = 'Tu sesión terminó. Ingresa de nuevo.';
+export const AVISO_SIN_JARDIN =
+  'Tu cuenta no tiene un jardín o un rol asignado. Pide ayuda a quien administra la app.';
 
 /**
  * Pantalla del celular. El niño o niña elegido viaja solo en la vista `nueva` abierta desde su
@@ -35,19 +61,13 @@ type Vista =
   | { tipo: 'ficha'; ninoId: string }
   | { tipo: 'nueva'; formato: Formato; ninoId?: string };
 
-function leerSesion(): string | null {
-  try {
-    return localStorage.getItem(CLAVE_SESION);
-  } catch {
-    return null;
-  }
-}
+type EstadoSesion = 'verificando' | 'fuera' | 'dentro';
 
-function guardar(clave: string, valor: string) {
+function olvidar(...claves: string[]) {
   try {
-    localStorage.setItem(clave, valor);
+    for (const clave of claves) localStorage.removeItem(clave);
   } catch {
-    // Sin almacenamiento disponible el valor dura lo que dure la pestaña.
+    // Sin almacenamiento no hay nada que borrar.
   }
 }
 
@@ -59,9 +79,11 @@ function leerSala(): string | null {
   }
 }
 
-/** «mercedes@integra.cl» → «Mercedes». */
-function nombreDesdeCorreo(correo: string): string {
-  const base = correo.split('@')[0]?.split(/[._-]/)[0] ?? '';
+/** «Mercedes Soto» → «Mercedes»; sin nombre, «mercedes.soto@integra.cl» → «Mercedes». */
+export function nombreVisible(me: Pick<MeResponseDtoOutput, 'nombre' | 'email'>): string {
+  // `||` y no `??`: un nombre vacío también pasa al correo.
+  const base =
+    me.nombre?.trim().split(/\s+/)[0] || me.email?.split('@')[0]?.split(/[._-]/)[0] || '';
   return base ? base.charAt(0).toUpperCase() + base.slice(1) : 'tía';
 }
 
@@ -69,21 +91,8 @@ function esHoy(fecha: Date, ahora: Date): boolean {
   return fecha.toDateString() === ahora.toDateString();
 }
 
-/**
- * App «Registro Simple». En el celular, el flujo de la tía (diseño 1b + pantallas
- * comunes 1d); en pantallas anchas, el panel de notas de las salas (diseño 1e) con carga
- * de notas desde el PC.
- * Niños, niñas, catálogo, niveles, registros y notas vienen de la API; las notas se guardan
- * en ella y el audio y la foto se suben a S3. El ingreso sigue simulado, y la transcripción, la
- * lectura de la foto y la IA aún no están implementadas en la API (la revisión lo avisa).
- */
-export function RegistroApp() {
-  const [correo, setCorreo] = useState<string | null>(leerSesion);
-  const ninos = useNinos();
-  const catalogo = useCatalogo();
-  const escritorio = useMediaQuery(useTheme().breakpoints.up('md'));
-
-  const marco = (contenido: ReactNode) => (
+function Marco({ children }: { children: ReactNode }) {
+  return (
     <Box sx={{ minHeight: '100dvh', bgcolor: colores.lienzo }}>
       <Box
         sx={{
@@ -96,40 +105,158 @@ export function RegistroApp() {
           boxShadow: { sm: '0 8px 20px -4px rgba(58,36,20,.10)' },
         }}
       >
-        {contenido}
+        {children}
       </Box>
     </Box>
   );
+}
 
-  if (!correo) {
-    return marco(
+const marco = (contenido: ReactNode) => <Marco>{contenido}</Marco>;
+
+/**
+ * App «Registro Simple». Primero el ingreso con Cognito (o el modo local sin Cognito); con
+ * sesión, en el celular el flujo de la tía (diseño 1b + pantallas comunes 1d) y en pantallas
+ * anchas el panel de notas de las salas (diseño 1e).
+ * Identidad, niños, niñas, catálogo, niveles, registros y notas vienen de la API con el ID token;
+ * el audio y la foto se suben a S3. La transcripción, la lectura de la foto y la IA aún no están
+ * implementadas en la API (la revisión lo avisa).
+ */
+export function RegistroApp() {
+  const [estado, setEstado] = useState<EstadoSesion>('verificando');
+  const [aviso, setAviso] = useState<string | null>(null);
+  const cliente = useQueryClient();
+  /** Evita cerrar la sesión varias veces cuando llegan varios 401 a la vez. */
+  const cerrando = useRef(false);
+
+  useEffect(() => {
+    let vigente = true;
+    void haySesion().then((hay) => {
+      if (vigente) setEstado(hay ? 'dentro' : 'fuera');
+    });
+    return () => {
+      vigente = false;
+    };
+  }, []);
+
+  /** Revoca la sesión del dispositivo y borra lo que quedó del jardín en memoria. */
+  const salir = useCallback(
+    async (motivo: string | null) => {
+      if (cerrando.current) return;
+      cerrando.current = true;
+      try {
+        await cerrarSesion();
+        cliente.clear();
+        olvidar(CLAVE_SALA, CLAVE_CORREO_ANTERIOR);
+        setAviso(motivo);
+        setEstado('fuera');
+      } finally {
+        cerrando.current = false;
+      }
+    },
+    [cliente],
+  );
+
+  // La API rechazó el token (vencido, revocado o de otro pool).
+  useEffect(() => alTerminarSesion(() => void salir(AVISO_SESION_TERMINADA)), [salir]);
+
+  if (estado === 'verificando') return marco(<Estado mensaje="Abriendo…" cargando />);
+  if (estado === 'fuera') {
+    return (
       <Ingreso
-        onIngresar={(c) => {
-          guardar(CLAVE_SESION, c);
-          setCorreo(c);
+        aviso={aviso}
+        modoLocal={modoLocal()}
+        onIngresar={async (correo, clave) => {
+          const resultado = await iniciarSesion(correo, clave);
+          if (!resultado.ok) return resultado.error;
+          setAviso(null);
+          setEstado('dentro');
+          return null;
         }}
-      />,
+      />
     );
   }
-  if (ninos.isError || catalogo.isError) {
-    return marco(
+  return <AppSesion salir={salir} />;
+}
+
+/** Con sesión: identidad y datos del jardín, y la confirmación para cerrar sesión. */
+function AppSesion({ salir }: { salir: (motivo: string | null) => Promise<void> }) {
+  const identidad = useIdentidad();
+  const ninos = useNinos();
+  const catalogo = useCatalogo();
+  const escritorio = useMediaQuery(useTheme().breakpoints.up('md'));
+  const [confirmando, setConfirmando] = useState(false);
+  const [saliendo, setSaliendo] = useState(false);
+  const sinPermiso = identidad.error instanceof ErrorApi && identidad.error.status === 403;
+
+  useEffect(() => {
+    if (sinPermiso) void salir(AVISO_SIN_JARDIN);
+  }, [sinPermiso, salir]);
+
+  const pedirSalida = () => setConfirmando(true);
+  const confirmacion = (
+    <Dialog
+      open={confirmando}
+      onClose={() => !saliendo && setConfirmando(false)}
+      aria-labelledby="titulo-salir"
+      aria-describedby="detalle-salir"
+    >
+      <DialogTitle id="titulo-salir" sx={{ fontWeight: 800 }}>
+        ¿Cerrar sesión?
+      </DialogTitle>
+      <DialogContent>
+        <DialogContentText id="detalle-salir">
+          Tus notas guardadas no se pierden. Para volver a entrar en este dispositivo necesitarás tu
+          correo y contraseña.
+        </DialogContentText>
+      </DialogContent>
+      <DialogActions sx={{ px: 3, pb: 2.5, gap: 1 }}>
+        <Button variant="text" onClick={() => setConfirmando(false)} disabled={saliendo}>
+          Cancelar
+        </Button>
+        <Button
+          variant="contained"
+          disabled={saliendo}
+          onClick={() => {
+            setSaliendo(true);
+            void salir(null);
+          }}
+        >
+          Cerrar sesión
+        </Button>
+      </DialogActions>
+    </Dialog>
+  );
+
+  let pantalla;
+  if (sinPermiso) {
+    pantalla = marco(<Estado mensaje="Cerrando sesión…" cargando />);
+  } else if (identidad.isError || ninos.isError || catalogo.isError) {
+    pantalla = marco(
       <Estado
         mensaje="No se pudo conectar con la API. Revisa que esté levantada (pnpm dev)."
         onReintentar={() => window.location.reload()}
+        onSalir={pedirSalida}
       />,
     );
-  }
-  if (!ninos.data || !catalogo.niveles || !catalogo.manifestaciones) {
-    return marco(<Estado mensaje="Cargando tu jardín…" cargando />);
+  } else if (!identidad.data || !ninos.data || !catalogo.niveles || !catalogo.manifestaciones) {
+    pantalla = marco(<Estado mensaje="Cargando tu jardín…" cargando />);
+  } else {
+    pantalla = (
+      <AppConDatos
+        nombre={nombreVisible(identidad.data)}
+        ninos={ninos.data}
+        catalogo={{ niveles: catalogo.niveles, manifestaciones: catalogo.manifestaciones }}
+        escritorio={escritorio}
+        marco={marco}
+        onSalir={pedirSalida}
+      />
+    );
   }
   return (
-    <AppConDatos
-      nombre={nombreDesdeCorreo(correo)}
-      ninos={ninos.data}
-      catalogo={{ niveles: catalogo.niveles, manifestaciones: catalogo.manifestaciones }}
-      escritorio={escritorio}
-      marco={marco}
-    />
+    <>
+      {pantalla}
+      {confirmacion}
+    </>
   );
 }
 
@@ -137,10 +264,12 @@ function Estado({
   mensaje,
   cargando = false,
   onReintentar,
+  onSalir,
 }: {
   mensaje: string;
   cargando?: boolean;
   onReintentar?: () => void;
+  onSalir?: () => void;
 }) {
   return (
     <Box
@@ -163,6 +292,11 @@ function Estado({
           Reintentar
         </Button>
       )}
+      {onSalir && (
+        <Button variant="text" onClick={onSalir}>
+          Cerrar sesión
+        </Button>
+      )}
     </Box>
   );
 }
@@ -173,12 +307,14 @@ function AppConDatos({
   catalogo,
   escritorio,
   marco,
+  onSalir,
 }: {
   nombre: string;
   ninos: Nino[];
   catalogo: ComponentProps<typeof NuevaNota>['catalogo'];
   escritorio: boolean;
   marco: (contenido: ReactNode) => ReactNode;
+  onSalir: () => void;
 }) {
   const salas = [...new Set(ninos.map((n) => n.sala))].sort();
   const guardada = leerSala();
@@ -218,6 +354,7 @@ function AppConDatos({
           ahora={ahora}
           nombre={nombre}
           onGuardada={alGuardar}
+          onSalir={onSalir}
         />
         {avisoGuardado}
       </>
@@ -274,6 +411,7 @@ function AppConDatos({
           nombre={nombre}
           notasHoy={(confirmadas.data ?? []).filter((n) => esHoy(n.creada, ahora)).length}
           onElegir={nueva}
+          onSalir={onSalir}
         />
       );
     }

@@ -21,6 +21,7 @@ export function PanelSalas({
   ahora,
   nombre,
   onGuardada,
+  onSalir,
 }: {
   ninos: Nino[];
   salas: string[];
@@ -29,6 +30,8 @@ export function PanelSalas({
   ahora: Date;
   nombre: string;
   onGuardada: (nino: Nino) => void;
+  /** Pide cerrar sesión; la confirmación la muestra quien llama. */
+  onSalir?: () => void;
 }) {
   const [seccion, setSeccion] = useState<Seccion>('notas');
   const [sala, setSala] = useState<string | null>(null);
@@ -81,7 +84,12 @@ export function PanelSalas({
 
   return (
     <Box sx={{ minHeight: '100dvh', bgcolor: 'background.default' }}>
-      <CabeceraPanel nombre={nombre} seccion={seccion} onSeccion={cambiarSeccion} />
+      <CabeceraPanel
+        nombre={nombre}
+        seccion={seccion}
+        onSeccion={cambiarSeccion}
+        onSalir={onSalir}
+      />
       <Box component="main" sx={{ maxWidth: 1280, mx: 'auto', px: 5, pt: 4, pb: 5 }}>
         {contenido}
       </Box>

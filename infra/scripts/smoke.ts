@@ -1,5 +1,6 @@
 // Prueba de humo de los servicios AWS de desarrollo: STS → S3 → Transcribe → Bedrock → Cognito.
-// Uso: TOQUI_DEV_PASSWORD=... pnpm aws:smoke   (requiere el stack ToquiDev y `pnpm aws:users`)
+// Uso: pnpm aws:smoke (requiere el stack ToquiDev y, en infra/.env, TOQUI_DEV_PASSWORD o el
+// usuario personal TOQUI_PERSONAL_EMAIL + TOQUI_PERSONAL_PASSWORD)
 import { readFileSync } from 'node:fs';
 import { setTimeout as esperar } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
@@ -27,14 +28,7 @@ import {
   TranscribeClient,
 } from '@aws-sdk/client-transcribe';
 import { CognitoJwtVerifier } from 'aws-jwt-verify';
-import {
-  MODELOS,
-  REGION,
-  USUARIOS_PRUEBA,
-  contrasenaPrueba,
-  leerSalidas,
-  prepararCredenciales,
-} from './comun.js';
+import { MODELOS, REGION, leerSalidas, prepararCredenciales, usuarioSmoke } from './comun.js';
 
 type Resultado = { paso: string; ok: boolean; detalle: string; ms: number };
 const resultados: Resultado[] = [];
@@ -179,13 +173,13 @@ await paso('4. Bedrock (Claude + Guardrail)', async () => {
 });
 
 await paso('5. Cognito (login + validación del token)', async () => {
-  const usuario = USUARIOS_PRUEBA[0];
+  const usuario = usuarioSmoke();
   const cognito = new CognitoIdentityProviderClient({ region: REGION });
   const auth = await cognito.send(
     new InitiateAuthCommand({
       ClientId: salidas.UserPoolClientId,
       AuthFlow: 'USER_PASSWORD_AUTH',
-      AuthParameters: { USERNAME: usuario.email, PASSWORD: contrasenaPrueba() },
+      AuthParameters: { USERNAME: usuario.email, PASSWORD: usuario.password },
     }),
   );
   const token = auth.AuthenticationResult?.IdToken;

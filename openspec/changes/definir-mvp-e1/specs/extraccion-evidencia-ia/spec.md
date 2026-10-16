@@ -1,7 +1,7 @@
 ## ADDED Requirements
 
 ### Requirement: Normalización de la captura a texto
-El pipeline SHALL convertir cada captura en texto antes de la extracción: el texto se usa directamente, el audio se transcribe y la foto se interpreta con un modelo multimodal.
+El pipeline SHALL convertir cada captura en texto antes de la extracción: el texto se usa directamente, el audio se transcribe y el texto de la foto se lee con OCR (Amazon Textract) o, como respaldo, con un modelo multimodal.
 
 #### Scenario: Audio transcrito
 - **WHEN** llega una captura de audio

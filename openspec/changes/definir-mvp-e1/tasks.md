@@ -23,7 +23,7 @@
 - [ ] 4.4 Implementar `IaProvider` `bedrock` con Claude y Guardrails (filtro de información personal); comprobar que la solicitud no incluye `id_nino` ni nombres
 - [ ] 4.5 Implementar la normalización de audio con Transcribe (`es-US`) y probarla con un audio sintético grabado por el equipo
 - [x] 4.6 Implementar `PIPELINE_MODE=inline` (pasos secuenciales en la API) y el endpoint interno que recibe borradores de forma idempotente por `id_captura`
-- [ ] 4.7 (Debería) Implementar la normalización de foto con Claude multimodal y reducción de tamaño con `sharp`
+- [x] 4.7 (Debería) Implementar la normalización de foto. Reemplazada por la tarea 4.4 de `cola-ia-y-amplify`: Amazon Textract en la Lambda de proceso, sin `sharp`
 
 ## 5. Revisión, trayectoria y panel (imprescindible y debería)
 

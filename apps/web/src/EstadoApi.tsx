@@ -1,6 +1,6 @@
 import { useGetHealth } from './api/generated/health/health';
 
-/** Pantalla técnica (/estado): confirma que la web se comunica con la API. */
+/** Pantalla técnica (/estado): confirma que la web se comunica con la API y la API con sus dependencias. */
 export function EstadoApi() {
   const { data, isPending, isError } = useGetHealth();
 
@@ -8,9 +8,13 @@ export function EstadoApi() {
   if (isError) estado = 'No se pudo contactar la API';
   else if (data) {
     const salud = data.data;
-    estado = `API ${salud.status === 'ok' ? 'operativa' : 'degradada'} · base de datos ${
-      salud.dependencies.database === 'up' ? 'conectada' : 'sin conexión'
-    }`;
+    const { database, storage, queue } = salud.dependencies;
+    estado = [
+      `API ${salud.status === 'ok' ? 'operativa' : 'degradada'}`,
+      `base de datos ${database === 'up' ? 'conectada' : 'sin conexión'}`,
+      `almacenamiento ${storage === 'up' ? 'conectado' : 'sin conexión'}`,
+      `cola ${queue === 'up' ? 'conectada' : 'sin conexión'}`,
+    ].join(' · ');
   }
 
   return (

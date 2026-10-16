@@ -412,7 +412,7 @@
             "bearer": []
           }
         ],
-        "summary": "Avisa que el audio o la foto ya está en S3; en modo inline, lo comprueba y lo procesa",
+        "summary": "Avisa que el audio o la foto ya está en S3: lo comprueba y lo manda a procesar",
         "tags": [
           "capturas"
         ]
@@ -753,10 +753,26 @@
                   "up",
                   "down"
                 ]
+              },
+              "storage": {
+                "type": "string",
+                "enum": [
+                  "up",
+                  "down"
+                ]
+              },
+              "queue": {
+                "type": "string",
+                "enum": [
+                  "up",
+                  "down"
+                ]
               }
             },
             "required": [
-              "database"
+              "database",
+              "storage",
+              "queue"
             ],
             "additionalProperties": false
           }

@@ -9,6 +9,7 @@ import {
   SISTEMA_EXTRACCION,
 } from './prompt.js';
 import { contextoNivel7 } from './pruebas/catalogos.js';
+import { sinCredenciales } from './pruebas/sin-credenciales.js';
 
 /*
  * Prueba manual contra Bedrock real. Solo corre con RUN_BEDROCK_LIVE=1 y credenciales del
@@ -17,7 +18,7 @@ import { contextoNivel7 } from './pruebas/catalogos.js';
  */
 
 const REGION = 'us-east-1';
-const MODELO = 'us.anthropic.claude-sonnet-5-5';
+const MODELO = 'us.anthropic.claude-opus-5';
 const NOTA =
   'Persona Ficticia Uno, RUT 11.111.111-1, apiló cuatro bloques sola y aplaudió cuando no se cayeron.';
 
@@ -32,8 +33,14 @@ describe.skipIf(process.env.RUN_BEDROCK_LIVE !== '1')('Bedrock real', () => {
         version: process.env.BEDROCK_GUARDRAIL_VERSION ?? '',
       },
     });
-    const borrador = await proveedor.extraer(NOTA, contextoNivel7());
-    console.info('Borrador de Bedrock:', JSON.stringify(borrador));
+    const borrador = await sinCredenciales(proveedor.extraer(NOTA, contextoNivel7()));
+    console.info(
+      'Borrador de Bedrock:',
+      JSON.stringify({
+        nivel: borrador.nivelSugerido,
+        ids: borrador.manifestaciones.map((m) => m.idManifestacion),
+      }),
+    );
     expect(BorradorEntranteSchema.parse(borrador)).toEqual(borrador);
     expect(borrador.textoFuente).toBe(NOTA);
     for (const m of borrador.manifestaciones) expect(NOTA).toContain(m.cita);

@@ -18,7 +18,7 @@ export const USUARIOS_PRUEBA = [
 ] as const;
 
 export const MODELOS = {
-  extraccion: 'us.anthropic.claude-sonnet-5-5',
+  extraccion: 'us.anthropic.claude-opus-5',
   resumen: 'us.anthropic.claude-haiku-5-5',
 } as const;
 

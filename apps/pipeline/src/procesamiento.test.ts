@@ -4,7 +4,7 @@ import { declararProcesamiento } from './procesamiento.js';
 import { mensajeArchivo, mensajeTexto } from './pruebas/datos.js';
 
 const FAKE = { proveedor: 'fake' };
-const CLAUDE = { proveedor: 'bedrock', modelo: 'us.anthropic.claude-sonnet-5-5' };
+const CLAUDE = { proveedor: 'bedrock', modelo: 'us.anthropic.claude-opus-5' };
 
 const conBytes = (m: MensajeCaptura, archivoBytes: number) =>
   ({ ...m, archivoBytes }) as MensajeCaptura;
@@ -52,6 +52,38 @@ describe('declararProcesamiento', () => {
     expect(p.pasos[0]).toMatchObject({ paso: 'lectura_imagen', estado: 'simulado' });
   });
 
+  it('foto leída con Textract y clasificada con Claude: sin aviso de simulación', () => {
+    const mensaje = mensajeArchivo('foto', 'capturas/y.jpg', 'image/jpeg');
+    const p = declararProcesamiento(
+      mensaje,
+      { texto: 'Apiló bloques.', via: 'lector_imagen', lector: 'textract' },
+      CLAUDE,
+    );
+    expect(p.simulado).toBe(false);
+    expect(p.pasos).toEqual([
+      {
+        paso: 'lectura_imagen',
+        estado: 'completado',
+        detalle: expect.stringContaining('Textract'),
+      },
+      { paso: 'extraccion', estado: 'completado', detalle: expect.stringContaining('claude') },
+    ]);
+  });
+
+  it('audio transcrito y clasificado con Claude: transcripción y extracción completadas', () => {
+    const mensaje = conBytes(mensajeArchivo('audio', 'capturas/x.webm', 'audio/webm'), 48_213);
+    const p = declararProcesamiento(mensaje, { texto: 'Dijo agua.', via: 'transcribe' }, CLAUDE);
+    expect(p.simulado).toBe(false);
+    expect(p.pasos).toEqual([
+      { paso: 'transcripcion', estado: 'completado', detalle: expect.any(String) },
+      {
+        paso: 'extraccion',
+        estado: 'completado',
+        detalle: 'Clasificada con us.anthropic.claude-opus-5.',
+      },
+    ]);
+  });
+
   it('texto clasificado con Claude: completado, sin aviso de simulación', () => {
     const p = declararProcesamiento(
       mensajeTexto('Saltó en la rampa.'),
@@ -65,7 +97,7 @@ describe('declararProcesamiento', () => {
         {
           paso: 'extraccion',
           estado: 'completado',
-          detalle: 'Clasificada con us.anthropic.claude-sonnet-5-5.',
+          detalle: 'Clasificada con us.anthropic.claude-opus-5.',
         },
       ],
     });

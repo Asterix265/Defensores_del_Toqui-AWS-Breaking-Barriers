@@ -9,7 +9,7 @@ Cuenta AWS entregada por el evento, región **`us-east-1`**. La organización de
 | Servicio | Uso en desarrollo | Recurso |
 | --- | --- | --- |
 | IAM | Acceso de las 6 personas | Grupo `admins` |
-| Bedrock | Claude para extraer y resumir; Nova para video (opcional) | `us.anthropic.claude-sonnet-5-5`, `us.anthropic.claude-haiku-5-5`, `us.amazon.nova-lite-v1:0` |
+| Bedrock | Claude para extraer y resumir; Nova para video (opcional) | `us.anthropic.claude-opus-5` (extracción). Opus 5.5, Sonnet 5.5 y Haiku 5.5 no están permitidos en la cuenta del evento. `us.amazon.nova-lite-v1:0` para video |
 | Bedrock Guardrails | Anonimiza nombres, correos, teléfonos, direcciones y RUT en entrada y salida | `toqui-dev-pii` |
 | Transcribe | Audio a texto (`es-US`) | Sin recursos propios |
 | S3 | Audios y fotos subidos con URL prefirmada | `toqui-dev-capturas-<cuenta>` (privado, borrado a los 7 días, CORS para `http://localhost:5173`) |

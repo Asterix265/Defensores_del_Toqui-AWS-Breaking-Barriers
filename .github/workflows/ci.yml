@@ -43,7 +43,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Preparar paquetes generados
-        run: pnpm --filter @toqui/shared build && pnpm --filter @toqui/api prisma:generate
+        run: pnpm --filter "@toqui/ia..." build && pnpm --filter @toqui/api prisma:generate
 
       - name: Lint y formato
         run: pnpm lint && pnpm format:check

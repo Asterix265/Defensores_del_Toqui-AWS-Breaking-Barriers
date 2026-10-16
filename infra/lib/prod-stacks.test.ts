@@ -1,10 +1,13 @@
+import { readFileSync } from 'node:fs';
 import { App } from 'aws-cdk-lib';
 import { Match, Template } from 'aws-cdk-lib/assertions';
-import { beforeAll, describe, it } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
 import {
   AppStack,
   CONCURRENCIA_PROCESO,
+  IA_PROVIDER_PROCESO,
   MAX_INTENTOS_PROCESO,
+  MODELOS,
   ORIGEN_WEB_AMPLIFY,
   PREFIJO_DATASET,
   PREFIX_LIST_CLOUDFRONT,
@@ -197,7 +200,7 @@ describe('stacks de producción', () => {
   it('procesa las capturas desde una cola con DLQ y sin Step Functions', () => {
     app.hasResourceProperties('AWS::SQS::Queue', {
       QueueName: 'toqui-prod-capturas',
-      VisibilityTimeout: 720,
+      VisibilityTimeout: 1080,
       RedrivePolicy: Match.objectLike({ maxReceiveCount: MAX_INTENTOS_PROCESO }),
     });
     app.hasResourceProperties('AWS::SQS::Queue', {
@@ -218,15 +221,35 @@ describe('stacks de producción', () => {
       FunctionName: 'toqui-prod-proceso',
       Runtime: 'nodejs24.x',
       Architectures: ['arm64'],
-      Timeout: 120,
+      Timeout: 180,
       Environment: {
         Variables: Match.objectLike({
           PIPELINE_TOKEN_SECRETO: Match.anyValue(),
+          IA_PROVIDER: IA_PROVIDER_PROCESO,
+          MODELO_EXTRACCION: MODELOS.extraccion,
           LECTOR_FOTO: 'textract',
           MAX_INTENTOS: String(MAX_INTENTOS_PROCESO),
         }),
       },
     });
+  });
+
+  it('la Lambda de proceso clasifica con Claude (bedrock) desde la prueba en vivo', () => {
+    // Volver a la clasificación simulada es cambiar esta constante a 'fake' (y esta prueba).
+    expect(IA_PROVIDER_PROCESO).toBe('bedrock');
+    app.hasResourceProperties('AWS::Lambda::Function', {
+      FunctionName: 'toqui-prod-proceso',
+      Environment: { Variables: Match.objectLike({ IA_PROVIDER: 'bedrock' }) },
+    });
+  });
+
+  it('cambiar de proveedor es un cambio de una línea: la constante solo fija IA_PROVIDER', () => {
+    // Una `const` no se puede cambiar desde la prueba: se comprueba que su único uso es la
+    // variable de la Lambda, así cambiarla no altera nada más del stack.
+    const codigo = readFileSync(new URL('./app-stack.ts', import.meta.url), 'utf8');
+    expect(codigo.match(/\bIA_PROVIDER_PROCESO\b/g)).toHaveLength(2);
+    expect(codigo).toContain("export const IA_PROVIDER_PROCESO: 'fake' | 'bedrock' = 'bedrock';");
+    expect(codigo).toContain('IA_PROVIDER: IA_PROVIDER_PROCESO,');
   });
 
   it('da a la Lambda Transcribe, Textract y el Guardrail', () => {

@@ -141,12 +141,12 @@ describe('RegistroApp', () => {
     expect(screen.queryByRole('button', { name: 'Vicente P.' })).not.toBeInTheDocument();
     await elegirYProcesar('Benjamín S.');
 
-    // El borrador de la API: aviso de lo simulado, el texto escrito, nivel 7 y Motor fino.
+    // El borrador de la API: aviso de lo simulado, el texto escrito, nivel 7 y Movimiento.
     expect(screen.getByText('Procesamiento simulado: aún no implementado')).toBeInTheDocument();
     expect(screen.getByText('Tu nota')).toBeInTheDocument();
     expect(screen.getByRole('status', { name: 'Nivel estimado' })).toHaveTextContent('Nivel 7');
     expect(screen.getByText(/estimación pedagógica, no un diagnóstico/)).toBeInTheDocument();
-    const propuesta = screen.getByRole('region', { name: 'Prueba MF 7' });
+    const propuesta = screen.getByRole('region', { name: 'Prueba CM 7' });
     expect(within(propuesta).getByText('«Apiló tres bloques y aplaudió.»')).toBeInTheDocument();
     fireEvent.click(boton('Está bien'));
 
@@ -160,7 +160,7 @@ describe('RegistroApp', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Mis notas' }));
     const hoy = await screen.findByRole('region', { name: 'Hoy' });
     expect(within(hoy).getByText('Apiló tres bloques y aplaudió.')).toBeInTheDocument();
-    expect(within(hoy).getByText('Motor fino')).toBeInTheDocument();
+    expect(within(hoy).getByText('Movimiento')).toBeInTheDocument();
     expect(within(hoy).getByText('Guardada')).toBeInTheDocument();
   });
 
@@ -222,17 +222,21 @@ describe('RegistroApp', () => {
 
     expect(screen.getByText(/No encontramos evidencia suficiente/)).toBeInTheDocument();
     expect(boton('Está bien')).toBeDisabled();
+    // Sin propuesta parte del nivel 1: los niveles por núcleo no tienen edades.
+    expect(screen.getByRole('status', { name: 'Nivel estimado' })).toHaveTextContent('Nivel 1');
     const catalogo = screen.getByRole('region', { name: 'Catálogo de manifestaciones' });
-    expect(within(catalogo).queryByText('Prueba SE 8')).not.toBeInTheDocument();
-    fireEvent.click(within(catalogo).getByRole('button', { name: /Prueba SE 7/ }));
+    expect(within(catalogo).queryByText('Prueba IA 2')).not.toBeInTheDocument();
+    // Solo el catálogo de Sala Cuna, el nivel educativo de Tomás.
+    expect(within(catalogo).queryByText(/Prueba NM/)).not.toBeInTheDocument();
+    fireEvent.click(within(catalogo).getByRole('button', { name: /Prueba IA 1/ }));
     expect(boton('Está bien')).toBeEnabled();
 
     // Cambiar el nivel quita lo elegido: la API exige manifestaciones del nivel confirmado.
     fireEvent.click(boton('Subir nivel'));
-    expect(screen.getByRole('status', { name: 'Nivel estimado' })).toHaveTextContent('Nivel 8');
+    expect(screen.getByRole('status', { name: 'Nivel estimado' })).toHaveTextContent('Nivel 2');
     expect(boton('Está bien')).toBeDisabled();
-    fireEvent.click(within(catalogo).getByRole('button', { name: /Prueba SE 8/ }));
-    fireEvent.click(boton('Quitar «Prueba SE 8»'));
+    fireEvent.click(within(catalogo).getByRole('button', { name: /Prueba IA 2/ }));
+    fireEvent.click(boton('Quitar «Prueba IA 2»'));
     expect(boton('Está bien')).toBeDisabled();
   });
 

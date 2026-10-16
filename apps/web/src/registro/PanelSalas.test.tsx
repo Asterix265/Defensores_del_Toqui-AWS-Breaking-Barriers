@@ -27,9 +27,9 @@ const catalogo = { niveles: NIVELES, manifestaciones: MANIFESTACIONES as Manifes
 
 /** Tres notas confirmadas en la API: dos de los últimos 7 días (Salas A y B) y una de hace 9. */
 function renderizar() {
-  sembrarConfirmada('NINO-T001', 'Señaló el gato del cuento, con calma.', 'MAN-L07-LC-01', 0);
-  sembrarConfirmada('NINO-T004', 'Subió la rampa sin ayuda.', 'MAN-L09-MG-01', 1);
-  sembrarConfirmada('NINO-T002', 'Dijo «agua» y apuntó a la botella.', 'MAN-L07-LC-01', 9);
+  sembrarConfirmada('NINO-T001', 'Señaló el gato del cuento, con calma.', 'MAN-L07-LV-01', 0);
+  sembrarConfirmada('NINO-T004', 'Subió la rampa sin ayuda.', 'MAN-NM-L08-CM-01', 1);
+  sembrarConfirmada('NINO-T002', 'Dijo «agua» y apuntó a la botella.', 'MAN-L07-LV-01', 9);
   return conProveedores(
     <PanelSalas
       ninos={ninos}
@@ -111,7 +111,7 @@ describe('notasACsv', () => {
       estado: 'confirmada',
       creada: new Date(2026, 9, 15, 12),
       texto: 'Señaló el gato del cuento, con calma.',
-      dominios: ['lenguaje_comunicacion'],
+      nucleos: ['LV'],
       nivel: 7,
     };
     const csv = notasACsv([nota]).split('\n');
@@ -155,8 +155,8 @@ describe('Pestañas de escritorio', () => {
     abrirMiSala();
     const grupos = screen.getAllByRole('region').map((r) => r.getAttribute('aria-label'));
     expect(grupos).toEqual(['Sala A', 'Sala B']);
-    expect(await screen.findByText('1 área sin notas')).toBeInTheDocument();
-    expect(boton(/Martina/)).toHaveTextContent('1 área sin notas');
+    expect(await screen.findByText('4 áreas sin notas')).toBeInTheDocument();
+    expect(boton(/Martina/)).toHaveTextContent('4 áreas sin notas');
   });
 
   it('filtra Mi sala y comparte la sala con Mis notas', async () => {
@@ -176,11 +176,11 @@ describe('Pestañas de escritorio', () => {
     fireEvent.click(boton(/Martina/));
 
     expect(screen.getByRole('heading', { name: 'Martina P.' })).toBeInTheDocument();
-    expect(
-      await screen.findByText('Sin notas aún. Buen momento para observar.'),
-    ).toBeInTheDocument();
+    expect(await screen.findAllByText('Sin notas aún. Buen momento para observar.')).toHaveLength(
+      4,
+    );
     const regiones = screen.getAllByRole('region').map((r) => r.getAttribute('aria-label'));
-    expect(regiones[0]).toBe('Motor grueso');
+    expect(regiones[0]).toBe('Convivencia');
     expect(screen.queryByText(/nivel|rezago/i)).not.toBeInTheDocument();
 
     // 4 observaciones del dataset + 1 confirmada en la app.

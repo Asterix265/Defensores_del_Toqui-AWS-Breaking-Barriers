@@ -43,12 +43,12 @@ describe('HERRAMIENTA_BORRADOR', () => {
 });
 
 describe('mensajeExtraccion', () => {
-  it('incluye edad, nivel esperado, catálogo agrupado por nivel y la nota delimitada', () => {
+  it('incluye edad, nivel de referencia, catálogo agrupado por nivel y la nota delimitada', () => {
     const contexto = contextoNivel7();
     const mensaje = mensajeExtraccion('{NAME} apiló cuatro bloques.', contexto);
     expect(mensaje).toContain('Edad: 30 meses');
-    expect(mensaje).toContain('Nivel esperado para la edad: 7');
-    expect(mensaje).toContain('- MAN-L07-MF-01 [motor_fino] Apila 4 bloques');
+    expect(mensaje).toContain('Nivel de referencia (último validado): 7');
+    expect(mensaje).toContain('- MAN-L07-MF-01 [MF] Apila 4 bloques');
     expect(mensaje).toContain('<nota>\n{NAME} apiló cuatro bloques.\n</nota>');
     const niveles = [...mensaje.matchAll(/^Nivel (\d+):$/gm)].map((m) => Number(m[1]));
     expect(niveles).toEqual([6, 7, 8]);
@@ -268,12 +268,12 @@ describe('mensajeClasificacion y sistemaClasificacion', () => {
     expect(mensaje.split('\n</nota-1>').length).toBe(2);
   });
 
-  it('agrupa por nivel ascendente un catálogo de los niveles 3 a 9, sin ventana', () => {
-    const catalogo = filtrarNiveles(catalogoDataset(), [3, 4, 5, 6, 7, 8, 9]).reverse();
+  it('agrupa por nivel ascendente un catálogo de los niveles 3 a 8, sin ventana', () => {
+    const catalogo = filtrarNiveles(catalogoDataset(), [3, 4, 5, 6, 7, 8]).reverse();
     const mensaje = mensajeClasificacion(entradaNivel7({ catalogo }));
     const niveles = [...mensaje.matchAll(/^Nivel (\d+):$/gm)].map((m) => Number(m[1]));
-    expect(niveles).toEqual([3, 4, 5, 6, 7, 8, 9]);
-    expect(mensaje).toContain('- MAN-L03-CO-01 [cognitivo] Conducta ficticia 1 de CO3');
-    expect(mensaje).toContain('- MAN-L09-SE-02 [socioemocional] Conducta ficticia 2 de SE9');
+    expect(niveles).toEqual([3, 4, 5, 6, 7, 8]);
+    expect(mensaje).toContain('- MAN-L03-CO-01 [CO] Conducta ficticia 1 de CO3');
+    expect(mensaje).toContain('- MAN-L08-SE-02 [SE] Conducta ficticia 2 de SE8');
   });
 });

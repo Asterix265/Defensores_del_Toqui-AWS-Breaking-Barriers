@@ -37,9 +37,9 @@ import {
   Pantalla,
 } from './componentes';
 import { formatoDuracion } from './formato';
-import { DOMINIOS, type Formato, type ManifestacionCitada, type Nino } from './datos';
+import { NUCLEOS, type Formato, type ManifestacionCitada, type Nino } from './datos';
 import {
-  nivelEsperado,
+  nivelInicial,
   registrarCaptura,
   useConfirmar,
   useDescartar,
@@ -762,9 +762,7 @@ function Revision({
 }) {
   const { borrador } = captura;
   const sinPropuesta = !borrador || borrador.evidenciaInsuficiente;
-  const [nivel, setNivel] = useState(
-    borrador?.nivelSugerido ?? nivelEsperado(nino.edadMeses, catalogo.niveles),
-  );
+  const [nivel, setNivel] = useState(borrador?.nivelSugerido ?? nivelInicial(catalogo.niveles));
   const [manifestaciones, setManifestaciones] = useState<ManifestacionCitada[]>(
     () => (borrador?.manifestaciones ?? []) as ManifestacionCitada[],
   );
@@ -896,7 +894,7 @@ function Revision({
             >
               <Stack sx={{ flex: 1, gap: 0.75, minWidth: 0 }}>
                 <Box>
-                  <ChipArea area={manifestacion.dominio} compacto />
+                  <ChipArea area={manifestacion.nucleo} compacto />
                 </Box>
                 <Typography sx={{ fontSize: 16, fontWeight: 700, lineHeight: '22px' }}>
                   {manifestacion.textoObservable}
@@ -924,6 +922,7 @@ function Revision({
               opciones={catalogo.manifestaciones.filter(
                 (m) =>
                   m.nivel === nivel &&
+                  m.nivelEducativo === nino.nivelEducativo &&
                   !manifestaciones.some((elegida) => elegida.manifestacion.id === m.id),
               )}
               lleno={manifestaciones.length >= MAXIMO_MANIFESTACIONES}
@@ -993,7 +992,7 @@ function ElegirNivel({
 }) {
   const nombre = niveles.find((n) => n.nivel === nivel)?.nombre;
   const minimo = niveles[0]?.nivel ?? 1;
-  const maximo = niveles.at(-1)?.nivel ?? 9;
+  const maximo = niveles.at(-1)?.nivel ?? 8;
   return (
     <Stack sx={{ gap: 0.5 }}>
       <Typography variant="caption" color="text.secondary">
@@ -1052,9 +1051,9 @@ function AgregarManifestacion({
           Puedes elegir hasta {MAXIMO_MANIFESTACIONES} manifestaciones.
         </Typography>
       )}
-      {DOMINIOS.map((dominio) =>
+      {NUCLEOS.map((nucleo) =>
         opciones
-          .filter((m) => m.dominio === dominio)
+          .filter((m) => m.nucleo === nucleo)
           .map((m) => (
             <ButtonBase
               key={m.id}
@@ -1072,7 +1071,7 @@ function AgregarManifestacion({
                 opacity: lleno ? 0.5 : 1,
               }}
             >
-              <ChipArea area={m.dominio} compacto />
+              <ChipArea area={m.nucleo} compacto />
               <Box component="span" sx={{ fontSize: 15, fontWeight: 600 }}>
                 {m.textoObservable}
               </Box>

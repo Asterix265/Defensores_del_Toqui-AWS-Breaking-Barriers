@@ -1,7 +1,6 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import {
   BorradorEntranteSchema,
-  DominioSchema,
   ManifestacionesResponseSchema,
   type Manifestacion,
 } from '@toqui/shared';
@@ -106,9 +105,18 @@ describe('Pureza del módulo', () => {
     }
   });
 
-  it('el código no conoce los dominios del dataset', () => {
+  it('el código no conoce los núcleos del dataset ni los dominios anteriores', () => {
+    const catalogoFijo = [
+      'Identidad y Autonomía',
+      'Convivencia y Ciudadanía',
+      'Corporalidad y Movimiento',
+      'Lenguaje Verbal',
+      'Pensamiento Matemático',
+      'motor_fino',
+      'socioemocional',
+    ];
     for (const [archivo, codigo] of fuentes()) {
-      for (const dominio of DominioSchema.options) expect(codigo, archivo).not.toContain(dominio);
+      for (const nombre of catalogoFijo) expect(codigo, archivo).not.toContain(nombre);
     }
   });
 });

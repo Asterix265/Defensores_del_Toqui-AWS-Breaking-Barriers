@@ -9,6 +9,7 @@ import {
   MAX_INTENTOS_PROCESO,
   MODELOS,
   ORIGEN_WEB_AMPLIFY,
+  PREFIJO_DATASET,
   PREFIX_LIST_CLOUDFRONT,
 } from './app-stack.js';
 import { DatosStack } from './datos-stack.js';
@@ -128,6 +129,25 @@ describe('stacks de producción', () => {
     for (const requerido of ['s3:PutObject', 's3:GetObject', 's3:ListBucket', '/capturas/*']) {
       if (!texto.includes(requerido)) throw new Error(`A la API le falta ${requerido}`);
     }
+  });
+
+  it('el rol de la API solo lee el prefijo dataset/ (carga con `aws:prod:seed`)', () => {
+    const politicas = app.findResources('AWS::IAM::Policy', {
+      Properties: { Roles: [{ Ref: Match.stringLikeRegexp('^ApiTaskDefTaskRole') }] },
+    });
+    const [politica] = Object.values(politicas) as {
+      Properties: {
+        PolicyDocument: { Statement: { Action: string | string[]; Resource: unknown }[] };
+      };
+    }[];
+    const dataset = politica!.Properties.PolicyDocument.Statement.filter((s) =>
+      JSON.stringify(s.Resource).includes('/dataset/*'),
+    );
+    if (dataset.length !== 1 || dataset[0]!.Action !== 's3:GetObject') {
+      throw new Error(`Permisos sobre dataset/: ${JSON.stringify(dataset)}`);
+    }
+    // `aws:prod:seed` se niega a lanzar la carga si el stack desplegado no expone esta salida.
+    app.hasOutput('PrefijoDataset', { Value: PREFIJO_DATASET });
   });
 
   it('migra con el administrador en un contenedor previo y la API usa toqui_app', () => {

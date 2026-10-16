@@ -57,7 +57,7 @@ export const HERRAMIENTA_BORRADOR: ToolSpecification = {
   },
 };
 
-/** Catálogo agrupado por nivel ascendente, con el núcleo o dominio tal como viene. */
+/** Catálogo agrupado por nivel ascendente, con el núcleo tal como viene. */
 function lineasCatalogo(catalogo: ManifestacionCatalogo[]): string[] {
   const porNivel = new Map<number, ManifestacionCatalogo[]>();
   for (const m of catalogo) porNivel.set(m.nivel, [...(porNivel.get(m.nivel) ?? []), m]);
@@ -65,7 +65,7 @@ function lineasCatalogo(catalogo: ManifestacionCatalogo[]): string[] {
     .sort((a, b) => a - b)
     .flatMap((nivel) => [
       `Nivel ${nivel}:`,
-      ...(porNivel.get(nivel) ?? []).map((m) => `- ${m.id} [${m.dominio}] ${m.textoObservable}`),
+      ...(porNivel.get(nivel) ?? []).map((m) => `- ${m.id} [${m.nucleo}] ${m.textoObservable}`),
     ]);
 }
 
@@ -86,17 +86,17 @@ export function etiquetaNota(texto: string): string {
   return etiqueta;
 }
 
-/** Edad, nivel esperado y catálogo, con campos explícitos para no filtrar otros datos. */
+/** Edad, nivel de referencia y catálogo, con campos explícitos para no filtrar otros datos. */
 function lineasEncabezado({ edadMeses, nivelEsperado, catalogo }: ContextoExtraccion): string[] {
-  const permitido = catalogo.map(({ id, nivel, dominio, textoObservable }) => ({
+  const permitido = catalogo.map(({ id, nivel, nucleo, textoObservable }) => ({
     id,
     nivel,
-    dominio,
+    nucleo,
     textoObservable,
   }));
   return [
     `Edad: ${edadMeses} meses`,
-    `Nivel esperado para la edad: ${nivelEsperado}`,
+    `Nivel de referencia (último validado): ${nivelEsperado}`,
     '',
     'Catálogo de manifestaciones (id [núcleo] texto observable):',
     ...lineasCatalogo(permitido),

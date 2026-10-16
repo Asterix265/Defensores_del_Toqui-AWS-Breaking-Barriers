@@ -117,8 +117,8 @@ describe('ProveedorFake.extraer', () => {
       edadMeses: 30,
       nivelEsperado: 2,
       catalogo: [
-        { id: 'ZZ-02', nivel: 2, dominio: 'nucleo_eco', textoObservable: texto },
-        { id: 'ZZ-01', nivel: 2, dominio: 'nucleo_faro', textoObservable: texto },
+        { id: 'ZZ-02', nivel: 2, nucleo: 'nucleo_eco', textoObservable: texto },
+        { id: 'ZZ-01', nivel: 2, nucleo: 'nucleo_faro', textoObservable: texto },
       ],
     };
     const borrador = await fake.extraer(NOTA, contexto);

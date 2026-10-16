@@ -140,7 +140,7 @@
             "bearer": []
           }
         ],
-        "summary": "Observaciones por dominio en el periodo (por defecto, 180 días)",
+        "summary": "Valoraciones y observaciones por núcleo en el periodo (por defecto, 180 días)",
         "tags": [
           "ninos"
         ]
@@ -156,22 +156,29 @@
             "in": "query",
             "schema": {
               "minimum": 1,
-              "maximum": 9,
+              "maximum": 8,
               "type": "integer"
             }
           },
           {
-            "name": "dominio",
+            "name": "nucleo",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "pattern": "^[A-Z]{2}$",
+              "type": "string"
+            }
+          },
+          {
+            "name": "nivelEducativo",
             "required": false,
             "in": "query",
             "schema": {
               "type": "string",
               "enum": [
-                "motor_grueso",
-                "motor_fino",
-                "lenguaje_comunicacion",
-                "socioemocional",
-                "cognitivo"
+                "SC",
+                "NM",
+                "TR"
               ]
             }
           }
@@ -196,7 +203,7 @@
             "bearer": []
           }
         ],
-        "summary": "Catálogo de manifestaciones, filtrable por nivel y dominio",
+        "summary": "Catálogo de manifestaciones, filtrable por núcleo, nivel educativo y nivel",
         "tags": [
           "catalogo"
         ]
@@ -226,7 +233,37 @@
             "bearer": []
           }
         ],
-        "summary": "Niveles de la ruta sintética con su rango de edad en meses",
+        "summary": "Nombres de los 8 niveles de la trayectoria (sin edades)",
+        "tags": [
+          "catalogo"
+        ]
+      }
+    },
+    "/nucleos": {
+      "get": {
+        "operationId": "listarNucleos",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/NucleoDto_Output"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Núcleos de aprendizaje; `origen` distingue la referencia aportada de las propuestas",
         "tags": [
           "catalogo"
         ]
@@ -797,8 +834,22 @@
           "apellidos": {
             "type": "string"
           },
+          "nombreCompleto": {
+            "type": "string"
+          },
           "sala": {
             "type": "string"
+          },
+          "idSala": {
+            "type": "string"
+          },
+          "nivelEducativo": {
+            "type": "string",
+            "enum": [
+              "SC",
+              "NM",
+              "TR"
+            ]
           },
           "fechaNacimiento": {
             "type": "string",
@@ -815,9 +866,76 @@
           "id",
           "nombres",
           "apellidos",
+          "nombreCompleto",
           "sala",
+          "idSala",
+          "nivelEducativo",
           "fechaNacimiento",
           "edadMeses"
+        ],
+        "additionalProperties": false
+      },
+      "Valoracion_Output": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "fechaCorte": {
+            "type": "string",
+            "format": "date",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+          },
+          "nivelSugerido": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 8
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "nivelValidado": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 8
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "estado": {
+            "type": "string",
+            "enum": [
+              "confirmada",
+              "ajustada",
+              "pendiente_revision",
+              "propuesta_pendiente",
+              "evidencia_insuficiente",
+              "sin_registro"
+            ]
+          },
+          "origen": {
+            "type": "string",
+            "enum": [
+              "dataset",
+              "app"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "fechaCorte",
+          "nivelSugerido",
+          "nivelValidado",
+          "estado",
+          "origen"
         ],
         "additionalProperties": false
       },
@@ -848,12 +966,13 @@
               "app"
             ]
           },
-          "nivelEstimado": {
-            "type": "integer",
-            "minimum": 1,
-            "maximum": 9
-          },
           "notaBreve": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "textoObservacion": {
             "type": [
               "string",
               "null"
@@ -867,19 +986,31 @@
                 "id": {
                   "type": "string"
                 },
+                "idDescriptor": {
+                  "type": "string"
+                },
+                "nucleo": {
+                  "type": "string",
+                  "pattern": "^[A-Z]{2}$"
+                },
+                "nivelEducativo": {
+                  "type": "string",
+                  "enum": [
+                    "SC",
+                    "NM",
+                    "TR"
+                  ]
+                },
                 "nivel": {
                   "type": "integer",
                   "minimum": 1,
-                  "maximum": 9
+                  "maximum": 8
                 },
-                "dominio": {
+                "tipo": {
                   "type": "string",
                   "enum": [
-                    "motor_grueso",
-                    "motor_fino",
-                    "lenguaje_comunicacion",
-                    "socioemocional",
-                    "cognitivo"
+                    "conducta_descriptor",
+                    "ejemplo_ilustrativo"
                   ]
                 },
                 "textoObservable": {
@@ -888,11 +1019,20 @@
               },
               "required": [
                 "id",
+                "idDescriptor",
+                "nucleo",
+                "nivelEducativo",
                 "nivel",
-                "dominio",
+                "tipo",
                 "textoObservable"
               ],
               "additionalProperties": false
+            }
+          },
+          "evidencias": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Evidencia_Output"
             }
           }
         },
@@ -901,9 +1041,86 @@
           "fecha",
           "formato",
           "origen",
-          "nivelEstimado",
           "notaBreve",
-          "manifestaciones"
+          "textoObservacion",
+          "manifestaciones",
+          "evidencias"
+        ],
+        "additionalProperties": false
+      },
+      "Evidencia_Output": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "manifestacion": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "idDescriptor": {
+                "type": "string"
+              },
+              "nucleo": {
+                "type": "string",
+                "pattern": "^[A-Z]{2}$"
+              },
+              "nivelEducativo": {
+                "type": "string",
+                "enum": [
+                  "SC",
+                  "NM",
+                  "TR"
+                ]
+              },
+              "nivel": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 8
+              },
+              "tipo": {
+                "type": "string",
+                "enum": [
+                  "conducta_descriptor",
+                  "ejemplo_ilustrativo"
+                ]
+              },
+              "textoObservable": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "idDescriptor",
+              "nucleo",
+              "nivelEducativo",
+              "nivel",
+              "tipo",
+              "textoObservable"
+            ],
+            "additionalProperties": false
+          },
+          "fragmento": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "alcance": {
+            "type": "string",
+            "enum": [
+              "componente_observado",
+              "parcial_otro_descriptor"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "manifestacion",
+          "fragmento",
+          "alcance"
         ],
         "additionalProperties": false
       },
@@ -922,8 +1139,22 @@
               "apellidos": {
                 "type": "string"
               },
+              "nombreCompleto": {
+                "type": "string"
+              },
               "sala": {
                 "type": "string"
+              },
+              "idSala": {
+                "type": "string"
+              },
+              "nivelEducativo": {
+                "type": "string",
+                "enum": [
+                  "SC",
+                  "NM",
+                  "TR"
+                ]
               },
               "fechaNacimiento": {
                 "type": "string",
@@ -940,7 +1171,10 @@
               "id",
               "nombres",
               "apellidos",
+              "nombreCompleto",
               "sala",
+              "idSala",
+              "nivelEducativo",
               "fechaNacimiento",
               "edadMeses"
             ],
@@ -964,64 +1198,29 @@
           "evidenciaLimitada": {
             "type": "boolean"
           },
-          "dominios": {
+          "nucleos": {
             "type": "array",
             "items": {
               "type": "object",
               "properties": {
-                "dominio": {
+                "nucleo": {
                   "type": "string",
-                  "enum": [
-                    "motor_grueso",
-                    "motor_fino",
-                    "lenguaje_comunicacion",
-                    "socioemocional",
-                    "cognitivo"
-                  ]
+                  "pattern": "^[A-Z]{2}$"
                 },
                 "sinRegistros": {
                   "type": "boolean"
                 },
-                "puntos": {
+                "valoraciones": {
                   "type": "array",
                   "items": {
-                    "type": "object",
-                    "properties": {
-                      "idObservacion": {
-                        "type": "string"
-                      },
-                      "fecha": {
-                        "type": "string",
-                        "format": "date",
-                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
-                      },
-                      "nivelEstimado": {
-                        "type": "integer",
-                        "minimum": 1,
-                        "maximum": 9
-                      },
-                      "origen": {
-                        "type": "string",
-                        "enum": [
-                          "dataset",
-                          "app"
-                        ]
-                      }
-                    },
-                    "required": [
-                      "idObservacion",
-                      "fecha",
-                      "nivelEstimado",
-                      "origen"
-                    ],
-                    "additionalProperties": false
+                    "$ref": "#/components/schemas/Valoracion_Output"
                   }
                 }
               },
               "required": [
-                "dominio",
+                "nucleo",
                 "sinRegistros",
-                "puntos"
+                "valoraciones"
               ],
               "additionalProperties": false
             }
@@ -1039,7 +1238,7 @@
           "hasta",
           "totalObservaciones",
           "evidenciaLimitada",
-          "dominios",
+          "nucleos",
           "observaciones"
         ],
         "additionalProperties": false
@@ -1050,19 +1249,31 @@
           "id": {
             "type": "string"
           },
+          "idDescriptor": {
+            "type": "string"
+          },
+          "nucleo": {
+            "type": "string",
+            "pattern": "^[A-Z]{2}$"
+          },
+          "nivelEducativo": {
+            "type": "string",
+            "enum": [
+              "SC",
+              "NM",
+              "TR"
+            ]
+          },
           "nivel": {
             "type": "integer",
             "minimum": 1,
-            "maximum": 9
+            "maximum": 8
           },
-          "dominio": {
+          "tipo": {
             "type": "string",
             "enum": [
-              "motor_grueso",
-              "motor_fino",
-              "lenguaje_comunicacion",
-              "socioemocional",
-              "cognitivo"
+              "conducta_descriptor",
+              "ejemplo_ilustrativo"
             ]
           },
           "textoObservable": {
@@ -1071,8 +1282,11 @@
         },
         "required": [
           "id",
+          "idDescriptor",
+          "nucleo",
+          "nivelEducativo",
           "nivel",
-          "dominio",
+          "tipo",
           "textoObservable"
         ],
         "additionalProperties": false
@@ -1083,27 +1297,40 @@
           "nivel": {
             "type": "integer",
             "minimum": 1,
-            "maximum": 9
+            "maximum": 8
           },
           "nombre": {
             "type": "string"
-          },
-          "edadMinMeses": {
-            "type": "integer",
-            "minimum": -9007199254740991,
-            "maximum": 9007199254740991
-          },
-          "edadMaxMeses": {
-            "type": "integer",
-            "minimum": -9007199254740991,
-            "maximum": 9007199254740991
           }
         },
         "required": [
           "nivel",
+          "nombre"
+        ],
+        "additionalProperties": false
+      },
+      "NucleoDto_Output": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[A-Z]{2}$"
+          },
+          "nombre": {
+            "type": "string"
+          },
+          "ambito": {
+            "type": "string"
+          },
+          "origen": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
           "nombre",
-          "edadMinMeses",
-          "edadMaxMeses"
+          "ambito",
+          "origen"
         ],
         "additionalProperties": false
       },
@@ -1173,13 +1400,22 @@
           },
           "sala": {
             "type": "string"
+          },
+          "nivelEducativo": {
+            "type": "string",
+            "enum": [
+              "SC",
+              "NM",
+              "TR"
+            ]
           }
         },
         "required": [
           "id",
           "nombres",
           "apellidos",
-          "sala"
+          "sala",
+          "nivelEducativo"
         ],
         "additionalProperties": false
       },
@@ -1194,7 +1430,7 @@
               {
                 "type": "integer",
                 "minimum": 1,
-                "maximum": 9
+                "maximum": 8
               },
               {
                 "type": "null"
@@ -1243,19 +1479,31 @@
               "id": {
                 "type": "string"
               },
+              "idDescriptor": {
+                "type": "string"
+              },
+              "nucleo": {
+                "type": "string",
+                "pattern": "^[A-Z]{2}$"
+              },
+              "nivelEducativo": {
+                "type": "string",
+                "enum": [
+                  "SC",
+                  "NM",
+                  "TR"
+                ]
+              },
               "nivel": {
                 "type": "integer",
                 "minimum": 1,
-                "maximum": 9
+                "maximum": 8
               },
-              "dominio": {
+              "tipo": {
                 "type": "string",
                 "enum": [
-                  "motor_grueso",
-                  "motor_fino",
-                  "lenguaje_comunicacion",
-                  "socioemocional",
-                  "cognitivo"
+                  "conducta_descriptor",
+                  "ejemplo_ilustrativo"
                 ]
               },
               "textoObservable": {
@@ -1264,8 +1512,11 @@
             },
             "required": [
               "id",
+              "idDescriptor",
+              "nucleo",
+              "nivelEducativo",
               "nivel",
-              "dominio",
+              "tipo",
               "textoObservable"
             ],
             "additionalProperties": false
@@ -1378,10 +1629,17 @@
             "format": "date",
             "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
           },
-          "nivelEstimado": {
+          "nivel": {
             "type": "integer",
             "minimum": 1,
-            "maximum": 9
+            "maximum": 8
+          },
+          "nucleos": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^[A-Z]{2}$"
+            }
           },
           "manifestaciones": {
             "type": "array",
@@ -1393,7 +1651,8 @@
         "required": [
           "id",
           "fecha",
-          "nivelEstimado",
+          "nivel",
+          "nucleos",
           "manifestaciones"
         ],
         "additionalProperties": false
@@ -1656,17 +1915,11 @@
           "extracto": {
             "$ref": "#/components/schemas/TextoNulo_Output"
           },
-          "dominios": {
+          "nucleos": {
             "type": "array",
             "items": {
               "type": "string",
-              "enum": [
-                "motor_grueso",
-                "motor_fino",
-                "lenguaje_comunicacion",
-                "socioemocional",
-                "cognitivo"
-              ]
+              "pattern": "^[A-Z]{2}$"
             }
           },
           "nivel": {
@@ -1674,7 +1927,7 @@
               {
                 "type": "integer",
                 "minimum": 1,
-                "maximum": 9
+                "maximum": 8
               },
               {
                 "type": "null"
@@ -1690,7 +1943,7 @@
           "estado",
           "creadoEn",
           "extracto",
-          "dominios",
+          "nucleos",
           "nivel"
         ],
         "additionalProperties": false
@@ -1734,7 +1987,7 @@
           "nivel": {
             "type": "integer",
             "minimum": 1,
-            "maximum": 9
+            "maximum": 8
           },
           "manifestaciones": {
             "minItems": 1,
@@ -1879,7 +2132,7 @@
               {
                 "type": "integer",
                 "minimum": 1,
-                "maximum": 9
+                "maximum": 8
               },
               {
                 "type": "null"

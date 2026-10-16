@@ -28,55 +28,60 @@ import type {
 import { CLAVE_SESION_LOCAL } from '../auth/sesion';
 import { tema } from './tema';
 
-const DOMINIOS = {
-  MG: 'motor_grueso',
-  MF: 'motor_fino',
-  LC: 'lenguaje_comunicacion',
-  SE: 'socioemocional',
-  CO: 'cognitivo',
-} as const;
+const NUCLEOS_PRUEBA = ['IA', 'CC', 'CM', 'LV', 'LA', 'EN', 'ES', 'PM'] as const;
 
-const RANGOS = [
-  [0, 2],
-  [2, 4],
-  [4, 7],
-  [7, 10],
-  [10, 13],
-  [13, 18],
-  [18, 24],
-  [24, 30],
-  [30, 36],
-] as const;
-
-export const NIVELES = RANGOS.map(([edadMinMeses, edadMaxMeses], i) => ({
-  nivel: i + 1,
-  nombre: `Nivel de prueba ${i + 1}`,
-  edadMinMeses,
-  edadMaxMeses,
+export const NIVELES = [1, 2, 3, 4, 5, 6, 7, 8].map((nivel) => ({
+  nivel,
+  nombre: `Nivel de prueba ${nivel}`,
 }));
 
-/** Una manifestación por nivel y dominio: «Prueba MF 7», etc. */
-export const MANIFESTACIONES: ManifestacionDtoOutput[] = NIVELES.flatMap(({ nivel }) =>
-  Object.entries(DOMINIOS).map(([codigo, dominio]) => ({
-    id: `MAN-L${String(nivel).padStart(2, '0')}-${codigo}-01`,
-    nivel,
-    dominio,
-    textoObservable: `Prueba ${codigo} ${nivel}`,
-  })),
+/**
+ * Una manifestación por nivel educativo, nivel y núcleo: «Prueba CM 7» (Sala Cuna, id
+ * `MAN-L07-CM-01`) y «Prueba NM CM 7» (Nivel Medio, id `MAN-NM-L07-CM-01`).
+ */
+export const MANIFESTACIONES: ManifestacionDtoOutput[] = (['SC', 'NM'] as const).flatMap((ne) =>
+  NIVELES.flatMap(({ nivel }) =>
+    NUCLEOS_PRUEBA.map((nucleo) => ({
+      id: `MAN-${ne === 'SC' ? '' : 'NM-'}L${String(nivel).padStart(2, '0')}-${nucleo}-01`,
+      idDescriptor: `RUB-${ne}-${nucleo}-0${nivel}`,
+      nucleo,
+      nivelEducativo: ne,
+      nivel,
+      tipo: 'conducta_descriptor' as const,
+      textoObservable: `Prueba ${ne === 'SC' ? '' : 'NM '}${nucleo} ${nivel}`,
+    })),
+  ),
 );
 
 const manifestacion = (id: string) => MANIFESTACIONES.find((m) => m.id === id)!;
 
-function nino(id: string, nombres: string, apellidos: string, sala: string, edadMeses: number) {
-  return { id, nombres, apellidos, sala, fechaNacimiento: '2024-01-01', edadMeses };
+function nino(
+  id: string,
+  nombres: string,
+  apellidos: string,
+  sala: string,
+  edadMeses: number,
+  nivelEducativo: 'SC' | 'NM' = 'SC',
+) {
+  return {
+    id,
+    nombres,
+    apellidos,
+    nombreCompleto: `${nombres} ${apellidos}`,
+    sala,
+    idSala: `JAR-0001-${sala}`,
+    nivelEducativo,
+    fechaNacimiento: '2024-01-01',
+    edadMeses,
+  };
 }
 
-/** Sala A: Martina, Benjamín y Tomás (20 meses → nivel 7). Sala B: Vicente (31 meses → nivel 9). */
+/** Sala A (Sala Cuna): Martina, Benjamín y Tomás. Sala B (Nivel Medio): Vicente. */
 export const NINOS: NinoDtoOutput[] = [
   nino('NINO-T001', 'Martina', 'Pérez Soto', 'SG-A', 20),
   nino('NINO-T002', 'Benjamín', 'Soto Rojas', 'SG-A', 20),
   nino('NINO-T003', 'Tomás', 'Araya Díaz', 'SG-A', 20),
-  nino('NINO-T004', 'Vicente', 'Pizarro Vera', 'SG-B', 31),
+  nino('NINO-T004', 'Vicente', 'Pizarro Vera', 'SG-B', 31, 'NM'),
 ];
 
 function haceDias(dias: number): string {
@@ -97,20 +102,21 @@ function observacion(
     fecha: haceDias(dias),
     formato: 'texto',
     origen: 'dataset',
-    nivelEstimado: 7,
     notaBreve,
+    textoObservacion: null,
     manifestaciones: [manifestacion(idManifestacion)],
+    evidencias: [],
   };
 }
 
-/** Martina tiene registros recientes en cuatro áreas y ninguno de Motor grueso. */
+/** Martina tiene registros recientes en cuatro áreas (Lenguaje, Identidad, Matemático y Movimiento). */
 function observacionesIniciales(): Record<string, ObservacionTrayectoriaOutput[]> {
   return {
     'NINO-T001': [
-      observacion('OBS-T1', 1, 'MAN-L07-LC-01', 'Registro durante el juego libre.'),
-      observacion('OBS-T2', 3, 'MAN-L07-SE-01'),
-      observacion('OBS-T3', 6, 'MAN-L07-CO-01'),
-      observacion('OBS-T4', 12, 'MAN-L07-MF-01'),
+      observacion('OBS-T1', 1, 'MAN-L07-LV-01', 'Registro durante el juego libre.'),
+      observacion('OBS-T2', 3, 'MAN-L07-IA-01'),
+      observacion('OBS-T3', 6, 'MAN-L07-PM-01'),
+      observacion('OBS-T4', 12, 'MAN-L07-CM-01'),
     ],
   };
 }
@@ -137,16 +143,18 @@ export const EJEMPLO_FOTO = 'Apiló 4 bloques de espuma solo y aplaudió.';
 
 const EXTENSION: Record<string, string> = { 'audio/webm': 'webm', 'image/jpeg': 'jpg' };
 
-function nivelDe(edadMeses: number): number {
-  return NIVELES.find((n) => edadMeses >= n.edadMinMeses && edadMeses < n.edadMaxMeses)?.nivel ?? 9;
+/** Nivel de referencia de la API falsa: 7 en Sala Cuna y 8 en Nivel Medio. */
+function nivelDe(nivelEducativo: string): number {
+  return nivelEducativo === 'NM' ? 8 : 7;
 }
 
-/** Borrador como el del pipeline inline: «bloques» → Motor fino; «dijo» → Lenguaje. */
+/** Borrador como el del pipeline inline: «bloques» → Movimiento (CM); «dijo» → Lenguaje (LV). */
 function borradorDe(c: CapturaDetalleDtoOutput, bytes: number, clave: string | null) {
   const texto =
     c.formato === 'audio' ? EJEMPLO_AUDIO : c.formato === 'foto' ? EJEMPLO_FOTO : c.texto!;
-  const nivel = nivelDe(NINOS.find((n) => n.id === c.nino.id)!.edadMeses);
-  const codigo = /bloques/i.test(texto) ? 'MF' : /dijo/i.test(texto) ? 'LC' : null;
+  const nivel = nivelDe(c.nino.nivelEducativo);
+  const prefijo = c.nino.nivelEducativo === 'NM' ? 'NM-' : '';
+  const codigo = /bloques/i.test(texto) ? 'CM' : /dijo/i.test(texto) ? 'LV' : null;
   const pasos = [
     ...(c.formato === 'audio'
       ? [
@@ -176,7 +184,9 @@ function borradorDe(c: CapturaDetalleDtoOutput, bytes: number, clave: string | n
     manifestaciones: codigo
       ? [
           {
-            manifestacion: manifestacion(`MAN-L${String(nivel).padStart(2, '0')}-${codigo}-01`),
+            manifestacion: manifestacion(
+              `MAN-${prefijo}L${String(nivel).padStart(2, '0')}-${codigo}-01`,
+            ),
             cita: texto,
           },
         ]
@@ -204,8 +214,8 @@ function aResumen(c: CapturaDetalleDtoOutput): CapturaResumenOutput {
     estado: c.estado,
     creadoEn: c.creadoEn,
     extracto: c.texto ?? c.borrador?.textoFuente ?? null,
-    dominios: [...new Set(fuente.map((m) => m.manifestacion.dominio))],
-    nivel: c.observacion?.nivelEstimado ?? null,
+    nucleos: [...new Set(fuente.map((m) => m.manifestacion.nucleo))],
+    nivel: c.observacion?.nivel ?? null,
   };
 }
 
@@ -222,7 +232,13 @@ const handlersCapturas = [
     const id = `00000000-0000-4000-8000-${String(CAPTURAS.size + 1).padStart(12, '0')}`;
     const captura: CapturaDetalleDtoOutput = {
       id,
-      nino: { id: nino.id, nombres: nino.nombres, apellidos: nino.apellidos, sala: nino.sala },
+      nino: {
+        id: nino.id,
+        nombres: nino.nombres,
+        apellidos: nino.apellidos,
+        sala: nino.sala,
+        nivelEducativo: nino.nivelEducativo,
+      },
       autor: 'Educadora local',
       formato: cuerpo.formato,
       estado: 'procesando',
@@ -280,7 +296,8 @@ const handlersCapturas = [
     captura.observacion = {
       id: `APP-${captura.id}`,
       fecha: haceDias(0),
-      nivelEstimado: cuerpo.nivel,
+      nivel: cuerpo.nivel,
+      nucleos: [...new Set(manifestaciones.map((m) => m.nucleo))],
       manifestaciones: cuerpo.manifestaciones.map((m, i) => ({
         manifestacion: manifestaciones[i]!,
         cita: m.cita ?? null,
@@ -292,9 +309,10 @@ const handlersCapturas = [
         fecha: haceDias(0),
         formato: captura.formato,
         origen: 'app',
-        nivelEstimado: cuerpo.nivel,
         notaBreve: captura.texto,
+        textoObservacion: captura.texto,
         manifestaciones,
+        evidencias: [],
       },
       ...(OBSERVACIONES[captura.nino.id] ?? []),
     ];
@@ -357,11 +375,7 @@ function trayectoria(idNino: string): TrayectoriaResponseDtoOutput {
     hasta: haceDias(0),
     totalObservaciones: observaciones.length,
     evidenciaLimitada: observaciones.length < 3,
-    dominios: Object.values(DOMINIOS).map((dominio) => ({
-      dominio,
-      sinRegistros: true,
-      puntos: [],
-    })),
+    nucleos: NUCLEOS_PRUEBA.map((nucleo) => ({ nucleo, sinRegistros: true, valoraciones: [] })),
     observaciones,
   };
 }
@@ -418,7 +432,13 @@ export function sembrarConfirmada(
   const id = `00000000-0000-4000-9000-${String(CAPTURAS.size + 1).padStart(12, '0')}`;
   CAPTURAS.set(id, {
     id,
-    nino: { id: nino.id, nombres: nino.nombres, apellidos: nino.apellidos, sala: nino.sala },
+    nino: {
+      id: nino.id,
+      nombres: nino.nombres,
+      apellidos: nino.apellidos,
+      sala: nino.sala,
+      nivelEducativo: nino.nivelEducativo,
+    },
     autor: 'Mercedes Rojas',
     formato: 'texto',
     estado: 'confirmada',
@@ -430,7 +450,8 @@ export function sembrarConfirmada(
     observacion: {
       id: `APP-${id}`,
       fecha: haceDias(dias),
-      nivelEstimado: m.nivel,
+      nivel: m.nivel,
+      nucleos: [m.nucleo],
       manifestaciones: [{ manifestacion: m, cita: null }],
     },
   });
@@ -441,9 +462,10 @@ export function sembrarConfirmada(
       fecha: haceDias(dias),
       formato: 'texto',
       origen: 'app',
-      nivelEstimado: m.nivel,
       notaBreve: texto,
+      textoObservacion: texto,
       manifestaciones: [m],
+      evidencias: [],
     },
     ...(OBSERVACIONES[idNino] ?? []),
   ];

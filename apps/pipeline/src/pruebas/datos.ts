@@ -7,10 +7,33 @@ import type { Dependencias } from '../puertos.js';
 /** Datos sintéticos para pruebas: ningún id ni texto corresponde a una persona real. */
 export const ID_CAPTURA = '7d3f1b6e-2c4a-4e8b-9f10-1a2b3c4d5e6f';
 
+const comun = { nivelEducativo: 'SC', tipo: 'conducta_descriptor' } as const;
+
 export const CATALOGO: Manifestacion[] = [
-  { id: 'M-4-MF-1', nivel: 4, dominio: 'motor_fino', textoObservable: 'Apila 3 o más bloques' },
-  { id: 'M-4-LC-1', nivel: 4, dominio: 'lenguaje_comunicacion', textoObservable: 'Dice palabras' },
-  { id: 'M-5-MF-1', nivel: 5, dominio: 'motor_fino', textoObservable: 'Encaja piezas' },
+  {
+    ...comun,
+    id: 'M-4-CM-1',
+    idDescriptor: 'R-4-CM',
+    nucleo: 'CM',
+    nivel: 4,
+    textoObservable: 'Apila 3 o más bloques',
+  },
+  {
+    ...comun,
+    id: 'M-4-LV-1',
+    idDescriptor: 'R-4-LV',
+    nucleo: 'LV',
+    nivel: 4,
+    textoObservable: 'Dice palabras',
+  },
+  {
+    ...comun,
+    id: 'M-5-CM-1',
+    idDescriptor: 'R-5-CM',
+    nucleo: 'CM',
+    nivel: 5,
+    textoObservable: 'Encaja piezas',
+  },
 ];
 
 const BASE = {
@@ -19,6 +42,7 @@ const BASE = {
   idUsuario: 'sub-educadora-1',
   idJardin: 'J-001',
   edadMeses: 20,
+  nivelEducativo: 'SC' as const,
   nivelEsperado: 4,
   catalogo: CATALOGO,
 };

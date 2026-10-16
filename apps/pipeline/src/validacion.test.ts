@@ -10,7 +10,7 @@ describe('validarClasificacion', () => {
       {
         nivelSugerido: 4,
         evidenciaInsuficiente: false,
-        manifestaciones: [{ idManifestacion: 'M-4-MF-1', cita: 'Apiló cinco bloques' }],
+        manifestaciones: [{ idManifestacion: 'M-4-CM-1', cita: 'Apiló cinco bloques' }],
       },
       TEXTO,
       CATALOGO,
@@ -25,8 +25,8 @@ describe('validarClasificacion', () => {
         evidenciaInsuficiente: false,
         manifestaciones: [
           { idManifestacion: 'M-9-XX-1', cita: 'Apiló' },
-          { idManifestacion: 'M-5-MF-1', cita: 'Apiló' },
-          { idManifestacion: 'M-4-MF-1', cita: 'Construyó una torre' },
+          { idManifestacion: 'M-5-CM-1', cita: 'Apiló' },
+          { idManifestacion: 'M-4-CM-1', cita: 'Construyó una torre' },
         ],
       },
       TEXTO,
@@ -35,8 +35,8 @@ describe('validarClasificacion', () => {
     expect(r.ok).toBe(false);
     expect(!r.ok && r.problemas).toEqual([
       'M-9-XX-1 no está en el catálogo permitido',
-      'M-5-MF-1 no es del nivel sugerido',
-      'la cita de M-4-MF-1 no aparece literalmente en el texto',
+      'M-5-CM-1 no es del nivel sugerido',
+      'la cita de M-4-CM-1 no aparece literalmente en el texto',
     ]);
   });
 
@@ -45,7 +45,7 @@ describe('validarClasificacion', () => {
       {
         nivelSugerido: 4,
         evidenciaInsuficiente: true,
-        manifestaciones: [{ idManifestacion: 'M-4-MF-1', cita: 'Apiló' }],
+        manifestaciones: [{ idManifestacion: 'M-4-CM-1', cita: 'Apiló' }],
       },
       TEXTO,
       CATALOGO,

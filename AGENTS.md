@@ -15,7 +15,7 @@
 - Mantener intactos los originales; generar transformaciones en ubicaciones separadas y documentar su procedencia.
 - Usar datos sintéticos en desarrollo y demostraciones. No subir datos personales, credenciales ni material reservado al repositorio o a servicios externos.
 - No convertir falta de evidencia en falta de capacidad. Conservar IDs, fechas, evidencia y la distinción entre observación y estimación.
-- No presentar niveles sintéticos como diagnósticos. La presentación usa 8 niveles por núcleo y el dataset una ruta de 9 niveles: cualquier equivalencia requiere una decisión explícita y documentada.
+- No presentar niveles sintéticos como diagnósticos. Desde `migrar-dataset-nucleos` se usa el dataset E1 por núcleos (8 niveles dentro de cada núcleo y nivel educativo, como la presentación); la ruta anterior de 9 niveles no se convierte a la nueva escala. Solo Identidad y Autonomía es referencia aportada: los otros núcleos son propuestas sintéticas.
 - No suponer que existen medios adjuntos: el dataset solo incluye su formato como metadato.
 
 ## Flujo OpenSpec

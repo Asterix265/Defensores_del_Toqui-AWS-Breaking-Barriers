@@ -37,7 +37,7 @@ const valida = () =>
   herramienta({
     evidenciaInsuficiente: false,
     nivel: 4,
-    manifestaciones: [{ idManifestacion: 'M-4-MF-1', cita: 'Apiló cinco bloques sin ayuda' }],
+    manifestaciones: [{ idManifestacion: 'M-4-CM-1', cita: 'Apiló cinco bloques sin ayuda' }],
   });
 
 const idInventado = () =>
@@ -100,7 +100,7 @@ describe('ClasificadorBedrock', () => {
             {
               textoFuente: 'Caso ficticio: apiló tres bloques.',
               nivel: 4,
-              idsManifestaciones: ['M-4-MF-1'],
+              idsManifestaciones: ['M-4-CM-1'],
             },
           ],
         },
@@ -112,12 +112,12 @@ describe('ClasificadorBedrock', () => {
     const mensaje = mensajeUsuario(comando);
     for (const parte of [
       'Edad: 20 meses',
-      'Nivel esperado para la edad: 4',
-      '- M-4-MF-1 [motor_fino] Apila 3 o más bloques',
-      '- M-4-LC-1 [lenguaje_comunicacion] Dice palabras',
-      '- M-5-MF-1 [motor_fino] Encaja piezas',
+      'Nivel de referencia (último validado): 4',
+      '- M-4-CM-1 [CM] Apila 3 o más bloques',
+      '- M-4-LV-1 [LV] Dice palabras',
+      '- M-5-CM-1 [CM] Encaja piezas',
       '- Fragmento ficticio de conocimiento sobre el nivel 4.',
-      '- Nota: «Caso ficticio: apiló tres bloques.» → nivel 4, manifestaciones M-4-MF-1',
+      '- Nota: «Caso ficticio: apiló tres bloques.» → nivel 4, manifestaciones M-4-CM-1',
       '- M-4-XX-9 no está en el catálogo permitido',
       `<nota>\n${TEXTO}\n</nota>`,
     ]) {
@@ -134,18 +134,18 @@ describe('ClasificadorBedrock', () => {
       herramienta({
         evidenciaInsuficiente: false,
         nivel: 4,
-        manifestaciones: [{ idManifestacion: 'M-4-MF-1', cita: 'Encajó piezas grandes' }],
+        manifestaciones: [{ idManifestacion: 'M-4-CM-1', cita: 'Encajó piezas grandes' }],
       }),
     );
     const salida = await new ClasificadorBedrock(simulado.cliente, MODELO).clasificar(
       entradaPuerto(),
     );
     expect(salida).toMatchObject({
-      manifestaciones: [{ idManifestacion: 'M-4-MF-1', cita: 'Encajó piezas grandes' }],
+      manifestaciones: [{ idManifestacion: 'M-4-CM-1', cita: 'Encajó piezas grandes' }],
     });
     expect(validarClasificacion(salida, TEXTO, CATALOGO)).toEqual({
       ok: false,
-      problemas: ['la cita de M-4-MF-1 no aparece literalmente en el texto'],
+      problemas: ['la cita de M-4-CM-1 no aparece literalmente en el texto'],
     });
   });
 
@@ -153,7 +153,7 @@ describe('ClasificadorBedrock', () => {
     const simulado = clienteSimulado(
       herramienta({
         nivel: 4,
-        manifestaciones: [{ idManifestacion: 'M-4-MF-1', cita: 'Apiló cinco bloques' }],
+        manifestaciones: [{ idManifestacion: 'M-4-CM-1', cita: 'Apiló cinco bloques' }],
       }),
     );
     const salida = await new ClasificadorBedrock(simulado.cliente, MODELO).clasificar(
@@ -178,7 +178,7 @@ describe('ClasificadorBedrock en el orquestador', () => {
       textoFuente: TEXTO,
       nivelSugerido: 4,
       evidenciaInsuficiente: false,
-      manifestaciones: [{ idManifestacion: 'M-4-MF-1', cita: 'Apiló cinco bloques sin ayuda' }],
+      manifestaciones: [{ idManifestacion: 'M-4-CM-1', cita: 'Apiló cinco bloques sin ayuda' }],
       proveedor: 'bedrock',
       modelo: MODELO,
       procesamiento: {
@@ -207,7 +207,7 @@ describe('ClasificadorBedrock en el orquestador', () => {
       ID_CAPTURA,
       expect.objectContaining({
         nivelSugerido: 4,
-        manifestaciones: [{ idManifestacion: 'M-4-MF-1', cita: 'Apiló cinco bloques sin ayuda' }],
+        manifestaciones: [{ idManifestacion: 'M-4-CM-1', cita: 'Apiló cinco bloques sin ayuda' }],
         proveedor: 'bedrock',
       }),
     );
@@ -260,7 +260,7 @@ describe('ClasificadorBedrock en el orquestador', () => {
       herramienta({
         evidenciaInsuficiente: false,
         nivel: 4,
-        manifestaciones: [{ idManifestacion: 'M-4-MF-1', cita: 'apiló  cinco BLOQUES' }],
+        manifestaciones: [{ idManifestacion: 'M-4-CM-1', cita: 'apiló  cinco BLOQUES' }],
       }),
     );
     const deps = conBedrock(simulado);
@@ -269,7 +269,7 @@ describe('ClasificadorBedrock en el orquestador', () => {
     expect(deps.api.entregarBorrador).toHaveBeenCalledWith(
       ID_CAPTURA,
       expect.objectContaining({
-        manifestaciones: [{ idManifestacion: 'M-4-MF-1', cita: 'Apiló cinco bloques' }],
+        manifestaciones: [{ idManifestacion: 'M-4-CM-1', cita: 'Apiló cinco bloques' }],
       }),
     );
   });
@@ -292,7 +292,7 @@ describe('ClasificadorBedrock en el orquestador', () => {
       herramienta({
         evidenciaInsuficiente: false,
         nivel: 4,
-        manifestaciones: [{ idManifestacion: 'M-4-MF-1', cita: '{NAME} apiló cuatro bloques' }],
+        manifestaciones: [{ idManifestacion: 'M-4-CM-1', cita: '{NAME} apiló cuatro bloques' }],
       }),
     );
     const deps = depsFalsas({
@@ -307,7 +307,7 @@ describe('ClasificadorBedrock en el orquestador', () => {
       ID_CAPTURA,
       expect.objectContaining({
         textoFuente: anonimo,
-        manifestaciones: [{ idManifestacion: 'M-4-MF-1', cita: '{NAME} apiló cuatro bloques' }],
+        manifestaciones: [{ idManifestacion: 'M-4-CM-1', cita: '{NAME} apiló cuatro bloques' }],
       }),
     );
   });

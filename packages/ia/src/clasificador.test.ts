@@ -258,7 +258,7 @@ describe('clasificarConClaude: llamada a Converse', () => {
 });
 
 describe('clasificarConClaude: catálogos parametrizables', () => {
-  it('de punta a punta con la ruta tipo dataset (9 niveles × 5 dominios)', async () => {
+  it('de punta a punta con la rúbrica tipo dataset (8 niveles × 5 núcleos)', async () => {
     const catalogo = catalogoDataset();
     const simulado = crearClienteSimulado({
       converse: [
@@ -281,7 +281,7 @@ describe('clasificarConClaude: catálogos parametrizables', () => {
     });
     const mensaje = simulado.comandosConverse()[0]?.input.messages?.[0]?.content?.[0]?.text ?? '';
     const niveles = [...mensaje.matchAll(/^Nivel (\d+):$/gm)].map((m) => Number(m[1]));
-    expect(niveles).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9]);
+    expect(niveles).toEqual([1, 2, 3, 4, 5, 6, 7, 8]);
     expect(mensaje.match(/^- MAN-L\d\d-/gm)).toHaveLength(catalogo.length);
   });
 

@@ -1,5 +1,11 @@
 import { z } from 'zod';
-import { ManifestacionSchema, NivelSchema, TIPOS_ARCHIVO, type TipoArchivo } from './registro.js';
+import {
+  ManifestacionSchema,
+  NivelEducativoSchema,
+  NivelSchema,
+  TIPOS_ARCHIVO,
+  type TipoArchivo,
+} from './registro.js';
 
 // ---- Cola de procesamiento (cambio cola-ia-y-amplify, D3) ----
 
@@ -16,8 +22,14 @@ const MensajeBaseSchema = z.object({
   idUsuario: z.string().min(1),
   idJardin: z.string().min(1),
   edadMeses: z.number().int().min(0),
+  /** Nivel educativo del niño o niña: define el catálogo de la rúbrica que corresponde. */
+  nivelEducativo: NivelEducativoSchema,
+  /**
+   * Nivel de referencia, no esperado para la edad: mediana de los últimos niveles validados del
+   * niño o niña (1 si no tiene). Es contexto para la IA, no un límite.
+   */
   nivelEsperado: NivelSchema,
-  /** Manifestaciones permitidas: el catálogo completo de la ruta. La IA solo puede proponer estas. */
+  /** Manifestaciones permitidas: las del nivel educativo. La IA solo puede proponer estas. */
   catalogo: z.array(ManifestacionSchema).min(1),
 });
 

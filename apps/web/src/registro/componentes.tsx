@@ -6,16 +6,19 @@ import IconButton from '@mui/material/IconButton';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import type { SvgIconComponent } from '@mui/icons-material';
+import CalculateRounded from '@mui/icons-material/CalculateRounded';
 import ChatBubbleRounded from '@mui/icons-material/ChatBubbleRounded';
 import CloseRounded from '@mui/icons-material/CloseRounded';
 import DirectionsRunRounded from '@mui/icons-material/DirectionsRunRounded';
 import EditNoteRounded from '@mui/icons-material/EditNoteRounded';
-import FavoriteRounded from '@mui/icons-material/FavoriteRounded';
-import LightbulbRounded from '@mui/icons-material/LightbulbRounded';
+import FaceRounded from '@mui/icons-material/FaceRounded';
+import GroupsRounded from '@mui/icons-material/GroupsRounded';
 import MicRounded from '@mui/icons-material/MicRounded';
-import PanToolRounded from '@mui/icons-material/PanToolRounded';
+import PaletteRounded from '@mui/icons-material/PaletteRounded';
+import ParkRounded from '@mui/icons-material/ParkRounded';
 import PhotoCameraRounded from '@mui/icons-material/PhotoCameraRounded';
-import { COLOR_DOMINIO, ETIQUETA_DOMINIO, type Dominio, type Formato, type Nino } from './datos';
+import PublicRounded from '@mui/icons-material/PublicRounded';
+import { COLOR_NUCLEO, ETIQUETA_NUCLEO, type Nucleo, type Formato, type Nino } from './datos';
 import { colores } from './tema';
 
 export const ICONO_FORMATO: Record<Formato, SvgIconComponent> = {
@@ -24,12 +27,15 @@ export const ICONO_FORMATO: Record<Formato, SvgIconComponent> = {
   texto: EditNoteRounded,
 };
 
-export const ICONO_DOMINIO: Record<Dominio, SvgIconComponent> = {
-  cognitivo: LightbulbRounded,
-  lenguaje_comunicacion: ChatBubbleRounded,
-  motor_fino: PanToolRounded,
-  motor_grueso: DirectionsRunRounded,
-  socioemocional: FavoriteRounded,
+export const ICONO_NUCLEO: Record<Nucleo, SvgIconComponent> = {
+  IA: FaceRounded,
+  CC: GroupsRounded,
+  CM: DirectionsRunRounded,
+  LV: ChatBubbleRounded,
+  LA: PaletteRounded,
+  EN: ParkRounded,
+  ES: PublicRounded,
+  PM: CalculateRounded,
 };
 
 /** Contenedor de cada pantalla: ocupa el alto disponible y deja el contenido en columna. */
@@ -109,16 +115,16 @@ export function ChipArea({
   compacto = false,
   onClick,
 }: {
-  area: Dominio;
+  area: Nucleo;
   seleccionada?: boolean;
   compacto?: boolean;
   onClick?: () => void;
 }) {
-  const Icono = ICONO_DOMINIO[area];
-  const { fondo, tinta } = COLOR_DOMINIO[area];
+  const Icono = ICONO_NUCLEO[area];
+  const { fondo, tinta } = COLOR_NUCLEO[area];
   return (
     <Chip
-      label={ETIQUETA_DOMINIO[area]}
+      label={ETIQUETA_NUCLEO[area]}
       icon={compacto ? undefined : <Icono />}
       onClick={onClick}
       aria-pressed={onClick ? seleccionada : undefined}

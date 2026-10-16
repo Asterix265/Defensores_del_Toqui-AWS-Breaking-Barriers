@@ -1,5 +1,6 @@
 // Esquema Prisma de la API (definir-mvp-e1, D4): tablas del dataset E-1 más las del registro
 // en la app (captura → borrador → observación confirmada, corrección y eventos de tiempo).
+// El dataset se reemplazó por el E1 por núcleos en migrar-dataset-nucleos.
 
 generator client {
   provider            = "prisma-client"
@@ -12,11 +13,12 @@ datasource db {
   provider = "postgresql"
 }
 
-// ---------- Dataset E-1 (sintético) ----------
+// ---------- Dataset E1 por núcleos (sintético, v1.0.0; migrar-dataset-nucleos) ----------
 
 enum RolEducadora {
   educadora_parvulos
-  tecnico_parvulos
+  asistente_parvulos
+  directora
 
   @@map("rol_educadora")
 }
@@ -30,16 +32,6 @@ enum SexoRegistrado {
   @@map("sexo_registrado")
 }
 
-enum Dominio {
-  motor_grueso
-  motor_fino
-  lenguaje_comunicacion
-  socioemocional
-  cognitivo
-
-  @@map("dominio")
-}
-
 enum FormatoCaptura {
   video
   audio
@@ -49,7 +41,7 @@ enum FormatoCaptura {
   @@map("formato_captura")
 }
 
-/// `dataset` viene del CSV; `app` es una observación confirmada en la app.
+/// `dataset` viene del CSV; `app` es una observación o valoración confirmada en la app.
 enum OrigenObservacion {
   dataset
   app
@@ -57,121 +49,323 @@ enum OrigenObservacion {
   @@map("origen_observacion")
 }
 
+enum TipoManifestacion {
+  conducta_descriptor
+  ejemplo_ilustrativo
+
+  @@map("tipo_manifestacion")
+}
+
+enum AlcanceEvidencia {
+  componente_observado
+  parcial_otro_descriptor
+
+  @@map("alcance_evidencia")
+}
+
+enum EstadoValoracion {
+  confirmada
+  ajustada
+  pendiente_revision
+  propuesta_pendiente
+  evidencia_insuficiente
+  sin_registro
+
+  @@map("estado_valoracion")
+}
+
+enum UsoEvidencia {
+  sustento_propuesta
+  contraste_parcial
+
+  @@map("uso_evidencia")
+}
+
+/// Sala Cuna, Nivel Medio, Transición. Las edades son contexto de matrícula, no umbrales de logro.
+model NivelEducativo {
+  id                    String @id @map("id_nivel_educativo")
+  nombre                String
+  edadMinMesesContexto  Int    @map("edad_min_meses_contexto")
+  /// Extremo superior exclusivo.
+  edadMaxMesesExclusiva Int    @map("edad_max_meses_exclusiva_contexto")
+
+  salas        Sala[]
+  ninos        Nino[]
+  descriptores Descriptor[]
+  valoraciones Valoracion[]
+
+  @@map("niveles_educativos")
+}
+
+/// Núcleo de aprendizaje; `origen` separa la referencia aportada de las propuestas sintéticas.
+model Nucleo {
+  id             String @id @map("id_nucleo")
+  nombre         String
+  ambito         String
+  archivoRubrica String @map("archivo_rubrica")
+  origen         String
+
+  descriptores Descriptor[]
+  valoraciones Valoracion[]
+
+  @@map("nucleos")
+}
+
+/// Nombre ordinal de cada nivel (1–8). No contiene edades.
+model NivelTrayectoria {
+  nivel       Int    @id
+  nombreNivel String @map("nombre_nivel")
+
+  descriptores          Descriptor[]
+  valoracionesSugeridas Valoracion[] @relation("NivelSugerido")
+  valoracionesValidadas Valoracion[] @relation("NivelValidado")
+
+  @@map("niveles_trayectoria")
+}
+
+model VersionRubrica {
+  id                String   @id @map("id_version")
+  fechaVersion      DateTime @map("fecha_version") @db.Date
+  estado            String
+  archivoReferencia String   @map("archivo_referencia")
+  nucleosActivos    Int      @map("nucleos_activos")
+  nivelesActivos    Int      @map("niveles_activos")
+
+  descriptores Descriptor[]
+  valoraciones Valoracion[]
+
+  @@map("versiones_rubrica")
+}
+
 model Jardin {
-  id               String @id @map("id_jardin")
-  nombreFantasia   String @unique @map("nombre_fantasia")
+  id               String  @id @map("id_jardin")
+  nombreFantasia   String  @unique @map("nombre_fantasia")
   comuna           String
   region           String
-  numeroSalas      Int    @map("numero_salas")
-  numeroEducadoras Int    @map("numero_educadoras")
+  numeroSalas      Int     @map("numero_salas")
+  numeroEducadoras Int     @map("numero_educadoras")
+  numeroAsistentes Int     @map("numero_asistentes")
+  /// Persona con rol `directora` del mismo jardín (sin FK: se inserta después del jardín).
+  idDirectora      String? @map("id_directora")
 
   educadoras Educadora[]
+  salas      Sala[]
   ninos      Nino[]
   capturas   Captura[]
 
   @@map("jardines")
 }
 
+model Sala {
+  id                     String @id @map("id_sala")
+  idJardin               String @map("id_jardin")
+  salaGrupo              String @map("sala_grupo")
+  idNivelEducativo       String @map("id_nivel_educativo")
+  idEducadoraResponsable String @map("id_educadora_responsable")
+
+  jardin         Jardin         @relation(fields: [idJardin], references: [id])
+  nivelEducativo NivelEducativo @relation(fields: [idNivelEducativo], references: [id])
+  responsable    Educadora      @relation("ResponsableSala", fields: [idEducadoraResponsable], references: [id])
+  personal       PersonalSala[]
+  ninos          Nino[]
+  valoraciones   Valoracion[]
+
+  @@unique([idJardin, salaGrupo])
+  @@map("salas")
+}
+
+/// Personal ficticio que observa: educadora, asistente o directora.
 model Educadora {
   id               String       @id @map("id_educadora")
   idJardin         String       @map("id_jardin")
-  /// Sintéticos: el dataset no trae nombres; los genera la carga.
-  nombres          String
-  apellidos        String
+  nombreCompleto   String       @map("nombre_completo")
   rol              RolEducadora
   aniosExperiencia Int          @map("anios_experiencia")
 
-  jardin        Jardin        @relation(fields: [idJardin], references: [id])
-  observaciones Observacion[]
+  jardin           Jardin         @relation(fields: [idJardin], references: [id])
+  salasResponsable Sala[]         @relation("ResponsableSala")
+  salas            PersonalSala[]
+  observaciones    Observacion[]
+  valoraciones     Valoracion[]
 
   @@index([idJardin])
   @@map("educadoras")
 }
 
-model Nino {
-  id              String         @id @map("id_nino")
-  /// Sintéticos: el dataset no trae nombres; los genera la carga.
-  nombres         String
-  apellidos       String
-  fechaNacimiento DateTime       @map("fecha_nacimiento") @db.Date
-  sexoRegistrado  SexoRegistrado @map("sexo_registrado")
-  idJardin        String         @map("id_jardin")
-  salaGrupo       String         @map("sala_grupo")
-  fechaIngreso    DateTime       @map("fecha_ingreso") @db.Date
+model PersonalSala {
+  idEducadora String @map("id_educadora")
+  idSala      String @map("id_sala")
 
-  jardin        Jardin        @relation(fields: [idJardin], references: [id])
-  observaciones Observacion[]
-  capturas      Captura[]
+  educadora Educadora @relation(fields: [idEducadora], references: [id])
+  sala      Sala      @relation(fields: [idSala], references: [id])
+
+  @@id([idEducadora, idSala])
+  @@map("personal_salas")
+}
+
+model Nino {
+  id               String         @id @map("id_nino")
+  /// Nombres ficticios del dataset.
+  nombreCompleto   String         @map("nombre_completo")
+  nombreRegistro   String         @map("nombre_registro")
+  fechaNacimiento  DateTime       @map("fecha_nacimiento") @db.Date
+  sexoRegistrado   SexoRegistrado @map("sexo_registrado")
+  idJardin         String         @map("id_jardin")
+  salaGrupo        String         @map("sala_grupo")
+  idSala           String         @map("id_sala")
+  idNivelEducativo String         @map("id_nivel_educativo")
+  fechaIngreso     DateTime       @map("fecha_ingreso") @db.Date
+
+  jardin         Jardin         @relation(fields: [idJardin], references: [id])
+  sala           Sala           @relation(fields: [idSala], references: [id])
+  nivelEducativo NivelEducativo @relation(fields: [idNivelEducativo], references: [id])
+  observaciones  Observacion[]
+  capturas       Captura[]
+  valoraciones   Valoracion[]
 
   @@index([idJardin, salaGrupo])
   @@map("ninos")
 }
 
-model Nivel {
-  nivel        Int       @id
-  nombreNivel  String    @map("nombre_nivel")
-  edadMinMeses Int       @map("edad_min_meses")
-  edadMaxMeses Int       @map("edad_max_meses")
-  /// Los cinco dominios en orden canónico.
-  dominios     Dominio[]
-  descripcion  String
+/// Fila de la rúbrica: versión × nivel educativo × núcleo × nivel (archivo `ruta_niveles.csv`).
+model Descriptor {
+  id                    String  @id @map("id_descriptor")
+  idVersion             String  @map("id_version")
+  idNivelEducativo      String  @map("id_nivel_educativo")
+  idNucleo              String  @map("id_nucleo")
+  nivel                 Int
+  nombreNivel           String  @map("nombre_nivel")
+  desarrolloEsperado    String  @map("desarrollo_esperado")
+  conductaObservable    String  @map("conducta_observable")
+  ejemplo1              String  @map("ejemplo_1")
+  ejemplo2              String  @map("ejemplo_2")
+  origen                String
+  pasoSiguienteSugerido String? @map("paso_siguiente_sugerido")
 
-  manifestaciones Manifestacion[]
-  observaciones   Observacion[]
+  version          VersionRubrica   @relation(fields: [idVersion], references: [id])
+  nivelEducativo   NivelEducativo   @relation(fields: [idNivelEducativo], references: [id])
+  nucleo           Nucleo           @relation(fields: [idNucleo], references: [id])
+  nivelTrayectoria NivelTrayectoria @relation(fields: [nivel], references: [nivel])
+  manifestaciones  Manifestacion[]
 
+  @@unique([idVersion, idNivelEducativo, idNucleo, nivel])
   @@map("ruta_niveles")
 }
 
 model Manifestacion {
-  id              String  @id @map("id_manifestacion")
-  nivel           Int
-  dominio         Dominio
-  textoObservable String  @map("texto_observable")
+  id              String            @id @map("id_manifestacion")
+  idDescriptor    String            @map("id_descriptor")
+  tipo            TipoManifestacion
+  textoObservable String            @map("texto_observable")
+  origen          String
 
-  ruta     Nivel                      @relation(fields: [nivel], references: [nivel])
-  vinculos ObservacionManifestacion[]
+  descriptor Descriptor                 @relation(fields: [idDescriptor], references: [id])
+  vinculos   ObservacionManifestacion[]
 
-  @@index([nivel, dominio])
+  @@index([idDescriptor])
   @@map("manifestaciones")
 }
 
 model Observacion {
-  id               String            @id @map("id_observacion")
-  idNino           String            @map("id_nino")
-  /// Educadora del dataset; null en las observaciones de la app.
-  idEducadora      String?           @map("id_educadora")
+  id                   String            @id @map("id_observacion")
+  idNino               String            @map("id_nino")
+  /// Persona del dataset; null en las observaciones de la app.
+  idEducadora          String?           @map("id_educadora")
   /// `sub` de Cognito de quien confirmó (solo `origen = app`).
-  idUsuario        String?           @map("id_usuario")
-  fechaObservacion DateTime          @map("fecha_observacion") @db.Date
-  formatoCaptura   FormatoCaptura    @map("formato_captura")
-  /// Estimación pedagógica sintética, no un diagnóstico.
-  nivelEstimado    Int               @map("nivel_estimado")
-  notaBreve        String?           @map("nota_breve")
-  origen           OrigenObservacion @default(dataset)
-  idCaptura        String?           @unique @map("id_captura") @db.Uuid
-  creadoEn         DateTime          @default(now()) @map("creado_en")
+  idUsuario            String?           @map("id_usuario")
+  fechaObservacion     DateTime          @map("fecha_observacion") @db.Date
+  formatoCaptura       FormatoCaptura    @map("formato_captura")
+  notaBreve            String?           @map("nota_breve")
+  /// Registro completo: los fragmentos de evidencia salen de aquí.
+  textoObservacion     String?           @map("texto_observacion")
+  contexto             String?
+  apoyos               String?
+  edadMesesObservacion Int?              @map("edad_meses_observacion")
+  /// Procedencia declarada por el dataset (columna `origen` del CSV).
+  procedencia          String?
+  origen               OrigenObservacion @default(dataset)
+  idCaptura            String?           @unique @map("id_captura") @db.Uuid
+  creadoEn             DateTime          @default(now()) @map("creado_en")
 
-  nino      Nino                       @relation(fields: [idNino], references: [id])
-  educadora Educadora?                 @relation(fields: [idEducadora], references: [id])
-  nivel     Nivel                      @relation(fields: [nivelEstimado], references: [nivel])
-  captura   Captura?                   @relation(fields: [idCaptura], references: [id])
-  vinculos  ObservacionManifestacion[]
+  nino                  Nino                       @relation(fields: [idNino], references: [id])
+  educadora             Educadora?                 @relation(fields: [idEducadora], references: [id])
+  captura               Captura?                   @relation(fields: [idCaptura], references: [id])
+  vinculos              ObservacionManifestacion[]
+  valoracionesSinClasif Valoracion[]
 
   @@index([idNino, fechaObservacion])
   @@map("observaciones")
 }
 
+/// Evidencia: un fragmento literal de la observación que respalda un componente del descriptor.
 model ObservacionManifestacion {
-  idObservacion   String  @map("id_observacion")
-  idManifestacion String  @map("id_manifestacion")
-  /// Cita textual que respalda la manifestación (solo `origen = app`).
-  cita            String?
+  id              String           @id @default(uuid()) @map("id_evidencia")
+  idObservacion   String           @map("id_observacion")
+  idManifestacion String           @map("id_manifestacion")
+  /// Subcadena literal del texto; null solo si en la app se agregó sin cita.
+  cita            String?          @map("fragmento_evidencia")
+  alcance         AlcanceEvidencia @default(componente_observado)
 
-  observacion   Observacion   @relation(fields: [idObservacion], references: [id], onDelete: Cascade)
-  manifestacion Manifestacion @relation(fields: [idManifestacion], references: [id])
+  observacion   Observacion           @relation(fields: [idObservacion], references: [id], onDelete: Cascade)
+  manifestacion Manifestacion         @relation(fields: [idManifestacion], references: [id])
+  valoraciones  ValoracionEvidencia[]
 
-  @@id([idObservacion, idManifestacion])
+  @@index([idObservacion])
+  @@index([idManifestacion])
   @@map("observacion_manifestaciones")
+}
+
+/// Decisión por niño o niña, núcleo y fecha de corte: sugerido (propuesta) frente a validado.
+model Valoracion {
+  id                         String            @id @map("id_valoracion")
+  idNino                     String            @map("id_nino")
+  idSala                     String            @map("id_sala")
+  idNivelEducativo           String            @map("id_nivel_educativo")
+  idNucleo                   String            @map("id_nucleo")
+  idVersion                  String            @map("id_version")
+  fechaCorte                 DateTime          @map("fecha_corte") @db.Date
+  nivelSugerido              Int?              @map("nivel_sugerido")
+  /// Solo en `confirmada` y `ajustada`.
+  nivelValidado              Int?              @map("nivel_validado")
+  estado                     EstadoValoracion
+  idEducadoraDecide          String?           @map("id_educadora_decide")
+  fechaDecision              DateTime?         @map("fecha_decision") @db.Date
+  idObservacionSinClasificar String?           @map("id_observacion_sin_clasificar")
+  justificacionSugerencia    String?           @map("justificacion_sugerencia")
+  justificacionDecision      String?           @map("justificacion_decision")
+  pasoSiguienteSugerido      String?           @map("paso_siguiente_sugerido")
+  origen                     OrigenObservacion @default(dataset)
+  /// Solo `origen = app`: la captura confirmada y el `sub` de Cognito de quien decidió.
+  idCaptura                  String?           @map("id_captura") @db.Uuid
+  idUsuarioDecide            String?           @map("id_usuario_decide")
+
+  nino                     Nino                  @relation(fields: [idNino], references: [id])
+  sala                     Sala                  @relation(fields: [idSala], references: [id])
+  nivelEducativo           NivelEducativo        @relation(fields: [idNivelEducativo], references: [id])
+  nucleo                   Nucleo                @relation(fields: [idNucleo], references: [id])
+  version                  VersionRubrica        @relation(fields: [idVersion], references: [id])
+  sugerido                 NivelTrayectoria?     @relation("NivelSugerido", fields: [nivelSugerido], references: [nivel])
+  validado                 NivelTrayectoria?     @relation("NivelValidado", fields: [nivelValidado], references: [nivel])
+  educadoraDecide          Educadora?            @relation(fields: [idEducadoraDecide], references: [id])
+  observacionSinClasificar Observacion?          @relation(fields: [idObservacionSinClasificar], references: [id])
+  captura                  Captura?              @relation(fields: [idCaptura], references: [id], onDelete: SetNull)
+  evidencias               ValoracionEvidencia[]
+
+  @@index([idNino, idNucleo, fechaCorte])
+  @@map("valoraciones")
+}
+
+model ValoracionEvidencia {
+  idValoracion String       @map("id_valoracion")
+  idEvidencia  String       @map("id_evidencia")
+  uso          UsoEvidencia
+
+  valoracion Valoracion               @relation(fields: [idValoracion], references: [id], onDelete: Cascade)
+  evidencia  ObservacionManifestacion @relation(fields: [idEvidencia], references: [id], onDelete: Cascade)
+
+  @@id([idValoracion, idEvidencia])
+  @@index([idEvidencia])
+  @@map("valoracion_evidencias")
 }
 
 // ---------- Registro en la app ----------
@@ -228,12 +422,13 @@ model Captura {
   creadoEn      DateTime       @default(now()) @map("creado_en")
   actualizadoEn DateTime       @updatedAt @map("actualizado_en")
 
-  nino        Nino           @relation(fields: [idNino], references: [id])
-  jardin      Jardin         @relation(fields: [idJardin], references: [id])
-  borrador    Borrador?
-  observacion Observacion?
-  correccion  Correccion?
-  eventos     EventoTiempo[]
+  nino         Nino           @relation(fields: [idNino], references: [id])
+  jardin       Jardin         @relation(fields: [idJardin], references: [id])
+  borrador     Borrador?
+  observacion  Observacion?
+  correccion   Correccion?
+  eventos      EventoTiempo[]
+  valoraciones Valoracion[]
 
   @@index([idJardin, fecha])
   @@index([idUsuario, fecha])

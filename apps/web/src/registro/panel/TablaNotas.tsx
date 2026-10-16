@@ -95,7 +95,7 @@ function FilaNota({ nota, ahora }: { nota: NotaGuardada; ahora: Date }) {
       <TableCell>{nota.texto ?? 'Sin texto'}</TableCell>
       <TableCell>
         <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-          {nota.dominios.map((d) => (
+          {nota.nucleos.map((d) => (
             <ChipArea key={d} area={d} compacto />
           ))}
         </Box>

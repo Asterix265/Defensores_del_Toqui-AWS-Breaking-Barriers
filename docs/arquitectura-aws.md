@@ -82,6 +82,7 @@ El diagrama muestra el código con los cambios `cola-ia-y-amplify` y `endurecer-
 | `pnpm aws:prod:smoke` | Verifica la web y el proxy `/api` en Amplify, API → Aurora y S3 por CloudFront, ALB sin acceso directo y procesamiento (encola un trabajo sintético y comprueba en el log que la Lambda llega a la API interna) |
 | `pnpm aws:prod:users` | Crea los usuarios sintéticos en el pool de producción |
 | `pnpm aws:prod:env` | Imprime las variables de producción |
+| `pnpm aws:prod:seed --dataset <datos_publicos> [--dry-run]` | Sube los 15 CSV del dataset E1 por núcleos a `dataset/<huella>/` del bucket de capturas y lanza una tarea Fargate única (definición de la API, `--cargar-dataset`) que los carga en Aurora con `toqui_app`. Espera a que termine e informa el código de salida y el flujo de log; si la espera falla (15 minutos o un error), detiene la tarea. Se niega a lanzarla, también con `--dry-run`, si `ToquiApp` no está en `CREATE_COMPLETE` o `UPDATE_COMPLETE` (por ejemplo, tras un rollback) o no expone la salida `PrefijoDataset`: su definición de tarea podría no conocer `--cargar-dataset` y arrancaría la API. Con `--dry-run` solo muestra el plan. No hace nada si la base ya tiene jardines |
 | `pnpm aws:prod:destroy` | Borra los tres stacks (incluida la base de datos) |
 
 Requisitos: perfil `toqui` con `aws login` y Docker en ejecución. Avisar al equipo antes de desplegar o destruir.
@@ -94,13 +95,20 @@ Tiempos del primer despliegue: `ToquiRed` 38 s, `ToquiDatos` 7 min, `ToquiApp` 8
 
 **En el código, sin desplegar** (cambio `cola-ia-y-amplify`): la cola, la DLQ, la Lambda `toqui-prod-proceso` y el secreto del token reemplazan a EventBridge, Step Functions y la Lambda `eco`. Los adaptadores de la Lambda (Transcribe, Textract y Guardrail) se probaron el 15-10-2026 contra `ToquiDev` con datos sintéticos. La API encola en modo `PIPELINE_MODE=cola` (texto al crear, audio y foto con `POST /capturas/:id/subida`), con el catálogo completo de manifestaciones en el mensaje. La clasificación de la Lambda sigue con el proveedor `fake`: Claude (`IA_PROVIDER=bedrock`) está en el código, sin activar (ver [Pendiente](#pendiente)).
 
+**En el código, sin desplegar** (cambio `migrar-dataset-nucleos`): modelo del dataset E1 por núcleos. Su migración (`20261016100000_dataset_nucleos`) **vacía** las tablas del dataset y de las capturas al desplegarse; después se carga con `pnpm aws:prod:seed`. No se revierte redesplegando la versión anterior: Prisma no deshace migraciones, la API anterior falla con el esquema nuevo y `/health` no lo detecta. Plan de rollback en `openspec/changes/migrar-dataset-nucleos/design.md`. El rol de tarea de la API agrega `s3:GetObject` sobre `dataset/*` del bucket de capturas, que el ciclo de vida borra a los 7 días. El mensaje de la cola lleva el catálogo del nivel educativo del niño o niña (192 manifestaciones, unos 40 KB). Verificado el 16-10-2026:
+- la migración, sobre una base local con el esquema anterior;
+- la imagen de la API con `--cargar-dataset` contra PostgreSQL 17 local, desde una carpeta y desde S3 (bucket de `ToquiDev`, prefijo borrado después);
+- `pnpm aws:prod:seed --dry-run` contra la cuenta; desde la revisión del PR se niega mientras `ToquiApp` siga en `UPDATE_ROLLBACK_COMPLETE`.
+
+Costo: una tarea Fargate de pocos minutos y unos 12 MB en S3 durante 7 días.
+
 **En el código, sin desplegar** (cambio `endurecer-seguridad-aws`): ALB interno con VPC Origin, sin web en CloudFront, permisos mínimos de la API, salida acotada, usuario `toqui_app` y retención de 7 días en la base. Verificado con las pruebas de CDK, `cdk synth`, las pruebas e2e de la API y el modo `--migrar` contra PostgreSQL 17 local. El despliegue reemplaza el ALB (`toqui-prod-api-int`): la API queda sin servicio unos minutos y el VPC Origin tarda hasta 15 minutos en crearse.
 
 ## Pendiente
 
 - Desplegar la cola, la Lambda de proceso y el endurecimiento (`pnpm aws:prod:deploy`, con aviso al equipo) y verificar con `pnpm aws:prod:smoke`.
-- Activar la clasificación con Claude en la Lambda (cambio `clasificador-bedrock`): el código está listo y probado con un cliente simulado, pero producción sigue con `IA_PROVIDER=fake` hasta la prueba en vivo contra Bedrock (`packages/ia/src/clasificador.live.test.ts`). Para activarlo, cambiar `IA_PROVIDER_PROCESO` a `'bedrock'` en `infra/lib/app-stack.ts` y redesplegar `ToquiApp`; reversión rápida sin redesplegar: `IA_PROVIDER=fake` en las variables de entorno de `toqui-prod-proceso` desde la consola de Lambda. El cambio también sube el `timeout` de la Lambda de 120 s a 180 s (la cola pasa de 720 s a 1080 s de visibilidad).
-- Cargar el dataset en Aurora (`pnpm db:seed` con `DATASET_DIR` y la `DATABASE_URL` de producción, o una tarea de ECS).
+- Activar la clasificación con Claude en la Lambda (cambio `clasificador-bedrock`): el código está listo y probado con un cliente simulado, pero producción sigue con `IA_PROVIDER=fake` hasta comprobar la Lambda real (la prueba en vivo de `packages/ia/src/clasificador.live.test.ts` pasó con `us.anthropic.claude-sonnet-5`; Sonnet 5.5 está denegado en la cuenta del evento). Para activarlo, cambiar `IA_PROVIDER_PROCESO` a `'bedrock'` en `infra/lib/app-stack.ts` y redesplegar `ToquiApp`; reversión rápida sin redesplegar: `IA_PROVIDER=fake` en las variables de entorno de `toqui-prod-proceso` desde la consola de Lambda. El cambio también sube el `timeout` de la Lambda de 120 s a 180 s (la cola pasa de 720 s a 1080 s de visibilidad).
+- Con aviso al equipo, desplegar `migrar-dataset-nucleos` (vacía las tablas) y cargar el dataset en Aurora: `pnpm aws:prod:seed --dataset <ruta a datos_publicos>`.
 - Alerta de presupuesto en Billing → Budgets.
 - Dominio propio con certificado (opcional).
 - CI/CD de despliegue; hoy se despliega desde una máquina del equipo.

@@ -10,7 +10,7 @@ import type { ConfirmacionRequestDtoManifestacionesItem } from './confirmacionRe
 export interface ConfirmacionRequestDto {
   /**
    * @minimum 1
-   * @maximum 9
+   * @maximum 8
    */
   nivel: number;
   /**

@@ -200,7 +200,7 @@ export const getObtenerTrayectoriaUrl = (id: string, params?: ObtenerTrayectoria
 };
 
 /**
- * @summary Observaciones por dominio en el periodo (por defecto, 180 días)
+ * @summary Valoraciones y observaciones por núcleo en el periodo (por defecto, 180 días)
  */
 export const obtenerTrayectoria = async (
   id: string,
@@ -305,7 +305,7 @@ export function useObtenerTrayectoria<
   queryClient?: QueryClient,
 ): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
 /**
- * @summary Observaciones por dominio en el periodo (por defecto, 180 días)
+ * @summary Valoraciones y observaciones por núcleo en el periodo (por defecto, 180 días)
  */
 
 export function useObtenerTrayectoria<

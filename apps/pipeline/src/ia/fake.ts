@@ -1,17 +1,20 @@
-import type { Dominio } from '@toqui/shared';
 import type { Clasificador, EntradaClasificacion, LectorImagen } from '../puertos.js';
 import type { RespuestaClasificacion } from '../validacion.js';
 
 /**
  * Proveedor `fake`: mismo criterio que `apps/api/src/pipeline/ia-fake.ts` (palabras clave por
- * dominio, nivel esperado para la edad). Sirve para probar la cola de punta a punta sin IA.
+ * núcleo del dataset E1, nivel de referencia del mensaje). Sirve para probar la cola de punta a
+ * punta sin IA.
  */
-const PALABRAS_CLAVE: Record<Dominio, string[]> = {
-  lenguaje_comunicacion: ['dijo', 'palabra', 'cancion', 'hablo', 'balbuce', 'senalo', 'pidio'],
-  motor_fino: ['bloque', 'apilo', 'pinza', 'lapiz', 'encaj', 'cuchara', 'boton'],
-  motor_grueso: ['gate', 'camin', 'corri', 'rampa', 'salt', 'trep', 'pelota'],
-  socioemocional: ['content', 'compart', 'abraz', 'llor', 'sonri', 'companer', 'consol'],
-  cognitivo: ['busco', 'escond', 'encontr', 'orden', 'clasific', 'color', 'forma'],
+const PALABRAS_CLAVE: Record<string, string[]> = {
+  IA: ['solo', 'sola', 'zapato', 'vistio', 'eligio', 'necesit', 'se calm', 'llor'],
+  CC: ['compart', 'turno', 'companer', 'ayudo', 'regla', 'consol', 'abraz'],
+  CM: ['gate', 'camin', 'corri', 'rampa', 'salt', 'trep', 'pelota', 'bloque', 'apilo', 'pinza'],
+  LV: ['dijo', 'palabra', 'hablo', 'balbuce', 'senalo', 'pidio', 'conto', 'pregunt'],
+  LA: ['pint', 'dibuj', 'cancion', 'canto', 'bail', 'music', 'ritmo', 'sonaj'],
+  EN: ['planta', 'agua', 'animal', 'insect', 'hoja', 'tierra', 'semilla'],
+  ES: ['famil', 'mama', 'papa', 'abuel', 'fiesta', 'comunidad', 'oficio'],
+  PM: ['conteo', 'numero', 'cuant', 'orden', 'clasific', 'forma', 'tamano', 'escond', 'encontr'],
 };
 
 const LECTURAS_FOTO = [
@@ -35,14 +38,14 @@ function semilla(texto: string): number {
   return h;
 }
 
-function dominioProbable(texto: string): Dominio | null {
+function nucleoProbable(texto: string): string | null {
   const limpio = sinTildes(texto);
-  let mejor: Dominio | null = null;
+  let mejor: string | null = null;
   let puntajeMejor = 0;
-  for (const [dominio, palabras] of Object.entries(PALABRAS_CLAVE) as [Dominio, string[]][]) {
+  for (const [nucleo, palabras] of Object.entries(PALABRAS_CLAVE)) {
     const puntaje = palabras.filter((p) => limpio.includes(p)).length;
     if (puntaje > puntajeMejor) {
-      mejor = dominio;
+      mejor = nucleo;
       puntajeMejor = puntaje;
     }
   }
@@ -62,10 +65,10 @@ export class ClasificadorFake implements Clasificador {
 
   async clasificar(entrada: EntradaClasificacion): Promise<RespuestaClasificacion> {
     const { textoFuente, nivelEsperado, catalogo } = entrada;
-    const dominio = textoFuente.trim().length >= MINIMO_TEXTO ? dominioProbable(textoFuente) : null;
-    const manifestacion = dominio
+    const nucleo = textoFuente.trim().length >= MINIMO_TEXTO ? nucleoProbable(textoFuente) : null;
+    const manifestacion = nucleo
       ? catalogo
-          .filter((m) => m.nivel === nivelEsperado && m.dominio === dominio)
+          .filter((m) => m.nivel === nivelEsperado && m.nucleo === nucleo)
           .sort((a, b) => a.id.localeCompare(b.id))[0]
       : undefined;
     if (!manifestacion) {

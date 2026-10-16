@@ -6,9 +6,8 @@ import type { Manifestacion } from './api';
 
 export type Formato = 'audio' | 'foto' | 'texto';
 
-/** Dominios del dataset sintético (ver docs/contexto-desafio.md). */
-export type Dominio =
-  'cognitivo' | 'lenguaje_comunicacion' | 'motor_fino' | 'motor_grueso' | 'socioemocional';
+/** Núcleos de aprendizaje del dataset E1 por núcleos (ver docs/contexto-desafio.md). */
+export type Nucleo = 'IA' | 'CC' | 'CM' | 'LV' | 'LA' | 'EN' | 'ES' | 'PM';
 
 export interface Nino {
   id: string;
@@ -16,8 +15,10 @@ export interface Nino {
   nombre: string;
   nombreCompleto: string;
   iniciales: string;
-  /** Código del grupo en el dataset (`SG-A`). */
+  /** Código local de la sala en el dataset (`SC-01`). */
   sala: string;
+  /** Sala Cuna, Nivel Medio o Transición: define qué parte de la rúbrica corresponde. */
+  nivelEducativo: 'SC' | 'NM' | 'TR';
   edadMeses: number;
   fondo: string;
   tinta: string;
@@ -29,31 +30,33 @@ export interface ManifestacionCitada {
   cita: string | null;
 }
 
-/** Dominios de las manifestaciones de la nota, sin repetir y en orden de aparición. */
-export function dominiosDe(manifestaciones: { manifestacion: { dominio: Dominio } }[]): Dominio[] {
-  return [...new Set(manifestaciones.map((m) => m.manifestacion.dominio))];
+/** Núcleos de las manifestaciones de la nota, sin repetir y en orden de aparición. */
+export function nucleosDe(manifestaciones: { manifestacion: { nucleo: Nucleo } }[]): Nucleo[] {
+  return [...new Set(manifestaciones.map((m) => m.manifestacion.nucleo))];
 }
 
-export const DOMINIOS: Dominio[] = [
-  'lenguaje_comunicacion',
-  'motor_fino',
-  'motor_grueso',
-  'socioemocional',
-  'cognitivo',
-];
+/** En el orden de los ámbitos de las Bases Curriculares. */
+export const NUCLEOS: Nucleo[] = ['IA', 'CC', 'CM', 'LV', 'LA', 'EN', 'ES', 'PM'];
 
-export const ETIQUETA_DOMINIO: Record<Dominio, string> = {
-  cognitivo: 'Cognitivo',
-  lenguaje_comunicacion: 'Lenguaje',
-  motor_fino: 'Motor fino',
-  motor_grueso: 'Motor grueso',
-  socioemocional: 'Socioemocional',
+/** Nombre corto para chips y tarjetas; el nombre completo viene de `GET /nucleos`. */
+export const ETIQUETA_NUCLEO: Record<Nucleo, string> = {
+  IA: 'Identidad',
+  CC: 'Convivencia',
+  CM: 'Movimiento',
+  LV: 'Lenguaje',
+  LA: 'Artes',
+  EN: 'Naturaleza',
+  ES: 'Sociocultural',
+  PM: 'Matemático',
 };
 
-export const COLOR_DOMINIO: Record<Dominio, { fondo: string; tinta: string }> = {
-  cognitivo: { fondo: '#F1E6FA', tinta: '#4f2a73' },
-  lenguaje_comunicacion: { fondo: '#E3ECFA', tinta: '#1d3f73' },
-  motor_fino: { fondo: '#FFF1DB', tinta: '#7a4300' },
-  motor_grueso: { fondo: '#E6F4E7', tinta: '#005312' },
-  socioemocional: { fondo: '#FDE8EA', tinta: '#92001c' },
+export const COLOR_NUCLEO: Record<Nucleo, { fondo: string; tinta: string }> = {
+  IA: { fondo: '#FDE8EA', tinta: '#92001c' },
+  CC: { fondo: '#FCE4F0', tinta: '#7a1f4f' },
+  CM: { fondo: '#E6F4E7', tinta: '#005312' },
+  LV: { fondo: '#E3ECFA', tinta: '#1d3f73' },
+  LA: { fondo: '#FFF1DB', tinta: '#7a4300' },
+  EN: { fondo: '#E0F3F1', tinta: '#0f5049' },
+  ES: { fondo: '#EFE4D8', tinta: '#3A2414' },
+  PM: { fondo: '#F1E6FA', tinta: '#4f2a73' },
 };

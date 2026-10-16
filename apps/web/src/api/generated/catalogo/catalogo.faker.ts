@@ -7,26 +7,29 @@
  */
 import { faker } from '@faker-js/faker';
 
-import type { ManifestacionDtoOutput, NivelRutaDtoOutput } from '../model';
+import type { ManifestacionDtoOutput, NivelRutaDtoOutput, NucleoDtoOutput } from '../model';
 
 export const getListarManifestacionesResponseMock = (): ManifestacionDtoOutput[] =>
   Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() => ({
     id: faker.string.alpha({ length: { min: 10, max: 20 } }),
-    nivel: faker.number.int({ min: 1, max: 9 }),
-    dominio: faker.helpers.arrayElement([
-      'motor_grueso',
-      'motor_fino',
-      'lenguaje_comunicacion',
-      'socioemocional',
-      'cognitivo',
-    ] as const),
+    idDescriptor: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    nucleo: faker.helpers.fromRegExp('^[A-Z]{2}$'),
+    nivelEducativo: faker.helpers.arrayElement(['SC', 'NM', 'TR'] as const),
+    nivel: faker.number.int({ min: 1, max: 8 }),
+    tipo: faker.helpers.arrayElement(['conducta_descriptor', 'ejemplo_ilustrativo'] as const),
     textoObservable: faker.string.alpha({ length: { min: 10, max: 20 } }),
   }));
 
 export const getListarNivelesResponseMock = (): NivelRutaDtoOutput[] =>
   Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() => ({
-    nivel: faker.number.int({ min: 1, max: 9 }),
+    nivel: faker.number.int({ min: 1, max: 8 }),
     nombre: faker.string.alpha({ length: { min: 10, max: 20 } }),
-    edadMinMeses: faker.number.int({ min: -9007199254740991, max: 9007199254740991 }),
-    edadMaxMeses: faker.number.int({ min: -9007199254740991, max: 9007199254740991 }),
+  }));
+
+export const getListarNucleosResponseMock = (): NucleoDtoOutput[] =>
+  Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() => ({
+    id: faker.helpers.fromRegExp('^[A-Z]{2}$'),
+    nombre: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ambito: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    origen: faker.string.alpha({ length: { min: 10, max: 20 } }),
   }));

@@ -9,8 +9,8 @@ import ChevronLeftRounded from '@mui/icons-material/ChevronLeftRounded';
 import MicRounded from '@mui/icons-material/MicRounded';
 import { useObservaciones } from './api';
 import { DIAS_PERIODO, registrosDe, resumenAreas, type ResumenArea } from './areas';
-import { ChipArea, ICONO_DOMINIO, NinoAvatar, Pantalla } from './componentes';
-import { COLOR_DOMINIO, ETIQUETA_DOMINIO, type Nino } from './datos';
+import { ChipArea, ICONO_NUCLEO, NinoAvatar, Pantalla } from './componentes';
+import { COLOR_NUCLEO, ETIQUETA_NUCLEO, type Nino } from './datos';
 import { diaCorto } from './formato';
 import { colores } from './tema';
 
@@ -173,7 +173,7 @@ export function UltimasNotas({
             </Typography>
           )}
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-            {registro.dominios.map((d) => (
+            {registro.nucleos.map((d) => (
               <ChipArea key={d} area={d} compacto />
             ))}
             <Typography variant="caption" color="text.secondary" sx={{ ml: 'auto' }}>
@@ -193,8 +193,8 @@ export function UltimasNotas({
 }
 
 function IconoArea({ area, tamano }: { area: ResumenArea['area']; tamano: number }) {
-  const Icono = ICONO_DOMINIO[area];
-  const { fondo, tinta } = COLOR_DOMINIO[area];
+  const Icono = ICONO_NUCLEO[area];
+  const { fondo, tinta } = COLOR_NUCLEO[area];
   return (
     <Box
       aria-hidden
@@ -218,7 +218,7 @@ function AreaSinNotas({ resumen }: { resumen: ResumenArea }) {
   return (
     <Box
       component="section"
-      aria-label={ETIQUETA_DOMINIO[resumen.area]}
+      aria-label={ETIQUETA_NUCLEO[resumen.area]}
       sx={{
         px: 2,
         py: 1.75,
@@ -234,7 +234,7 @@ function AreaSinNotas({ resumen }: { resumen: ResumenArea }) {
       <IconoArea area={resumen.area} tamano={40} />
       <Box sx={{ flex: 1 }}>
         <Typography sx={{ fontSize: 17, fontWeight: 800 }}>
-          {ETIQUETA_DOMINIO[resumen.area]}
+          {ETIQUETA_NUCLEO[resumen.area]}
         </Typography>
         <Typography sx={{ fontSize: 15, fontWeight: 600, color: colores.amarilloTinta }}>
           Sin notas aún. Buen momento para observar.
@@ -251,7 +251,7 @@ function AreaConNotas({ resumen, ahora }: { resumen: ResumenArea; ahora: Date })
   return (
     <Stack
       component="section"
-      aria-label={ETIQUETA_DOMINIO[resumen.area]}
+      aria-label={ETIQUETA_NUCLEO[resumen.area]}
       sx={{
         p: 1.75,
         gap: 0.75,
@@ -266,7 +266,7 @@ function AreaConNotas({ resumen, ahora }: { resumen: ResumenArea; ahora: Date })
         <Typography sx={{ fontSize: 26, fontWeight: 800 }}>{resumen.cantidad}</Typography>
       </Box>
       <Typography sx={{ fontSize: 17, fontWeight: 800 }}>
-        {ETIQUETA_DOMINIO[resumen.area]}
+        {ETIQUETA_NUCLEO[resumen.area]}
       </Typography>
       {resumen.ultima && (
         <Typography variant="caption" color="text.secondary">

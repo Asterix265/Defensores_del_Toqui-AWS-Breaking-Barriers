@@ -14,7 +14,10 @@ export const getListarNinosResponseMock = (): NinoDtoOutput[] =>
     id: faker.string.alpha({ length: { min: 10, max: 20 } }),
     nombres: faker.string.alpha({ length: { min: 10, max: 20 } }),
     apellidos: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    nombreCompleto: faker.string.alpha({ length: { min: 10, max: 20 } }),
     sala: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    idSala: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    nivelEducativo: faker.helpers.arrayElement(['SC', 'NM', 'TR'] as const),
     fechaNacimiento: faker.date.past().toISOString().slice(0, 10),
     edadMeses: faker.number.int({ min: -9007199254740991, max: 9007199254740991 }),
   }));
@@ -26,7 +29,10 @@ export const getObtenerTrayectoriaResponseMock = (
     id: faker.string.alpha({ length: { min: 10, max: 20 } }),
     nombres: faker.string.alpha({ length: { min: 10, max: 20 } }),
     apellidos: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    nombreCompleto: faker.string.alpha({ length: { min: 10, max: 20 } }),
     sala: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    idSala: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    nivelEducativo: faker.helpers.arrayElement(['SC', 'NM', 'TR'] as const),
     fechaNacimiento: faker.date.past().toISOString().slice(0, 10),
     edadMeses: faker.number.int({ min: -9007199254740991, max: 9007199254740991 }),
   },
@@ -34,24 +40,28 @@ export const getObtenerTrayectoriaResponseMock = (
   hasta: faker.date.past().toISOString().slice(0, 10),
   totalObservaciones: faker.number.int({ min: -9007199254740991, max: 9007199254740991 }),
   evidenciaLimitada: faker.datatype.boolean(),
-  dominios: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+  nucleos: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
     () => ({
-      dominio: faker.helpers.arrayElement([
-        'motor_grueso',
-        'motor_fino',
-        'lenguaje_comunicacion',
-        'socioemocional',
-        'cognitivo',
-      ] as const),
+      nucleo: faker.helpers.fromRegExp('^[A-Z]{2}$'),
       sinRegistros: faker.datatype.boolean(),
-      puntos: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
-        () => ({
-          idObservacion: faker.string.alpha({ length: { min: 10, max: 20 } }),
-          fecha: faker.date.past().toISOString().slice(0, 10),
-          nivelEstimado: faker.number.int({ min: 1, max: 9 }),
-          origen: faker.helpers.arrayElement(['dataset', 'app'] as const),
-        }),
-      ),
+      valoraciones: Array.from(
+        { length: faker.number.int({ min: 1, max: 10 }) },
+        (_, i) => i + 1,
+      ).map(() => ({
+        id: faker.string.alpha({ length: { min: 10, max: 20 } }),
+        fechaCorte: faker.date.past().toISOString().slice(0, 10),
+        nivelSugerido: faker.helpers.arrayElement([faker.number.int({ min: 1, max: 8 }), null]),
+        nivelValidado: faker.helpers.arrayElement([faker.number.int({ min: 1, max: 8 }), null]),
+        estado: faker.helpers.arrayElement([
+          'confirmada',
+          'ajustada',
+          'pendiente_revision',
+          'propuesta_pendiente',
+          'evidencia_insuficiente',
+          'sin_registro',
+        ] as const),
+        origen: faker.helpers.arrayElement(['dataset', 'app'] as const),
+      })),
     }),
   ),
   observaciones: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
@@ -60,8 +70,11 @@ export const getObtenerTrayectoriaResponseMock = (
       fecha: faker.date.past().toISOString().slice(0, 10),
       formato: faker.helpers.arrayElement(['texto', 'audio', 'foto', 'video'] as const),
       origen: faker.helpers.arrayElement(['dataset', 'app'] as const),
-      nivelEstimado: faker.number.int({ min: 1, max: 9 }),
       notaBreve: faker.helpers.arrayElement([
+        faker.string.alpha({ length: { min: 10, max: 20 } }),
+        null,
+      ]),
+      textoObservacion: faker.helpers.arrayElement([
         faker.string.alpha({ length: { min: 10, max: 20 } }),
         null,
       ]),
@@ -70,15 +83,35 @@ export const getObtenerTrayectoriaResponseMock = (
         (_, i) => i + 1,
       ).map(() => ({
         id: faker.string.alpha({ length: { min: 10, max: 20 } }),
-        nivel: faker.number.int({ min: 1, max: 9 }),
-        dominio: faker.helpers.arrayElement([
-          'motor_grueso',
-          'motor_fino',
-          'lenguaje_comunicacion',
-          'socioemocional',
-          'cognitivo',
-        ] as const),
+        idDescriptor: faker.string.alpha({ length: { min: 10, max: 20 } }),
+        nucleo: faker.helpers.fromRegExp('^[A-Z]{2}$'),
+        nivelEducativo: faker.helpers.arrayElement(['SC', 'NM', 'TR'] as const),
+        nivel: faker.number.int({ min: 1, max: 8 }),
+        tipo: faker.helpers.arrayElement(['conducta_descriptor', 'ejemplo_ilustrativo'] as const),
         textoObservable: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      })),
+      evidencias: Array.from(
+        { length: faker.number.int({ min: 1, max: 10 }) },
+        (_, i) => i + 1,
+      ).map(() => ({
+        id: faker.string.alpha({ length: { min: 10, max: 20 } }),
+        manifestacion: {
+          id: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          idDescriptor: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          nucleo: faker.helpers.fromRegExp('^[A-Z]{2}$'),
+          nivelEducativo: faker.helpers.arrayElement(['SC', 'NM', 'TR'] as const),
+          nivel: faker.number.int({ min: 1, max: 8 }),
+          tipo: faker.helpers.arrayElement(['conducta_descriptor', 'ejemplo_ilustrativo'] as const),
+          textoObservable: faker.string.alpha({ length: { min: 10, max: 20 } }),
+        },
+        fragmento: faker.helpers.arrayElement([
+          faker.string.alpha({ length: { min: 10, max: 20 } }),
+          null,
+        ]),
+        alcance: faker.helpers.arrayElement([
+          'componente_observado',
+          'parcial_otro_descriptor',
+        ] as const),
       })),
     }),
   ),

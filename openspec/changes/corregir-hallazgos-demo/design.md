@@ -7,21 +7,27 @@ La prueba de punta a punta del 16-10-2026 en el ambiente de demo dejó los halla
 ## Goals / Non-Goals
 
 **Goals:**
-- Que la educadora nunca lea un marcador técnico del Guardrail.
+- Que la educadora vea el nombre real que escribió o dijo, sin que llegue a Claude.
 - Que la directora no vea textos pensados para una educadora con sala.
 - Que borrar una nota sea una decisión explícita.
 - Que una pestaña abierta tome la versión nueva de la app sin pasos manuales.
 
 **Non-Goals:**
-- Guardar o reconstruir el texto original de audio y foto.
+- Reconstruir el nombre de las notas ya guardadas solo con el anonimizado.
 - Cambiar el prompt o la validación de Claude.
 - Cambiar el workflow de despliegue en este cambio (ver D4).
 
 ## Decisions
 
-### D1. Marcadores legibles en la web
-`textoLegible` (`formato.ts`) reemplaza solo los cuatro marcadores que configura el Guardrail (`NAME`, `EMAIL`, `PHONE`, `ADDRESS`, en `infra/lib/componentes.ts`) por una etiqueta entre corchetes, y deja intactas otras llaves. Se aplica al mostrar: el extracto de las notas (`registrar.ts`), la nota breve de las observaciones (`areas.ts`), el texto y las citas de la revisión y del detalle. En notas escritas, revisión y detalle prefieren `captura.texto`, el original.
-*Alternativa descartada:* reemplazar `{NAME}` por el nombre del niño o niña de la nota. La nota puede nombrar a otra persona, y el resultado parecería texto de la educadora.
+### D1. Nombres reales para la educadora, anonimizado para Claude
+- **Lambda:** el orquestador agrega `textoOriginal` (el texto normalizado antes del Guardrail) al borrador que entrega. No se usa para clasificar ni para los ejemplos.
+- **API, al recibir el borrador:** si la captura no tiene `texto` (audio y foto), guarda `textoOriginal` ahí. La retención lo borra a los 7 días, como el archivo.
+- **API, al mostrar:** `GET /capturas/:id` devuelve las citas del borrador ubicadas en el original con `citaEnOriginal`. Esa función alinea el anonimizado con el original: los tramos literales coinciden y cada marcador cubre el dato que reemplazó. Si no se alinean, queda la cita de Claude.
+- **API, al confirmar:** la observación guarda el texto original (`textoObservacion`, `notaBreve`) y las citas ubicadas en el original. La corrección sigue comparando solo IDs.
+- **Web:** muestra `captura.texto` y las citas tal como llegan. Para notas anteriores, `textoLegible` convierte los marcadores en `[nombre]`, `[correo]`, `[teléfono]` y `[dirección]`.
+
+*Alternativa descartada:* reemplazar `{NAME}` por el nombre del niño o niña de la nota. La nota puede nombrar a otra persona.
+*Alternativa descartada:* conservar el original solo 7 días y mostrar `[nombre]` después en la ficha. El equipo prefirió ver siempre el nombre real (ver `proposal.md`).
 
 ### D2. Sin sala propia, cadena vacía
 `RegistroApp` pasa `salaPropia = ''` a la directora. `SalaEscritorio` titula «Salas» cuando no hay sala propia, no calcula estado con «Todas las salas» y muestra «Elige una sala para ver su estado por área». Las comparaciones con `salaPropia` («tu sala») ya no coinciden con ninguna sala, así que la ficha tampoco lo muestra.
@@ -43,4 +49,5 @@ El orden de aplicación importa: primero `aws:cicd:deploy`, luego el merge del w
 ## Risks / Trade-offs
 
 - [Recarga inesperada] Si un service worker nuevo se activa con una nota en curso, la página se recarga. → Mitigación: el navegador busca actualizaciones al navegar, es decir, al abrir la app; una nota creada en la API queda «Sin revisar».
-- [Corchetes en citas] Una cita muestra `[nombre]` aunque el texto original tuviera el nombre. → Es lo que respalda la cita: la evidencia se extrajo del texto anonimizado.
+- [Nombres en Aurora sin plazo] La observación confirmada conserva los nombres. → Decisión explícita del equipo para la demo con datos sintéticos; con datos reales se revisa con Integra.
+- [Texto que no se alinea] Si el Guardrail cambiara algo más que los datos, la cita queda con el marcador y la web la muestra con `[nombre]`.

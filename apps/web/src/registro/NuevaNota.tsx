@@ -1039,7 +1039,7 @@ function Revision({
                 ...(deEjemplo && { border: `2px dashed ${colores.amarillo}` }),
               }}
             >
-              {/* En una nota escrita la API devuelve el original; en audio y foto solo queda el anonimizado. */}
+              {/* El original (con nombres); el anonimizado solo en notas anteriores a corregir-hallazgos-demo. */}
               {captura.texto ?? textoLegible(borrador.textoFuente)}
             </Box>
           </Stack>

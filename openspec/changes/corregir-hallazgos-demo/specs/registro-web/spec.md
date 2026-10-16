@@ -2,15 +2,19 @@
 
 ## ADDED Requirements
 
-### Requirement: Texto anonimizado legible
-La web SHALL mostrar los marcadores de datos personales del Guardrail (`{NAME}`, `{EMAIL}`, `{PHONE}`, `{ADDRESS}`) como `[nombre]`, `[correo]`, `[teléfono]` y `[dirección]` en la revisión, las citas, el detalle, las tarjetas de notas y la ficha. En una nota escrita, la revisión y el detalle SHALL mostrar el texto original de la educadora.
+### Requirement: Nombres reales en la app
+La app SHALL mostrar a la educadora y a la directora el texto original de la nota, con los nombres que escribió o dijo la educadora, en la revisión, las citas, el detalle, las tarjetas de notas y la ficha. El modelo SHALL recibir solo el texto anonimizado. La observación confirmada SHALL guardar el texto y las citas originales. Las notas que solo tienen el texto anonimizado SHALL mostrar los marcadores del Guardrail como `[nombre]`, `[correo]`, `[teléfono]` y `[dirección]`.
 
-#### Scenario: Revisión de una nota escrita
-- **WHEN** la educadora escribe «Mateo apiló cuatro bloques» y abre la revisión del borrador anonimizado
-- **THEN** la revisión muestra «Mateo apiló cuatro bloques» y no muestra `{NAME}`
+#### Scenario: Nota de audio con nombre
+- **WHEN** la transcripción dice «Mateo saltó en la rampa» y el Guardrail entrega «{NAME} saltó en la rampa»
+- **THEN** la revisión muestra «Mateo saltó en la rampa», con la cita «Mateo saltó en la rampa», y Claude recibió solo «{NAME} saltó en la rampa»
 
-#### Scenario: Nota de audio en «Por revisar»
-- **WHEN** el borrador de un audio tiene el texto «{NAME} logró pararse»
+#### Scenario: Confirmar guarda el original
+- **WHEN** la educadora confirma esa nota
+- **THEN** la observación guarda «Mateo saltó en la rampa» como texto y como cita
+
+#### Scenario: Nota anterior sin original
+- **WHEN** una nota guardada antes de este cambio tiene solo «{NAME} logró pararse»
 - **THEN** la tarjeta muestra «[nombre] logró pararse»
 
 ### Requirement: Salas sin sala propia

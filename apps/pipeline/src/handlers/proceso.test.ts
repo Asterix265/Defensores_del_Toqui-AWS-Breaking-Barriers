@@ -43,6 +43,7 @@ describe('handler proceso', () => {
     );
     expect(deps.api.entregarBorrador).toHaveBeenCalledWith(ID_CAPTURA, {
       textoFuente: 'Apiló cinco bloques sin ayuda y sonrió.',
+      textoOriginal: 'Apiló cinco bloques sin ayuda y sonrió.',
       nivelSugerido: 4,
       evidenciaInsuficiente: false,
       manifestaciones: [

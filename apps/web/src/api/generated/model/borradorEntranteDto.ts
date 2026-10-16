@@ -11,6 +11,8 @@ import type { Procesamiento } from './procesamiento';
 export interface BorradorEntranteDto {
   /** @minLength 1 */
   textoFuente: string;
+  /** @minLength 1 */
+  textoOriginal?: string;
   nivelSugerido: number | null;
   evidenciaInsuficiente: boolean;
   /** @maxItems 5 */

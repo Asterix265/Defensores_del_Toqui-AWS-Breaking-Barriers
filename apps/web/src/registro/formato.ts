@@ -41,8 +41,8 @@ const DATOS_OCULTOS: Record<string, string> = {
 };
 
 /**
- * Texto anonimizado para mostrar: «{NAME} apiló…» → «[nombre] apiló…». El pipeline guarda la
- * nota anonimizada (no la original), así que el marcador llega a la revisión, al detalle y a la ficha.
+ * Texto anonimizado para mostrar: «{NAME} apiló…» → «[nombre] apiló…». La API devuelve el texto
+ * original con los nombres; esto cubre las notas anteriores, que solo guardaron el anonimizado.
  */
 export function textoLegible(texto: string): string {
   return texto.replace(

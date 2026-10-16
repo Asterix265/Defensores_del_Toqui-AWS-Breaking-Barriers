@@ -2392,6 +2392,10 @@
             "type": "string",
             "minLength": 1
           },
+          "textoOriginal": {
+            "type": "string",
+            "minLength": 1
+          },
           "nivelSugerido": {
             "anyOf": [
               {

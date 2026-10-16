@@ -8,7 +8,7 @@ import {
   UnprocessableEntityException,
 } from '@nestjs/common';
 import { z } from 'zod';
-import { ProcesamientoSchema } from '@toqui/shared';
+import { ProcesamientoSchema, citaEnOriginal } from '@toqui/shared';
 import type {
   ArchivoResponse,
   BorradorEntrante,
@@ -206,9 +206,19 @@ export class CapturasService {
 
     await this.prisma.$transaction(async (tx) => {
       await this.tomarDecision(tx, id, 'confirmada');
-      // Solo el texto fuente del borrador (anonimizado por el pipeline). El texto original de la
-      // captura no se copia: la retención lo borra a los 7 días y aquí quedaría para siempre.
+      // La observación guarda el texto original, con los nombres que escribió o dijo la educadora
+      // (decisión del equipo, corregir-hallazgos-demo): queda aunque la retención borre el de la
+      // captura a los 7 días. Sin original (capturas antiguas), el anonimizado del borrador.
       const textoFuente = captura.borrador?.textoFuente ?? null;
+      const texto = captura.texto ?? textoFuente;
+      // Las citas salen del texto anonimizado; se guardan ubicadas en el original.
+      const vinculos = final.manifestaciones.map((m) => ({
+        ...m,
+        cita:
+          m.cita && textoFuente && captura.texto
+            ? (citaEnOriginal(m.cita, textoFuente, captura.texto) ?? m.cita)
+            : m.cita,
+      }));
       const observacion = await tx.observacion.create({
         data: {
           id: `APP-${id}`,
@@ -216,11 +226,11 @@ export class CapturasService {
           idUsuario: identidad.id,
           fechaObservacion: captura.fecha,
           formatoCaptura: captura.formato,
-          notaBreve: textoFuente?.slice(0, 280) ?? null,
-          textoObservacion: textoFuente,
+          notaBreve: texto?.slice(0, 280) ?? null,
+          textoObservacion: texto,
           origen: 'app',
           idCaptura: id,
-          vinculos: { create: final.manifestaciones },
+          vinculos: { create: vinculos },
         },
         select: { vinculos: { select: { id: true, idManifestacion: true } } },
       });
@@ -338,6 +348,7 @@ export class CapturasService {
       where: { id: this.uuid(id) },
       select: {
         estado: true,
+        texto: true,
         borrador: { select: { id: true } },
         nino: { select: { idNivelEducativo: true } },
       },
@@ -365,7 +376,13 @@ export class CapturasService {
         });
         await tx.captura.update({
           where: { id },
-          data: { estado: 'borrador_listo', errorDetalle: null },
+          data: {
+            estado: 'borrador_listo',
+            errorDetalle: null,
+            // Transcripción o lectura de la foto: el texto de la captura que ve la educadora (la
+            // nota escrita ya lo tiene). La retención lo borra a los 7 días, como el archivo.
+            ...(captura.texto === null && b.textoOriginal && { texto: b.textoOriginal }),
+          },
         });
         await tx.eventoTiempo.create({ data: { idCaptura: id, tipo: 'borrador_listo' } });
       });
@@ -516,9 +533,14 @@ export class CapturasService {
       evidenciaInsuficiente: c.borrador.evidenciaInsuficiente,
       proveedor: c.borrador.proveedor,
       procesamiento: ProcesamientoSchema.nullable().catch(null).parse(c.borrador.procesamiento),
+      // La educadora ve la cita en su texto original (con nombres), no en el anonimizado.
       manifestaciones: CitasSchema.parse(c.borrador.manifestaciones).flatMap((m) => {
         const encontrada = catalogo.get(m.idManifestacion);
-        return encontrada ? [{ manifestacion: sinVersion(encontrada), cita: m.cita }] : [];
+        const cita =
+          m.cita && c.texto
+            ? (citaEnOriginal(m.cita, c.borrador!.textoFuente, c.texto) ?? m.cita)
+            : m.cita;
+        return encontrada ? [{ manifestacion: sinVersion(encontrada), cita }] : [];
       }),
     };
     const observacion = c.observacion && this.observacionConfirmada(c, c.observacion);

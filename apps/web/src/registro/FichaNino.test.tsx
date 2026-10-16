@@ -161,7 +161,7 @@ describe('Cambiar de sala', () => {
     expect(boton(/Vicente/)).toBeInTheDocument();
   });
 
-  it('graba desde la ficha de otra sala; Grabar de la barra sigue ofreciendo la propia', async () => {
+  it('graba desde la ficha de otra sala; Grabar de la barra ofrece el jardín con la sala vista primero', async () => {
     await abrirMiSala();
     elegirSala('Sala B');
     fireEvent.click(boton(/Vicente/));
@@ -177,6 +177,25 @@ describe('Cambiar de sala', () => {
     fireEvent.click(boton('Grabar'));
     fireEvent.click(await screen.findByRole('button', { name: 'Terminar grabación' }));
     expect(await screen.findByRole('button', { name: 'Martina P.' })).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Vicente P.' })).not.toBeInTheDocument();
+    const grupos = screen.getAllByRole('region').map((r) => r.getAttribute('aria-label'));
+    expect(grupos[0]).toBe('Sala B');
+    expect(screen.getByRole('button', { name: 'Vicente P.' })).toBeInTheDocument();
+  });
+
+  it('escribe una nota desde la ficha de otra sala, sin elegir de nuevo al niño o niña', async () => {
+    await abrirMiSala();
+    elegirSala('Sala B');
+    fireEvent.click(boton(/Vicente/));
+    expect(
+      await screen.findByRole('button', { name: 'Foto de nota de Vicente P.' }),
+    ).toBeInTheDocument();
+    fireEvent.click(boton('Escribir nota de Vicente P.'));
+    fireEvent.change(await screen.findByRole('textbox', { name: 'Texto de la nota' }), {
+      target: { value: 'Apiló tres bloques y aplaudió.' },
+    });
+    fireEvent.click(boton('Listo'));
+    expect(await screen.findByRole('heading', { name: '¿Está bien?' })).toBeInTheDocument();
+    fireEvent.click(boton('Está bien'));
+    expect(await screen.findByText('Nota guardada para Vicente P.')).toBeInTheDocument();
   });
 });

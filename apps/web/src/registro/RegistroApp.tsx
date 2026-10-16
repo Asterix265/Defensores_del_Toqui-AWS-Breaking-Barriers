@@ -382,7 +382,6 @@ function AppConDatos({
   const [aviso, setAviso] = useState<string | null>(null);
   // Sala que se consulta en «Mi sala». Queda fuera de `Vista`: Grabar de la barra no la hereda.
   const [salaVista, setSalaVista] = useState(salaPropia);
-  const deMiSala = ninos.filter((n) => n.sala === salaPropia);
   const confirmadas = useNotas(ninos, { mias: 'true', estado: 'confirmada' });
 
   const ahora = new Date();
@@ -431,7 +430,9 @@ function AppConDatos({
     contenido = (
       <NuevaNota
         formato={vista.formato}
-        ninos={deMiSala}
+        // Todo el jardín, con la sala que se está viendo primero: se puede registrar en otra sala.
+        ninos={ninos}
+        salaPrimero={salaVista}
         // Desde la ficha puede venir un niño o niña de otra sala.
         ninoFijo={ninos.find((n) => n.id === ninoId)}
         catalogo={catalogo}
@@ -469,7 +470,7 @@ function AppConDatos({
           nino={fichaDe}
           ahora={ahora}
           onVolver={() => volver({ tipo: 'sala' })}
-          onGrabar={() => ir({ tipo: 'nueva', formato: 'audio', ninoId: fichaDe.id })}
+          onNueva={(formato) => ir({ tipo: 'nueva', formato, ninoId: fichaDe.id })}
         />
       );
     } else if (vista.tipo === 'sala' || vista.tipo === 'ficha') {

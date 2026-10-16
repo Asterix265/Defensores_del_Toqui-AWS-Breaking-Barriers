@@ -1,0 +1,86 @@
+# Despliegue continuo del backend de producción (openspec/changes/despliegue-continuo).
+# Cada push a main que toque algo más que docs, OpenSpec, Markdown o la web corre la CI y despliega
+# ToquiRed, ToquiDatos y ToquiApp sin aprobación manual. La web la publica Amplify por su cuenta.
+# Apagarlo: gh workflow disable desplegar.yml. Redesplegar a mano: Run workflow (workflow_dispatch).
+name: Desplegar
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - 'docs/**'
+      - 'openspec/**'
+      - '**/*.md'
+      - 'apps/web/**'
+  workflow_dispatch:
+
+# A nivel del workflow (D4): cada ejecución completa espera a la anterior y una pendiente la
+# reemplaza la más nueva, así nunca se despliega un commit viejo encima de uno nuevo.
+concurrency:
+  group: despliegue-prod
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  verificar:
+    uses: ./.github/workflows/ci.yml
+
+  desplegar:
+    needs: verificar
+    if: github.ref == 'refs/heads/main'
+    # ARM nativo: la imagen de la API y la Lambda son ARM64.
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      id-token: write
+      actions: read
+    env:
+      CDK_DISABLE_CLI_TELEMETRY: 'true'
+      PRISMA_HIDE_UPDATE_MESSAGE: '1'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+
+      - name: Activar pnpm con Corepack
+        run: corepack enable
+
+      - name: Instalar dependencias
+        run: pnpm install --frozen-lockfile
+
+      # Base: el último despliegue exitoso; antes del primero, lo desplegado a mano el 16-10 (PR #24).
+      - name: Revisar migraciones desde el último despliegue
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          base=$(gh run list --workflow desplegar.yml --branch main --status success -L 1 --json headSha --jq '.[0].headSha // ""')
+          base="${base:-b724e9f}"
+          infra/scripts/revisar-migraciones.sh "$base" "$GITHUB_SHA"
+
+      # Sin dist/proceso.mjs, CDK sintetiza una Lambda que siempre falla (app-stack.ts).
+      - name: Compilar el pipeline
+        run: |
+          pnpm --filter "@toqui/pipeline..." build
+          test -f apps/pipeline/dist/proceso.mjs
+
+      - name: Credenciales de AWS (OIDC)
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: arn:aws:iam::517660178579:role/toqui-github-deploy
+          aws-region: us-east-1
+
+      # `run` explícito y sin `--`: con --filter y sin `run`, pnpm toma la opción como propia y
+      # falla; con `--`, lo pasa literal y CDK deja de leer la opción (probado con pnpm 11).
+      - name: Desplegar producción
+        run: pnpm --filter @toqui/infra run aws:prod:deploy --require-approval never
+
+      - name: Smoke de producción
+        run: pnpm aws:prod:smoke

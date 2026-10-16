@@ -30,10 +30,17 @@ export interface SalidasDev {
   GuardrailVersion: string;
 }
 
-/** Carga infra/.env si existe y usa el perfil `toqui` salvo que AWS_PROFILE indique otro. */
+/**
+ * Carga infra/.env si existe y usa el perfil `toqui` salvo que AWS_PROFILE indique otro. En la CI
+ * (credenciales OIDC en el entorno) no fija perfil: no existe y el SDK fallaría al buscarlo.
+ */
 export function prepararCredenciales(): void {
   if (existsSync('.env')) process.loadEnvFile('.env');
-  process.env['AWS_PROFILE'] ??= 'toqui';
+  const conCredenciales =
+    process.env['AWS_ACCESS_KEY_ID'] ||
+    process.env['AWS_WEB_IDENTITY_TOKEN_FILE'] ||
+    process.env['CI'] === 'true';
+  if (!conCredenciales) process.env['AWS_PROFILE'] ??= 'toqui';
   process.env['AWS_REGION'] ??= REGION;
 }
 

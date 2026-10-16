@@ -28,6 +28,15 @@ describe('SISTEMA_EXTRACCION', () => {
     expect(SISTEMA_EXTRACCION).toContain('{NAME}');
     expect(SISTEMA_EXTRACCION).toContain('literalmente');
   });
+
+  it('acepta una manifestación compuesta si la nota describe al menos una de sus conductas', () => {
+    expect(SISTEMA_EXTRACCION).toContain('al menos una de ellas, sin exigir todas');
+  });
+
+  it('pide interpretar errores de lectura o transcripción sin corregir las citas', () => {
+    expect(SISTEMA_EXTRACCION).toContain('foto leída automáticamente o de un audio transcrito');
+    expect(SISTEMA_EXTRACCION).toContain('copia las citas tal como aparecen en la nota');
+  });
 });
 
 describe('HERRAMIENTA_BORRADOR', () => {

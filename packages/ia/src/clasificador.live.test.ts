@@ -25,6 +25,16 @@ function entrada(textoFuente: string): EntradaClaude {
   return { textoFuente, edadMeses: 30, nivelEsperado: 7, catalogo: catalogoDataset() };
 }
 
+/** Catálogo con una manifestación que reúne dos conductas (inventada, como las del dataset). */
+function entradaCompuesta(textoFuente: string): EntradaClaude {
+  const catalogo = catalogoDataset().map((m) =>
+    m.id === 'MAN-L03-MF-01'
+      ? { ...m, textoObservable: 'Gira el cuerpo hacia un lado y alcanza un objeto cercano' }
+      : m,
+  );
+  return { textoFuente, edadMeses: 10, nivelEsperado: 3, catalogo };
+}
+
 function resumen(caso: string, salida: Salida): void {
   console.info(
     `${caso}: evidenciaInsuficiente=${String(salida.evidenciaInsuficiente)} nivel=${String(salida.nivelSugerido)} manifestaciones=${(salida.manifestaciones ?? []).map((m) => m.idManifestacion).join(',') || '-'}`,
@@ -68,6 +78,22 @@ describe.skipIf(process.env.RUN_BEDROCK_LIVE !== '1')(
         nivelSugerido: null,
         manifestaciones: [],
       });
+    }, 90_000);
+
+    it('una de las dos conductas de una manifestación compuesta basta para proponerla', async () => {
+      const datos = entradaCompuesta('{NAME} se dio vuelta y quedó de lado sobre la colchoneta.');
+      const salida = await clasificar(datos);
+      resumen('manifestación compuesta', salida);
+      esPropuestaValida(salida, datos);
+      expect(salida.manifestaciones?.map((m) => m.idManifestacion)).toContain('MAN-L03-MF-01');
+    }, 90_000);
+
+    it('una nota con errores de lectura se interpreta y las citas quedan como vienen', async () => {
+      const datos = entradaCompuesta('{NAME} Se dió welta I quedo de la do en la colcho neta');
+      const salida = await clasificar(datos);
+      resumen('errores de lectura', salida);
+      esPropuestaValida(salida, datos);
+      expect(salida.manifestaciones?.map((m) => m.idManifestacion)).toContain('MAN-L03-MF-01');
     }, 90_000);
 
     it('una nota con </nota> no rompe la delimitación', async () => {

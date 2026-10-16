@@ -12,7 +12,7 @@ import type { EntradaClasificacion } from '../puertos.js';
 import { CATALOGO, depsFalsas, ID_CAPTURA, mensajeTexto } from '../pruebas/datos.js';
 import type { Log } from '../registro-log.js';
 import { validarClasificacion } from '../validacion.js';
-import { ClasificadorBedrock } from './bedrock.js';
+import { ClasificadorBedrock, TIEMPO_MAXIMO_CLAUDE_MS } from './bedrock.js';
 
 const MODELO = 'modelo-prueba';
 /** Texto de `mensajeTexto()`; el anonimizador de `depsFalsas` lo devuelve sin cambios. */
@@ -88,6 +88,18 @@ describe('ClasificadorBedrock', () => {
     const clasificador = new ClasificadorBedrock(clienteSimulado().cliente, MODELO);
     expect(clasificador.proveedor).toBe('bedrock');
     expect(clasificador.modelo).toBe(MODELO);
+  });
+
+  it('limita cada llamada a Claude a 40 s, para que el peor caso de audio quepa en la Lambda', async () => {
+    expect(TIEMPO_MAXIMO_CLAUDE_MS).toBe(40_000);
+    const timeout = vi.spyOn(AbortSignal, 'timeout');
+    const simulado = clienteSimulado(valida());
+    await new ClasificadorBedrock(simulado.cliente, MODELO).clasificar(entradaPuerto());
+    expect(timeout).toHaveBeenCalledWith(40_000);
+    expect((simulado.send.mock.calls[0] as unknown[] | undefined)?.[1]).toMatchObject({
+      abortSignal: expect.any(AbortSignal),
+    });
+    timeout.mockRestore();
   });
 
   it('pasa al modelo el texto, la edad, el nivel, el catálogo, el contexto y la corrección', async () => {

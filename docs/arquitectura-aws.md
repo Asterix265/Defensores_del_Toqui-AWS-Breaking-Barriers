@@ -57,7 +57,7 @@ El diagrama muestra el código con los cambios `cola-ia-y-amplify` y `endurecer-
 | S3 (capturas) | Audios, fotos y transcripciones | Privado, borrado a 7 días, CORS solo para Amplify. Audio y foto en `capturas/`, resultado de Transcribe en `transcripciones/`. A los 7 días la API también vacía en la base el texto original y la referencia al archivo; se conserva el texto anonimizado del borrador |
 | SQS + Lambda `toqui-prod-proceso` | Procesamiento asíncrono de capturas | Cola con DLQ (`maxReceiveCount: 3`, retención de 14 días), un mensaje por invocación y hasta 5 en paralelo. La Lambda normaliza, anonimiza, clasifica y entrega el borrador al endpoint interno de la API; en el último intento informa el error. Reemplaza a EventBridge, Step Functions y la Lambda `eco` |
 | Cognito | Login y roles | Grupos `educadora`/`directora`, atributo `custom:id_jardin` |
-| Bedrock + Guardrails | IA y protección de datos personales | Claude Sonnet 5.5 (extracción), Haiku 5.5 (resúmenes); anonimiza nombres, contacto y RUT |
+| Bedrock + Guardrails | IA y protección de datos personales | Claude Opus 5 (extracción; la cuenta del evento no permite Opus 5.5, Sonnet 5.5 ni Haiku 5.5); anonimiza nombres, contacto y RUT |
 | Transcribe | Audio a texto | `es-US`; trabajo por captura, que se retoma si la cola reintenta |
 | Textract | Texto de la foto de una nota | `DetectDocumentText` directo desde S3. Reconoce manuscrito solo en inglés: en español, texto impreso. `LECTOR_FOTO=ia` usa el modelo como respaldo |
 | CloudWatch Logs | Registros | `/toqui/prod/api` y `/toqui/prod/proceso`, retención de 2 semanas. La Lambda registra ids, pasos y tiempos, nunca el texto de la nota |
@@ -89,26 +89,33 @@ Requisitos: perfil `toqui` con `aws login` y Docker en ejecución. Avisar al equ
 
 ## Estado
 
-Desplegado y verificado el 15-10-2026 con `pnpm aws:prod:smoke` (5/5): web y rutas de la SPA por CloudFront, API en Fargate conectada a Aurora con migraciones aplicadas, ALB cerrado fuera de CloudFront y pipeline S3 → EventBridge → Step Functions → Lambda. URL pública: `pnpm aws:prod:env` o la salida `WebUrl` del stack `ToquiApp`. Usuarios sintéticos creados en el pool de producción con `pnpm aws:prod:users` (misma contraseña de `infra/.env`).
+**Desplegado el 16-10-2026** (el despliegue de `ToquiApp` terminó a las 03:47, hora de Chile, según CloudTrail): la cola y la DLQ, la Lambda `toqui-prod-proceso`, el secreto del token, el endurecimiento de seguridad (ALB interno con VPC Origin, usuario `toqui_app`, sin web en CloudFront) y el modelo del dataset E1 por núcleos. Ya no existen EventBridge, Step Functions ni la Lambda `eco`. La web se publica en Amplify (`https://main.dgsos3g6dvh6h.amplifyapp.com`), que reenvía `/api/*` a CloudFront.
 
-Tiempos del primer despliegue: `ToquiRed` 38 s, `ToquiDatos` 7 min, `ToquiApp` 8 min.
+Comprobado el 16-10-2026, solo con lecturas:
 
-**En el código, sin desplegar** (cambio `cola-ia-y-amplify`): la cola, la DLQ, la Lambda `toqui-prod-proceso` y el secreto del token reemplazan a EventBridge, Step Functions y la Lambda `eco`. Los adaptadores de la Lambda (Transcribe, Textract y Guardrail) se probaron el 15-10-2026 contra `ToquiDev` con datos sintéticos. La API encola en modo `PIPELINE_MODE=cola` (texto al crear, audio y foto con `POST /capturas/:id/subida`), con el catálogo completo de manifestaciones en el mensaje. La clasificación de la Lambda sigue con el proveedor `fake`: Claude (`IA_PROVIDER=bedrock`) está en el código, sin activar (ver [Pendiente](#pendiente)).
+- `ToquiRed`, `ToquiDatos` y `ToquiApp` en `UPDATE_COMPLETE`.
+- `/api/health` responde `ok` con la base de datos, el almacenamiento y la cola en `up`, por CloudFront y por el proxy de Amplify. La web y sus rutas internas responden 200.
+- La migración `20261016100000_dataset_nucleos` se aplicó a las 03:50, y la carga (`pnpm aws:prod:seed`) terminó a las 03:57: 3 jardines, 18 salas, 252 niños y niñas, 576 manifestaciones, 11.400 observaciones y 5.760 valoraciones.
+- Cognito tiene 2 usuarios de demo: una educadora y una directora de `JAR-0001`.
+- La Lambda procesó una nota de texto de prueba hasta `borrador_listo` (03:58). Audio y foto todavía no se han probado en producción.
+- Lo desplegado clasifica con el proveedor `fake` y tiene un `timeout` de 120 s. En `main`, Claude Opus 5 ya está activado (`IA_PROVIDER_PROCESO = 'bedrock'`, 180 s): falta desplegarlo (ver [Pendiente](#pendiente)).
 
-**En el código, sin desplegar** (cambio `migrar-dataset-nucleos`): modelo del dataset E1 por núcleos. Su migración (`20261016100000_dataset_nucleos`) **vacía** las tablas del dataset y de las capturas al desplegarse; después se carga con `pnpm aws:prod:seed`. No se revierte redesplegando la versión anterior: Prisma no deshace migraciones, la API anterior falla con el esquema nuevo y `/health` no lo detecta. Plan de rollback en `openspec/changes/migrar-dataset-nucleos/design.md`. El rol de tarea de la API agrega `s3:GetObject` sobre `dataset/*` del bucket de capturas, que el ciclo de vida borra a los 7 días. El mensaje de la cola lleva el catálogo del nivel educativo del niño o niña (192 manifestaciones, unos 40 KB). Verificado el 16-10-2026:
-- la migración, sobre una base local con el esquema anterior;
-- la imagen de la API con `--cargar-dataset` contra PostgreSQL 17 local, desde una carpeta y desde S3 (bucket de `ToquiDev`, prefijo borrado después);
-- `pnpm aws:prod:seed --dry-run` contra la cuenta; desde la revisión del PR se niega mientras `ToquiApp` siga en `UPDATE_ROLLBACK_COMPLETE`.
+La migración por núcleos **no se revierte** redesplegando la versión anterior: Prisma no deshace migraciones y la API anterior falla con el esquema nuevo. Plan de rollback en `openspec/changes/migrar-dataset-nucleos/design.md`.
 
-Costo: una tarea Fargate de pocos minutos y unos 12 MB en S3 durante 7 días.
+Incidentes del despliegue del 16-10-2026:
 
-**En el código, sin desplegar** (cambio `endurecer-seguridad-aws`): ALB interno con VPC Origin, sin web en CloudFront, permisos mínimos de la API, salida acotada, usuario `toqui_app` y retención de 7 días en la base. Verificado con las pruebas de CDK, `cdk synth`, las pruebas e2e de la API y el modo `--migrar` contra PostgreSQL 17 local. El despliegue reemplaza el ALB (`toqui-prod-api-int`): la API queda sin servicio unos minutos y el VPC Origin tarda hasta 15 minutos en crearse.
+- Entre las 01:34 y las 02:25 las migraciones fallaron con `permission denied to alter role`; se resolvió en el despliegue de las 03:47.
+- El intento de las 03:27 falló (un grupo de destino no se puede asociar a dos balanceadores) y se revirtió. En la reversión quedó un VPC Origin de CloudFront que no se pudo borrar (`DELETE_FAILED`). No impide desplegar, pero hay que revisarlo antes de destruir.
+- Los avisos a la web todavía no tienen canal (AppSync Events): la Lambda registra «Aviso no publicado: sin canal configurado» y la web consulta el estado como respaldo.
+
+Tiempos del primer despliegue (15-10-2026): `ToquiRed` 38 s, `ToquiDatos` 7 min, `ToquiApp` 8 min.
 
 ## Pendiente
 
-- Desplegar la cola, la Lambda de proceso y el endurecimiento (`pnpm aws:prod:deploy`, con aviso al equipo) y verificar con `pnpm aws:prod:smoke`.
-- Activar la clasificación con Claude en la Lambda (cambio `clasificador-bedrock`): el código está listo y probado con un cliente simulado, pero producción sigue con `IA_PROVIDER=fake` hasta comprobar la Lambda real (la prueba en vivo de `packages/ia/src/clasificador.live.test.ts` pasó con `us.anthropic.claude-sonnet-5`; Sonnet 5.5 está denegado en la cuenta del evento). Para activarlo, cambiar `IA_PROVIDER_PROCESO` a `'bedrock'` en `infra/lib/app-stack.ts` y redesplegar `ToquiApp`; reversión rápida sin redesplegar: `IA_PROVIDER=fake` en las variables de entorno de `toqui-prod-proceso` desde la consola de Lambda. El cambio también sube el `timeout` de la Lambda de 120 s a 180 s (la cola pasa de 720 s a 1080 s de visibilidad).
-- Con aviso al equipo, desplegar `migrar-dataset-nucleos` (vacía las tablas) y cargar el dataset en Aurora: `pnpm aws:prod:seed --dataset <ruta a datos_publicos>`.
+- Desplegar `main` con Claude activado (`pnpm aws:prod:deploy`, con aviso al equipo): `IA_PROVIDER=bedrock`, modelo `us.anthropic.claude-opus-5`, `timeout` de 180 s y 40 s como máximo por llamada a Claude. También reconstruye la imagen de la API, porque `.dockerignore` no excluye `apps/pipeline`, `packages/ia` ni `infra`. Después, registrar una nota desde la web y comprobar en `/toqui/prod/proceso` que el borrador lleva `proveedor: bedrock`. Reversión rápida sin redesplegar: `IA_PROVIDER=fake` en las variables de entorno de `toqui-prod-proceso`, desde la consola de Lambda.
+- Probar en producción, desde la web, una nota de audio y una foto de una nota escrita o impresa.
+- Filtrar en el log del orquestador los ids de manifestación que no están en el catálogo: con Claude son salida libre del modelo.
+- Revisar el VPC Origin en `DELETE_FAILED` antes de `pnpm aws:prod:destroy`.
 - Alerta de presupuesto en Billing → Budgets.
 - Dominio propio con certificado (opcional).
 - CI/CD de despliegue; hoy se despliega desde una máquina del equipo.

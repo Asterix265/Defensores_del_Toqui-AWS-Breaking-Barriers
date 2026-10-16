@@ -63,7 +63,7 @@ describe('crearDependencias: proveedor de IA', () => {
     const deps = crearDependencias(loadEnv({ ...BASE, IA_PROVIDER: 'bedrock' }), silencio);
     expect(deps.clasificador).toBeInstanceOf(ClasificadorBedrock);
     expect(deps.clasificador.proveedor).toBe('bedrock');
-    expect(deps.clasificador.modelo).toBe('us.anthropic.claude-sonnet-5');
+    expect(deps.clasificador.modelo).toBe('us.anthropic.claude-opus-5');
     expect(deps.lectorImagen).toBeInstanceOf(LectorImagenTextract);
   });
 

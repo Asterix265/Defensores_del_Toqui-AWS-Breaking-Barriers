@@ -35,16 +35,20 @@ export const PREFIX_LIST_CLOUDFRONT = 'pl-3b927c52';
 
 /**
  * Perfiles de inferencia de Claude. La cuenta del evento tiene una lista de modelos permitidos
- * (`ws-bedrock-model-allowlist-policy-1`): Sonnet 5 está permitido; Sonnet 5.5 y Haiku 5.5 no
- * (comprobado el 16-10-2026 con `clasificador.live.test.ts`).
+ * (`ws-bedrock-model-allowlist-policy-1`): Opus 5 y Sonnet 5 están permitidos; Opus 5.5, Sonnet 5.5
+ * y Haiku 5.5 no. La extracción usa Opus 5 (decisión del equipo del 16-10-2026; prueba en vivo
+ * con `clasificador.live.test.ts`: 3 de 3, entre 3,7 y 4,8 s por llamada).
  */
 export const MODELOS = {
-  extraccion: 'us.anthropic.claude-sonnet-5',
+  extraccion: 'us.anthropic.claude-opus-5',
   resumen: 'us.anthropic.claude-haiku-5-5',
 } as const;
 
-/** Proveedor de IA de la Lambda de proceso. Pasar a 'bedrock' solo tras la prueba en vivo. */
-export const IA_PROVIDER_PROCESO: 'fake' | 'bedrock' = 'fake';
+/**
+ * Proveedor de IA de la Lambda de proceso. Activado el 16-10-2026 tras la prueba en vivo; para
+ * volver a la clasificación simulada sin redesplegar, poner IA_PROVIDER=fake en la consola.
+ */
+export const IA_PROVIDER_PROCESO: 'fake' | 'bedrock' = 'bedrock';
 
 /** Prefijo de los archivos de captura (audio y foto) en el bucket. */
 export const PREFIJO_CAPTURAS = 'capturas/';

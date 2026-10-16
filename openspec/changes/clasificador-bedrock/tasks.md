@@ -50,3 +50,4 @@
 ## Notas posteriores (16-10-2026)
 
 - Prueba en vivo ejecutada por quien revisa: `us.anthropic.claude-sonnet-5-5` está denegado en la cuenta del evento; con `us.anthropic.claude-sonnet-5` pasa 3 de 3. El modelo por defecto se cambió a `us.anthropic.claude-sonnet-5` y las pruebas en vivo ya no imprimen la solicitud firmada al fallar (ver «Resultado de la prueba en vivo» en `design.md`).
+- Activación (rama `feat/activar-claude`): el equipo eligió Claude Opus 5 (`us.anthropic.claude-opus-5`; prueba en vivo 3 de 3, entre 3,7 y 4,8 s por llamada), `IA_PROVIDER_PROCESO` pasa a `'bedrock'` y `ClasificadorBedrock` limita cada llamada a 40 s (`TIEMPO_MAXIMO_CLAUDE_MS`) para que el peor caso de audio quepa en los 180 s de la Lambda. El simulador de IAM confirma que el rol de la Lambda puede invocar el modelo (no evalúa SCP).

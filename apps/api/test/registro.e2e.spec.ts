@@ -891,6 +891,42 @@ describe('API de registro (e2e)', () => {
       modelo: 'us.anthropic.claude-sonnet-5-5',
     };
 
+    it('audio: guarda la transcripción original y muestra y confirma las citas con el nombre real', async () => {
+      const id = await capturaProcesando();
+      await entregar(id, {
+        ...valido,
+        textoFuente: '{NAME} saltó en la rampa con los dos pies.',
+        textoOriginal: 'Mateo saltó en la rampa con los dos pies.',
+        manifestaciones: [
+          { idManifestacion: man('SC', 'CM', 3), cita: '{NAME} saltó en la rampa' },
+        ],
+      }).expect(200);
+
+      const detalle = (await http().get(`/capturas/${id}`).expect(200)).body;
+      expect(detalle.texto).toBe('Mateo saltó en la rampa con los dos pies.');
+      expect(detalle.borrador.textoFuente).toBe('{NAME} saltó en la rampa con los dos pies.');
+      expect(detalle.borrador.manifestaciones[0].cita).toBe('Mateo saltó en la rampa');
+      const lista = (await http().get('/capturas?estado=borrador_listo').expect(200)).body;
+      expect(lista.items.find((c: { id: string }) => c.id === id).extracto).toContain('Mateo');
+
+      // La web devuelve la cita tal como la mostró.
+      await http()
+        .post(`/capturas/${id}/confirmacion`)
+        .send({
+          nivel: 3,
+          manifestaciones: [
+            { idManifestacion: man('SC', 'CM', 3), cita: 'Mateo saltó en la rampa' },
+          ],
+        })
+        .expect(200);
+      const observacion = await prisma.observacion.findUniqueOrThrow({
+        where: { id: `APP-${id}` },
+        include: { vinculos: true },
+      });
+      expect(observacion.textoObservacion).toBe('Mateo saltó en la rampa con los dos pies.');
+      expect(observacion.vinculos.map((v) => v.cita)).toEqual(['Mateo saltó en la rampa']);
+    });
+
     it('401 sin el secreto del pipeline; no usa el token de Cognito', async () => {
       const id = await capturaProcesando();
       await entregar(id, valido, 'otro-secreto-cualquiera').expect(401);
@@ -951,7 +987,7 @@ describe('API de registro (e2e)', () => {
       });
     });
 
-    it('sin borrador, la observación no copia el texto original de la captura', async () => {
+    it('sin borrador, la observación guarda el texto original de la captura', async () => {
       const original = 'Texto original sin anonimizar: Sofía apiló bloques.';
       const id = (
         await prisma.captura.create({
@@ -975,10 +1011,11 @@ describe('API de registro (e2e)', () => {
         .post(`/capturas/${id}/confirmacion`)
         .send({ nivel: 3, manifestaciones: [{ idManifestacion: man('SC', 'CM', 3) }] })
         .expect(200);
-      // La retención vacía `capturas.texto` a los 7 días; la observación no lo conserva.
+      // La retención vacía `capturas.texto` a los 7 días; la observación lo conserva
+      // (corregir-hallazgos-demo: la educadora ve los nombres reales).
       await expect(
         prisma.observacion.findUniqueOrThrow({ where: { id: `APP-${id}` } }),
-      ).resolves.toMatchObject({ textoObservacion: null, notaBreve: null });
+      ).resolves.toMatchObject({ textoObservacion: original, notaBreve: original });
     });
 
     it('404 para capturas inexistentes o ids inválidos', async () => {

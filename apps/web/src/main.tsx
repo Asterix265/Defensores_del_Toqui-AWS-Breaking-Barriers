@@ -13,6 +13,14 @@ import { tema } from './registro/tema';
 import './styles.css';
 
 configurarAuth();
+// Con autoUpdate el service worker nuevo toma el control apenas se instala, pero la pestaña seguía
+// con el JS viejo hasta la próxima visita. Se recarga una vez al cambiar de controlador; en la primera
+// instalación (sin controlador previo) no hace falta.
+if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+  navigator.serviceWorker.addEventListener('controllerchange', () => window.location.reload(), {
+    once: true,
+  });
+}
 const queryClient = new QueryClient();
 
 createRoot(document.getElementById('root')!).render(

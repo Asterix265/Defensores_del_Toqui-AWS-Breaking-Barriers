@@ -7,6 +7,11 @@ import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import ButtonBase from '@mui/material/ButtonBase';
 import CircularProgress from '@mui/material/CircularProgress';
+import Dialog from '@mui/material/Dialog';
+import DialogActions from '@mui/material/DialogActions';
+import DialogContent from '@mui/material/DialogContent';
+import DialogContentText from '@mui/material/DialogContentText';
+import DialogTitle from '@mui/material/DialogTitle';
 import IconButton from '@mui/material/IconButton';
 import InputBase from '@mui/material/InputBase';
 import Stack from '@mui/material/Stack';
@@ -44,7 +49,7 @@ import {
   Pantalla,
   PieAcciones,
 } from './componentes';
-import { formatoDuracion } from './formato';
+import { formatoDuracion, textoLegible } from './formato';
 import { NUCLEOS, type Formato, type ManifestacionCitada, type Nino } from './datos';
 import {
   nivelInicial,
@@ -933,6 +938,8 @@ function Revision({
     () => (borrador?.manifestaciones ?? []) as ManifestacionCitada[],
   );
   const [agregando, setAgregando] = useState(sinPropuesta);
+  // Borrar no se puede deshacer: se pregunta antes.
+  const [confirmandoBorrado, setConfirmandoBorrado] = useState(false);
   const confirmar = useConfirmar();
   const descartar = useDescartar();
   const ocupado = confirmar.isPending || descartar.isPending;
@@ -1032,7 +1039,8 @@ function Revision({
                 ...(deEjemplo && { border: `2px dashed ${colores.amarillo}` }),
               }}
             >
-              {borrador.textoFuente}
+              {/* El original (con nombres); el anonimizado solo en notas anteriores a corregir-hallazgos-demo. */}
+              {captura.texto ?? textoLegible(borrador.textoFuente)}
             </Box>
           </Stack>
         )}
@@ -1074,7 +1082,7 @@ function Revision({
                 </Typography>
                 {cita && (
                   <Typography variant="body2" color="text.secondary">
-                    «{cita}»
+                    «{textoLegible(cita)}»
                   </Typography>
                 )}
               </Stack>
@@ -1144,12 +1152,42 @@ function Revision({
           variant="text"
           startIcon={<DeleteRounded />}
           disabled={ocupado}
-          onClick={() => descartar.mutate(captura, { onSuccess: onBorrada })}
+          onClick={() => setConfirmandoBorrado(true)}
           sx={{ color: 'text.secondary' }}
         >
           Borrar nota
         </Button>
       </PieAcciones>
+      <Dialog
+        open={confirmandoBorrado}
+        onClose={() => setConfirmandoBorrado(false)}
+        aria-labelledby="titulo-borrar-nota"
+        aria-describedby="detalle-borrar-nota"
+      >
+        <DialogTitle id="titulo-borrar-nota" sx={{ fontWeight: 800 }}>
+          ¿Borrar la nota?
+        </DialogTitle>
+        <DialogContent>
+          <DialogContentText id="detalle-borrar-nota">
+            La nota de {nino.nombre} no se guardará y no se puede recuperar.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2.5, gap: 1 }}>
+          <Button variant="text" onClick={() => setConfirmandoBorrado(false)}>
+            Volver a la nota
+          </Button>
+          <Button
+            variant="contained"
+            color="error"
+            onClick={() => {
+              setConfirmandoBorrado(false);
+              descartar.mutate(captura, { onSuccess: onBorrada });
+            }}
+          >
+            Borrar
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Pantalla>
   );
 }

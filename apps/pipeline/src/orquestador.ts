@@ -53,6 +53,8 @@ export async function procesarCaptura(
 
   const borrador = {
     ...(await clasificar(mensaje, textoFuente, contexto, deps, log)),
+    // Para la educadora (la API lo guarda como texto de la captura); no se usa para clasificar.
+    textoOriginal: normalizado.texto,
     procesamiento: {
       ...declararProcesamiento(mensaje, normalizado, deps.clasificador),
       ejemplosUsados: contexto.ejemplos.length,

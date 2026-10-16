@@ -28,7 +28,8 @@ function panel(grupo: 'educadora' | 'directora') {
     <PanelSalas
       ninos={NINOS.map(aNino)}
       salas={['SG-A', 'SG-B']}
-      salaPropia="SG-A"
+      // Como en RegistroApp: la directora no tiene sala propia.
+      salaPropia={grupo === 'directora' ? '' : 'SG-A'}
       catalogo={catalogo}
       ahora={new Date()}
       nombre="Dora"
@@ -73,6 +74,20 @@ describe('vista de la directora', () => {
     fireEvent.click(within(salas).getByRole('button', { name: 'Ver Sala B' }));
     expect(await screen.findByRole('region', { name: 'Estado de Sala B' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Nueva nota' })).toBeNull();
+  });
+
+  it('en Salas no tiene «tu sala» y elige la sala para ver su estado', async () => {
+    panel('directora');
+    fireEvent.click(screen.getByRole('tab', { name: 'Salas' }));
+
+    expect(screen.getByRole('heading', { name: 'Salas' })).toBeInTheDocument();
+    expect(screen.getByText('Elige una sala para ver su estado por área.')).toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: /^Estado de/ })).toBeNull();
+    expect(screen.queryByText(/tu sala/i)).toBeNull();
+
+    fireEvent.click(screen.getByRole('button', { name: /^Sala A/ }));
+    expect(await screen.findByRole('region', { name: 'Estado de Sala A' })).toBeInTheDocument();
+    expect(screen.getByText(/^Estado por área · Sala A$/i)).toBeInTheDocument();
   });
 
   it('descarga el CSV del jardín', async () => {

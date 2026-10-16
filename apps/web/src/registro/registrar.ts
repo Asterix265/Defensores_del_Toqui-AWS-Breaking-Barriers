@@ -19,6 +19,7 @@ import type {
 } from '../api/generated/model';
 import { aNino, type NivelRuta } from './api';
 import { tipoBase } from './captura';
+import { textoLegible } from './formato';
 import type { Nucleo, Formato, ManifestacionCitada, Nino } from './datos';
 
 export type CapturaDetalle = CapturaDetalleDtoOutput;
@@ -207,7 +208,7 @@ function aNota(c: CapturaResumenOutput, ninos: Nino[]): NotaGuardada {
     formato: c.formato,
     estado: c.estado,
     creada: new Date(c.creadoEn),
-    texto: c.extracto,
+    texto: c.extracto && textoLegible(c.extracto),
     nucleos: c.nucleos as Nucleo[],
     nivel: c.nivel,
   };

@@ -346,7 +346,13 @@ export type ArchivoResponse = z.infer<typeof ArchivoResponseSchema>;
 
 /** Borrador que entrega el pipeline. Las citas deben aparecer literalmente en `textoFuente`. */
 export const BorradorEntranteSchema = z.object({
+  /** Texto anonimizado: el que recibe el modelo y del que salen las citas. */
   textoFuente: z.string().min(1),
+  /**
+   * Transcripción o lectura de la foto antes de anonimizar. La API lo guarda como texto de la
+   * captura (si no lo tiene) para que la educadora vea los nombres; nunca va al modelo.
+   */
+  textoOriginal: z.string().min(1).optional(),
   nivelSugerido: NivelSchema.nullable(),
   evidenciaInsuficiente: z.boolean(),
   manifestaciones: z

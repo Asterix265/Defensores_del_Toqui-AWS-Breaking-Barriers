@@ -188,6 +188,7 @@ describe('ClasificadorBedrock en el orquestador', () => {
     expect(simulado.send).toHaveBeenCalledTimes(1);
     expect(deps.api.entregarBorrador).toHaveBeenCalledWith(ID_CAPTURA, {
       textoFuente: TEXTO,
+      textoOriginal: TEXTO,
       nivelSugerido: 4,
       evidenciaInsuficiente: false,
       manifestaciones: [{ idManifestacion: 'M-4-CM-1', cita: 'Apiló cinco bloques sin ayuda' }],
@@ -256,6 +257,7 @@ describe('ClasificadorBedrock en el orquestador', () => {
     expect(simulado.send).toHaveBeenCalledTimes(2);
     expect(deps.api.entregarBorrador).toHaveBeenCalledWith(ID_CAPTURA, {
       textoFuente: TEXTO,
+      textoOriginal: TEXTO,
       nivelSugerido: null,
       evidenciaInsuficiente: true,
       manifestaciones: [],
@@ -338,6 +340,8 @@ describe('ClasificadorBedrock en el orquestador', () => {
       ID_CAPTURA,
       expect.objectContaining({
         textoFuente: anonimo,
+        // El original va a la API para la educadora, no a Claude.
+        textoOriginal: 'Persona Ficticia Uno apiló cuatro bloques',
         manifestaciones: [{ idManifestacion: 'M-4-CM-1', cita: '{NAME} apiló cuatro bloques' }],
       }),
     );
